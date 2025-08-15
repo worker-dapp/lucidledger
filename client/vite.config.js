@@ -70,9 +70,10 @@ export default defineConfig({
       },
     },
   },
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    allowedHosts: ['lucidledger.co', 'www.lucidledger.co']
-  },
+  // Production build settings
+  base: '/',
+  preview: {
+    port: 80,
+    host: '0.0.0.0'
+  }
 });

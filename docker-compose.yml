@@ -9,17 +9,21 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+    networks:
+      - app-network
 
   frontend:
     build: ./client
     container_name: client
     ports:
-      - "5173:5173"
+      - "80:80"
     env_file:
       - ./client/.env
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - app-network
 
   postgres:
     image: postgres:15-alpine
@@ -35,6 +39,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
 
 volumes:
   postgres-data:
+
+networks:
+  app-network:
+    driver: bridge

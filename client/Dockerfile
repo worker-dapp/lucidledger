@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:18-alpine as build
 
 WORKDIR /app
 
@@ -6,13 +6,25 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --only=production
 
 # Copy the rest of the application code
 COPY . .
 
-# Expose the port your Express app listens on
-EXPOSE 5173
+# Build the application
+RUN npm run build
 
-# Start the server with host binding for container access
-CMD ["npm", "run", "dev", "--", "--host", "--port", "5173"]
+# Production stage
+FROM nginx:alpine
+
+# Copy built files from build stage
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
