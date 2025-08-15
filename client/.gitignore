@@ -1,0 +1,51 @@
+### Node.js ###
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+### Vite ###
+dist/
+dist-ssr/
+.vite/
+
+### Environment Variables ###
+.env*
+
+### Editor Directories ###
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+### Logs ###
+logs/
+*.log
+
+### Cache ###
+.cache/
+
+### TypeScript ###
+*.tsbuildinfo
+
+### Jest ###
+/coverage
+/junit.xml
+
+### Storybook ###
+.storybook/
+out/
+
+### Build Output ###
+/build/
+/output/
+
+### Misc ###
+*.local

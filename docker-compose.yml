@@ -1,0 +1,40 @@
+services:
+  backend:
+    build: ./server
+    container_name: server
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./server/.env
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  frontend:
+    build: ./client
+    container_name: client
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./client/.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    env_file:
+      - ./server/.env
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./server/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
