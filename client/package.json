@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^4.26.0",
+    "@dynamic-labs/ethereum": "^4.20.2",
     "@dynamic-labs/sdk-react-core": "^4.26.0",
     "@mui/icons-material": "^6.5.0",
     "@mui/material": "^6.5.0",
