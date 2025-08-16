@@ -56,7 +56,8 @@ export default defineConfig({
   ],
   server: {
     host: '0.0.0.0',
-    port: 5173
+    port: 5173,
+    allowedHosts: ['lucidledger.co', 'www.lucidledger.co', '3.131.3.144']
   },
   build: {
     // Increase the warning threshold for chunk sizes (in kB)
