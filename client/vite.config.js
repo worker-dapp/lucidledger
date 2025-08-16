@@ -73,7 +73,7 @@ export default defineConfig({
   // Production build settings
   base: '/',
   preview: {
-    port: 80,
+    port: 5173,
     host: '0.0.0.0'
   }
 });

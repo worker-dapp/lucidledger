@@ -1,1 +1,1 @@
-Labor Ledger
+Lucid Ledger
