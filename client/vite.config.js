@@ -54,6 +54,10 @@ export default defineConfig({
       }
     }),
   ],
+  server: {
+    host: '0.0.0.0',
+    port: 5173
+  },
   build: {
     // Increase the warning threshold for chunk sizes (in kB)
     chunkSizeWarningLimit: 1500,
