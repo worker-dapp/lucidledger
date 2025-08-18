@@ -27,15 +27,21 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: client/package-lock.json
+        cache-dependency-path: |
+          client/package-lock.json
+          server/package-lock.json
         
     - name: Install frontend dependencies
       working-directory: ./client
-      run: npm ci
-      
+      run: |
+        npm config set cache .npm-cache
+        npm ci
+        
     - name: Install backend dependencies
       working-directory: ./server
-      run: npm ci
+      run: |
+        npm config set cache .npm-cache
+        npm ci
       
     - name: Run frontend tests
       working-directory: ./client
