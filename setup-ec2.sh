@@ -28,6 +28,141 @@ echo -e "${BLUE}Domain:${NC} $DOMAIN"
 echo -e "${BLUE}Email:${NC} $EMAIL"
 echo ""
 
+# Function to install Docker on EC2
+install_docker() {
+    echo "Installing Docker..."
+    sudo yum update -y
+    sudo yum install -y docker
+    sudo service docker start
+    sudo usermod -a -G docker $USER
+    echo -e "${YELLOW}⚠️  Please log out and log back in for Docker group changes to take effect${NC}"
+    echo "Or run: newgrp docker"
+}
+
+# Function to install Docker Compose on EC2
+install_docker_compose() {
+    echo "Installing Docker Compose..."
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+}
+
+# Function to check EC2 security groups
+check_ec2_security_groups() {
+    echo "Checking security group configuration..."
+    echo -e "${YELLOW}⚠️  IMPORTANT: Ensure your EC2 security group allows:${NC}"
+    echo "  - SSH (Port 22) from your IP"
+    echo "  - HTTP (Port 80) from anywhere (0.0.0.0/0)"
+    echo "  - HTTPS (Port 443) from anywhere (0.0.0.0/0)"
+    echo ""
+    echo "You can configure this in the AWS Console:"
+    echo "  EC2 → Security Groups → Select your security group → Edit inbound rules"
+    echo ""
+    read -p "Press Enter when you've verified your security group configuration..."
+}
+
+# Function to set up Let's Encrypt on EC2
+setup_letsencrypt_ec2() {
+    echo "🔐 Setting up Let's Encrypt certificates on EC2..."
+    
+    # Create a temporary nginx configuration for certificate validation
+    cat > nginx-temp.conf << EOF
+server {
+    listen 80;
+    server_name $DOMAIN www.$DOMAIN;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+}
+EOF
+    
+    # Start temporary nginx for certificate validation
+    docker run -d --name nginx-temp \
+        -p 80:80 \
+        -v $(pwd)/nginx-temp.conf:/etc/nginx/conf.d/default.conf \
+        -v $(pwd)/certbot-webroot:/var/www/html \
+        nginx:alpine
+    
+    # Wait for nginx to start
+    sleep 5
+    
+    # Obtain certificates
+    docker run --rm \
+        -v $(pwd)/ssl:/etc/letsencrypt \
+        -v $(pwd)/certbot-webroot:/var/www/html \
+        certbot/certbot certonly \
+        --webroot \
+        --webroot-path=/var/www/html \
+        --email $EMAIL \
+        --agree-tos \
+        --no-eff-email \
+        -d $DOMAIN \
+        -d www.$DOMAIN
+    
+    # Stop temporary nginx
+    docker stop nginx-temp
+    docker rm nginx-temp
+    
+    # Clean up temporary config
+    rm nginx-temp.conf
+    
+    echo -e "${GREEN}✅ Let's Encrypt certificates obtained successfully${NC}"
+}
+
+# Function to create self-signed certificate
+create_self_signed_cert() {
+    echo "🔐 Creating self-signed certificate for testing..."
+    
+    # Create certificate directory structure
+    mkdir -p ssl/live/$DOMAIN
+    
+    # Generate self-signed certificate
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout ssl/live/$DOMAIN/privkey.pem \
+        -out ssl/live/$DOMAIN/fullchain.pem \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=$DOMAIN"
+    
+    echo -e "${GREEN}✅ Self-signed certificate created successfully${NC}"
+    echo -e "${YELLOW}⚠️  Note: Self-signed certificates will show security warnings in browsers${NC}"
+}
+
+# Function to test EC2 setup
+test_ec2_setup() {
+    echo "Testing EC2 setup..."
+    
+    # Get EC2 public IP
+    if command -v curl &> /dev/null; then
+        PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
+        echo -e "${BLUE}EC2 Public IP:${NC} $PUBLIC_IP"
+    fi
+    
+    # Test HTTP to HTTPS redirect
+    if curl -s -o /dev/null -w "%{http_code}" "http://$DOMAIN" | grep -q "301"; then
+        echo -e "${GREEN}✅ HTTP to HTTPS redirect is working${NC}"
+    else
+        echo -e "${RED}❌ HTTP to HTTPS redirect is not working${NC}"
+    fi
+    
+    # Test HTTPS
+    if curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN" | grep -q "200"; then
+        echo -e "${GREEN}✅ HTTPS is working${NC}"
+    else
+        echo -e "${RED}❌ HTTPS is not working${NC}"
+    fi
+    
+    # Test API endpoints
+    if curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN/api" | grep -q "200"; then
+        echo -e "${GREEN}✅ API endpoint is working${NC}"
+    else
+        echo -e "${RED}❌ API endpoint is not working${NC}"
+    fi
+}
+
 # Check if we're on EC2
 if curl -s http://169.254.169.254/latest/meta-data/instance-id > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Running on EC2 instance${NC}"
@@ -167,138 +302,3 @@ echo "  Stop services: docker-compose -f docker-compose.nginx.yml down"
 echo "  Restart services: docker-compose -f docker-compose.nginx.yml restart"
 echo "  Update SSL: docker-compose -f docker-compose.nginx.yml run --rm certbot renew"
 echo ""
-
-# Function to install Docker on EC2
-install_docker() {
-    echo "Installing Docker..."
-    sudo yum update -y
-    sudo yum install -y docker
-    sudo service docker start
-    sudo usermod -a -G docker $USER
-    echo -e "${YELLOW}⚠️  Please log out and log back in for Docker group changes to take effect${NC}"
-    echo "Or run: newgrp docker"
-}
-
-# Function to install Docker Compose on EC2
-install_docker_compose() {
-    echo "Installing Docker Compose..."
-    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
-    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-}
-
-# Function to check EC2 security groups
-check_ec2_security_groups() {
-    echo "Checking security group configuration..."
-    echo -e "${YELLOW}⚠️  IMPORTANT: Ensure your EC2 security group allows:${NC}"
-    echo "  - SSH (Port 22) from your IP"
-    echo "  - HTTP (Port 80) from anywhere (0.0.0.0/0)"
-    echo "  - HTTPS (Port 443) from anywhere (0.0.0.0/0)"
-    echo ""
-    echo "You can configure this in the AWS Console:"
-    echo "  EC2 → Security Groups → Select your security group → Edit inbound rules"
-    echo ""
-    read -p "Press Enter when you've verified your security group configuration..."
-}
-
-# Function to set up Let's Encrypt on EC2
-setup_letsencrypt_ec2() {
-    echo "🔐 Setting up Let's Encrypt certificates on EC2..."
-    
-    # Create a temporary nginx configuration for certificate validation
-    cat > nginx-temp.conf << EOF
-server {
-    listen 80;
-    server_name $DOMAIN www.$DOMAIN;
-    
-    location /.well-known/acme-challenge/ {
-        root /var/www/html;
-    }
-    
-    location / {
-        return 301 https://\$server_name\$request_uri;
-    }
-}
-EOF
-    
-    # Start temporary nginx for certificate validation
-    docker run -d --name nginx-temp \
-        -p 80:80 \
-        -v $(pwd)/nginx-temp.conf:/etc/nginx/conf.d/default.conf \
-        -v $(pwd)/certbot-webroot:/var/www/html \
-        nginx:alpine
-    
-    # Wait for nginx to start
-    sleep 5
-    
-    # Obtain certificates
-    docker run --rm \
-        -v $(pwd)/ssl:/etc/letsencrypt \
-        -v $(pwd)/certbot-webroot:/var/www/html \
-        certbot/certbot certonly \
-        --webroot \
-        --webroot-path=/var/www/html \
-        --email $EMAIL \
-        --agree-tos \
-        --no-eff-email \
-        -d $DOMAIN \
-        -d www.$DOMAIN
-    
-    # Stop temporary nginx
-    docker stop nginx-temp
-    docker rm nginx-temp
-    
-    # Clean up temporary config
-    rm nginx-temp.conf
-    
-    echo -e "${GREEN}✅ Let's Encrypt certificates obtained successfully${NC}"
-}
-
-# Function to create self-signed certificate
-create_self_signed_cert() {
-    echo "🔐 Creating self-signed certificate for testing..."
-    
-    # Create certificate directory structure
-    mkdir -p ssl/live/$DOMAIN
-    
-    # Generate self-signed certificate
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout ssl/live/$DOMAIN/privkey.pem \
-        -out ssl/live/$DOMAIN/fullchain.pem \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=$DOMAIN"
-    
-    echo -e "${GREEN}✅ Self-signed certificate created successfully${NC}"
-    echo -e "${YELLOW}⚠️  Note: Self-signed certificates will show security warnings in browsers${NC}"
-}
-
-# Function to test EC2 setup
-test_ec2_setup() {
-    echo "Testing EC2 setup..."
-    
-    # Get EC2 public IP
-    if command -v curl &> /dev/null; then
-        PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
-        echo -e "${BLUE}EC2 Public IP:${NC} $PUBLIC_IP"
-    fi
-    
-    # Test HTTP to HTTPS redirect
-    if curl -s -o /dev/null -w "%{http_code}" "http://$DOMAIN" | grep -q "301"; then
-        echo -e "${GREEN}✅ HTTP to HTTPS redirect is working${NC}"
-    else
-        echo -e "${RED}❌ HTTP to HTTPS redirect is not working${NC}"
-    fi
-    
-    # Test HTTPS
-    if curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN" | grep -q "200"; then
-        echo -e "${GREEN}✅ HTTPS is working${NC}"
-    else
-        echo -e "${RED}❌ HTTPS is not working${NC}"
-    fi
-    
-    # Test API endpoints
-    if curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN/api" | grep -q "200"; then
-        echo -e "${GREEN}✅ API endpoint is working${NC}"
-    else
-        echo -e "${RED}❌ API endpoint is not working${NC}"
-    fi
-}
