@@ -5,7 +5,7 @@ import { useAuth } from "../api/AuthContext";
 
 const EmployerProfile = () => {
   const [employerData, setEmployerData] = useState(null);
-  const [error, setError] = useState(null);
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -45,9 +45,7 @@ const EmployerProfile = () => {
           </h2>
           <p className="text-3xl font-bold text-[#EE964B]">2</p>
         </div>
-        {error && (
-          <p className="text-red-500 font-semibold">Error: {error.message}</p>
-        )}
+
       </div>
     </div>
   );

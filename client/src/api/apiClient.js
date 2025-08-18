@@ -22,17 +22,13 @@ class ApiClient {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+    const response = await fetch(url, config);
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'API request failed');
-      }
-      return data;
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error(data.error || 'API request failed');
     }
+    return data;
   }
 
   // Authentication methods

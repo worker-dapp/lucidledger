@@ -41,7 +41,7 @@ const EmployerRegister = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await apiClient.signup({
+      const { error } = await apiClient.signup({
         first_name: firstName,
         last_name: lastName,
         email: email.trim().toLowerCase(),

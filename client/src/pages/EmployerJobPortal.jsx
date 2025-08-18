@@ -81,7 +81,7 @@ const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
   const handleJobStatusUpdate = async (jobId, newStatus) => {
     try {
-      const { data, error } = await apiService.updateJob(jobId, { status: newStatus });
+      const { error } = await apiService.updateJob(jobId, { status: newStatus });
       
       if (error) {
         console.error("Error updating job:", error);

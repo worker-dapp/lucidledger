@@ -5,7 +5,7 @@ import logo from "../assets/Android.png";
 
 const EmployeeNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDropdownOpen, setDropdownOpen] = useState(false);
+
   const { user, signOut } = useAuth();
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
@@ -14,9 +14,7 @@ const EmployeeNavbar = () => {
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
+
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
         setIsMobileMenuOpen(false);
       }
