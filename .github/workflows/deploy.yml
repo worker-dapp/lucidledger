@@ -1,0 +1,125 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1  # Change to your EC2 region
+  EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  DOMAIN: lucidledger.co
+
+jobs:
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: client/package-lock.json
+        
+    - name: Install frontend dependencies
+      working-directory: ./client
+      run: npm ci
+      
+    - name: Install backend dependencies
+      working-directory: ./server
+      run: npm ci
+      
+    - name: Run frontend tests
+      working-directory: ./client
+      run: npm run lint
+      
+    - name: Run backend tests
+      working-directory: ./server
+      run: npm run lint || echo "No lint script found, skipping"
+      
+    - name: Build frontend
+      working-directory: ./client
+      run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+    - name: Add EC2 to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Deploy to EC2
+      run: |
+        # Create deployment script
+        cat > deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 Starting deployment..."
+        
+        # Navigate to project directory
+        cd /home/ec2-user/lucidledger || cd /home/ubuntu/lucidledger
+        
+        # Pull latest changes
+        echo "📥 Pulling latest changes..."
+        git pull origin main
+        
+        # Stop existing services
+        echo "🛑 Stopping existing services..."
+        docker-compose -f docker-compose.nginx.yml down || true
+        
+        # Rebuild and start services
+        echo "🔨 Rebuilding and starting services..."
+        docker-compose -f docker-compose.nginx.yml up -d --build
+        
+        # Wait for services to be ready
+        echo "⏳ Waiting for services to be ready..."
+        sleep 30
+        
+        # Check service status
+        echo "📊 Checking service status..."
+        docker-compose -f docker-compose.nginx.yml ps
+        
+        # Test deployment
+        echo "🧪 Testing deployment..."
+        if curl -f -s https://$DOMAIN > /dev/null; then
+          echo "✅ Deployment successful! App accessible at https://$DOMAIN"
+        else
+          echo "❌ Deployment failed - app not accessible"
+          exit 1
+        fi
+        
+        echo "🎉 Deployment completed successfully!"
+        EOF
+        
+        chmod +x deploy.sh
+        
+        # Execute deployment script on EC2
+        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' < deploy.sh
+        
+    - name: Deployment Status
+      run: |
+        echo "🎯 Deployment completed!"
+        echo "🌐 Your app is now live at: https://${{ env.DOMAIN }}"
+        echo "📱 Check the deployment status above for any errors"

@@ -1,0 +1,91 @@
+name: SSL Certificate Renewal
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Run weekly on Monday at 2 AM
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  DOMAIN: lucidledger.co
+
+jobs:
+  renew-ssl:
+    name: Renew SSL Certificates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        
+    - name: Add EC2 to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Renew SSL Certificates
+      run: |
+        # Create SSL renewal script
+        cat > renew-ssl.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🔐 Starting SSL certificate renewal..."
+        
+        # Navigate to project directory
+        cd /home/ec2-user/lucidledger || cd /home/ubuntu/lucidledger
+        
+        # Check if certificates need renewal
+        if [ -f "ssl/live/$DOMAIN/fullchain.pem" ]; then
+          echo "📅 Checking certificate expiration..."
+          
+          # Get expiration date
+          EXPIRY=$(openssl x509 -enddate -noout -in ssl/live/$DOMAIN/fullchain.pem | cut -d= -f2)
+          EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s)
+          CURRENT_EPOCH=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_EPOCH - CURRENT_EPOCH) / 86400 ))
+          
+          echo "Certificate expires in $DAYS_LEFT days"
+          
+          if [ $DAYS_LEFT -lt 30 ]; then
+            echo "⚠️  Certificate expires soon, renewing..."
+            
+            # Renew certificates
+            docker-compose -f docker-compose.nginx.yml run --rm certbot renew
+            
+            # Reload Nginx
+            docker-compose -f docker-compose.nginx.yml restart nginx
+            
+            echo "✅ SSL certificates renewed successfully!"
+          else
+            echo "✅ Certificates are still valid for $DAYS_LEFT days"
+          fi
+        else
+          echo "❌ No SSL certificates found"
+        fi
+        
+        echo "🔍 Testing HTTPS connection..."
+        if curl -f -s https://$DOMAIN > /dev/null; then
+          echo "✅ HTTPS is working correctly"
+        else
+          echo "❌ HTTPS test failed"
+          exit 1
+        fi
+        
+        echo "🎉 SSL renewal process completed!"
+        EOF
+        
+        chmod +x renew-ssl.sh
+        
+        # Execute SSL renewal script on EC2
+        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' < renew-ssl.sh
+        
+    - name: SSL Renewal Status
+      run: |
+        echo "🔐 SSL certificate renewal completed!"
+        echo "🌐 Your app should continue working with valid HTTPS"
+        echo "📅 Next renewal check: Next Monday at 2 AM UTC"

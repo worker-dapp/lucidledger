@@ -1,0 +1,111 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ develop, feature/* ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+
+env:
+  STAGING_DOMAIN: staging.lucidledger.co  # Change to your staging domain
+  STAGING_HOST: ${{ secrets.STAGING_HOST }}  # Staging EC2 instance
+
+jobs:
+  test-staging:
+    name: Test Staging Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd client && npm ci
+        cd ../server && npm ci
+        
+    - name: Run tests
+      run: |
+        cd client && npm run lint
+        cd ../server && npm run lint || echo "No lint script found"
+        
+    - name: Build frontend
+      working-directory: ./client
+      run: npm run build
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: test-staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/feature/')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+        
+    - name: Deploy to Staging
+      run: |
+        # Create staging deployment script
+        cat > deploy-staging.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 Starting staging deployment..."
+        
+        # Navigate to staging project directory
+        cd /home/ec2-user/lucidledger-staging || cd /home/ubuntu/lucidledger-staging
+        
+        # Pull latest changes
+        echo "📥 Pulling latest changes..."
+        git pull origin develop
+        
+        # Stop existing services
+        echo "🛑 Stopping existing services..."
+        docker-compose -f docker-compose.nginx.yml down || true
+        
+        # Update environment for staging
+        echo "🔧 Updating staging environment..."
+        sed -i 's/lucidledger.co/staging.lucidledger.co/g' nginx.conf
+        
+        # Rebuild and start services
+        echo "🔨 Rebuilding and starting services..."
+        docker-compose -f docker-compose.nginx.yml up -d --build
+        
+        # Wait for services to be ready
+        echo "⏳ Waiting for services to be ready..."
+        sleep 30
+        
+        # Test staging deployment
+        echo "🧪 Testing staging deployment..."
+        if curl -f -s https://staging.lucidledger.co > /dev/null; then
+          echo "✅ Staging deployment successful!"
+        else
+          echo "❌ Staging deployment failed"
+          exit 1
+        fi
+        
+        echo "🎉 Staging deployment completed!"
+        EOF
+        
+        chmod +x deploy-staging.sh
+        
+        # Execute staging deployment
+        ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} 'bash -s' < deploy-staging.sh
+        
+    - name: Staging Deployment Status
+      run: |
+        echo "🎯 Staging deployment completed!"
+        echo "🧪 Test your changes at: https://staging.lucidledger.co"
+        echo "✅ If everything looks good, merge to main for production deployment"

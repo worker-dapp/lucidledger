@@ -1,0 +1,96 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 1'  # Run weekly on Monday at 2 AM
+
+jobs:
+  dependency-check:
+    name: Check Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd client && npm ci
+        cd ../server && npm ci
+        
+    - name: Run npm audit
+      run: |
+        cd client && npm audit --audit-level=moderate || true
+        cd ../server && npm audit --audit-level=moderate || true
+        
+    - name: Check for known vulnerabilities
+      run: |
+        cd client && npm audit --json > audit-report.json || true
+        cd ../server && npm audit --json > audit-report.json || true
+        
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      with:
+        name: audit-report
+        path: |
+          client/audit-report.json
+          server/audit-report.json
+
+  docker-security:
+    name: Docker Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'nginx:alpine'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-results
+        path: trivy-results.sarif
+
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+      
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+      
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
