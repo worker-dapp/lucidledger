@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/sites-available/lucidledger
+      - ./ssl:/etc/letsencrypt
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+    command: >
+      sh -c "ln -sf /etc/nginx/sites-available/lucidledger /etc/nginx/sites-enabled/ &&
+              nginx -g 'daemon off;'"
+
+  backend:
+    build: ./server
+    container_name: server
+    # Remove port mapping since Nginx will proxy to this container internally
+    # ports:
+    #   - "5001:5001"
+    env_file:
+      - ./server/.env
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+
+  frontend:
+    build: ./client
+    container_name: client
+    # Remove port mapping since Nginx will proxy to this container internally
+    # ports:
+    #   - "8080:5173"
+    env_file:
+      - ./client/.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    env_file:
+      - ./server/.env
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./server/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Optional: Certbot for automatic SSL certificate renewal
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - ./certbot-webroot:/var/www/html
+    command: certonly --webroot --webroot-path=/var/www/html --email your-email@example.com --agree-tos --no-eff-email -d lucidledger.co -d www.lucidledger.co
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+  nginx-logs:
+
+networks:
+  app-network:
+    driver: bridge
