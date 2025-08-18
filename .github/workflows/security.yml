@@ -28,8 +28,8 @@ jobs:
         
     - name: Install dependencies
       run: |
-        cd client && npm config set cache .npm-cache && npm ci
-        cd ../server && npm config set cache .npm-cache && npm ci
+        cd client && npm config set cache .npm-cache && if [ -f "package-lock.json" ]; then npm ci; else npm install; fi
+        cd ../server && npm config set cache .npm-cache && if [ -f "package-lock.json" ]; then npm ci; else npm install; fi
         
     - name: Run npm audit
       run: |
