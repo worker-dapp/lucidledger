@@ -47,19 +47,7 @@ install_docker_compose() {
     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 }
 
-# Function to check EC2 security groups
-check_ec2_security_groups() {
-    echo "Checking security group configuration..."
-    echo -e "${YELLOW}⚠️  IMPORTANT: Ensure your EC2 security group allows:${NC}"
-    echo "  - SSH (Port 22) from your IP"
-    echo "  - HTTP (Port 80) from anywhere (0.0.0.0/0)"
-    echo "  - HTTPS (Port 443) from anywhere (0.0.0.0/0)"
-    echo ""
-    echo "You can configure this in the AWS Console:"
-    echo "  EC2 → Security Groups → Select your security group → Edit inbound rules"
-    echo ""
-    read -p "Press Enter when you've verified your security group configuration..."
-}
+
 
 # Function to set up Let's Encrypt on EC2
 setup_letsencrypt_ec2() {
@@ -208,9 +196,8 @@ if ! nslookup $DOMAIN &> /dev/null; then
     fi
 fi
 
-# Check EC2 security group configuration
-echo "🔒 Checking EC2 security group configuration..."
-check_ec2_security_groups
+# Security group check removed - assuming already configured
+echo "🔒 Skipping security group check - assuming already configured..."
 
 # Update email in docker-compose file
 echo "📧 Updating email in docker-compose file..."
