@@ -43,46 +43,6 @@
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^0.21.2"
   },
-  "overrides": {
-    "bigint-buffer": "^1.1.2",
-    "@solana/buffer-layout-utils": "^0.2.0",
-    "@solana/spl-token": "^0.4.13",
-    "@solana/codecs-core": "^2.3.0",
-    "@solana/codecs-numbers": "^2.3.0",
-    "@solana/errors": "^2.3.0",
-    "commander": "^11.1.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "@types/react": "18.2.6",
-    "core-js": "^3.45.0",
-    "rimraf": "^5.0.5",
-    "glob": "^10.3.10",
-    "source-map": "^0.7.4",
-    "text-encoding": "^0.7.0",
-    "inflight": "^1.0.6",
-    "querystring": "^0.2.1",
-    "sourcemap-codec": "^1.4.8"
-  },
-  "resolutions": {
-    "bigint-buffer": "^1.1.2",
-    "@solana/buffer-layout-utils": "^0.2.0",
-    "@solana/spl-token": "^0.4.13",
-    "@solana/codecs-core": "^2.3.0",
-    "@solana/codecs-numbers": "^2.3.0",
-    "@solana/errors": "^2.3.0",
-    "commander": "^11.1.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "@types/react": "18.2.6",
-    "core-js": "^3.45.0",
-    "rimraf": "^5.0.5",
-    "glob": "^10.3.10",
-    "source-map": "^0.7.4",
-    "text-encoding": "^0.7.0",
-    "inflight": "^1.0.6",
-    "querystring": "^0.2.1",
-    "sourcemap-codec": "^1.4.8"
-  },
   "engines": {
     "node": ">=18.20.0"
   }
