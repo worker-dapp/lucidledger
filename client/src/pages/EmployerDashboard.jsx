@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, CheckCircle, XCircle, Wallet, Settings } from "lucide-react";
+import { Bell, CheckCircle, XCircle, Wallet, Settings, User } from "lucide-react";
 import apiService from "../api/apiService";
 import Navbar from "../components/Navbar";
 import { useAuth } from "../api/AuthContext";
+import UserProfileModal from "../components/UserProfileModal";
 
 const EmployerDashboard = () => {
   const [userName, setUserName] = useState("");
   const [showMessages, setShowMessages] = useState(false);
   const [unreviewedContracts, setUnreviewedContracts] = useState([]);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [walletInfo, setWalletInfo] = useState(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isProfileComplete } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,9 +64,34 @@ const EmployerDashboard = () => {
     }
   };
 
+  const handleProfileComplete = (profileData) => {
+    console.log("Profile completed:", profileData);
+    // Profile modal will close automatically
+  };
+
   return (
     <div className="min-h-screen bg-[#FFFFFF] relative">
       <Navbar />
+
+      {/* Profile Completion Alert */}
+      {user && !isProfileComplete() && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <User className="text-blue-400 mr-2" />
+              <p className="text-blue-700">
+                Please complete your profile to access all features.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+            >
+              Complete Profile
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Top-right: Icons */}
       <div className="absolute top-32 right-6 flex items-center gap-4">
@@ -199,6 +226,13 @@ const EmployerDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Profile Completion Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onComplete={handleProfileComplete}
+      />
     </div>
   );
 };

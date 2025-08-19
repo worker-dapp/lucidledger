@@ -52,6 +52,14 @@ class ApiClient {
     });
   }
 
+  // Profile update method
+  async updateProfile(profileData) {
+    return this.request('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  }
+
   // Helper method to set auth token
   setAuthToken(token) {
     if (token) {

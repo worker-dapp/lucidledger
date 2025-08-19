@@ -81,12 +81,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Check if user profile is complete
+  const isProfileComplete = () => {
+    if (!user) return false;
+    return !!(user.first_name && user.last_name && user.country && user.state && user.city && user.zip_code);
+  };
+
+  // Update user data after profile update
+  const updateUserData = (newUserData) => {
+    setUser(prev => ({ ...prev, ...newUserData }));
+  };
+
   const value = {
     user,
     signUp,
     signIn,
     signOut,
     loading,
+    isProfileComplete,
+    updateUserData,
   };
 
   return (

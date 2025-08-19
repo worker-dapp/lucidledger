@@ -1,5 +1,6 @@
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
+import Profile from '../models/Profile.js';
 import { generateToken } from '../middleware/auth.js';
 
 // @desc    Register user
@@ -40,6 +41,21 @@ export const signup = async (req, res) => {
     // Generate JWT token
     const token = generateToken(user.id);
 
+    // Create initial profile row
+    await Profile.upsertByUserId(user.id, {
+      email: user.email,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone_number: null,
+      country_code: null,
+      country: null,
+      zip_code: null,
+      state: null,
+      city: null
+    });
+
+    const profile = await Profile.findByUserId(user.id);
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -49,7 +65,8 @@ export const signup = async (req, res) => {
           email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
-          role: user.role
+          role: user.role,
+          ...(profile || {})
         },
         token
       }
@@ -109,6 +126,7 @@ export const login = async (req, res) => {
     // Generate JWT token
     const token = generateToken(user.id);
 
+    const profile = await Profile.findByUserId(user.id);
     res.json({
       success: true,
       message: 'Login successful',
@@ -118,7 +136,8 @@ export const login = async (req, res) => {
           email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
-          role: user.role
+          role: user.role,
+          ...(profile || {})
         },
         token
       }
@@ -137,10 +156,12 @@ export const login = async (req, res) => {
 // @access  Private
 export const getMe = async (req, res) => {
   try {
+    // include profile if exists
+    const profile = await Profile.findByUserId(req.user.id);
     res.json({
       success: true,
       data: {
-        user: req.user
+        user: { ...req.user, ...(profile || {}) }
       }
     });
   } catch (error) {

@@ -61,3 +61,27 @@ CREATE TRIGGER update_jobs_updated_at
   BEFORE UPDATE ON jobs
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Create profile table to store extended user information
+CREATE TABLE IF NOT EXISTS profile (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  email VARCHAR(255) NOT NULL,
+  role VARCHAR(20) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  phone_number VARCHAR(50),
+  country_code VARCHAR(8),
+  country VARCHAR(100),
+  zip_code VARCHAR(20),
+  state VARCHAR(100),
+  city VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create trigger for profile updated_at
+CREATE TRIGGER update_profile_updated_at
+  BEFORE UPDATE ON profile
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
