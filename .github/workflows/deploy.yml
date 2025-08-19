@@ -8,9 +8,6 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-1  # Change to your EC2 region
-  EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
-  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
   DOMAIN: lucidledger.co
 
 jobs:
@@ -84,6 +81,9 @@ jobs:
         
         echo "🚀 Starting deployment..."
         
+        # Set domain
+        DOMAIN="lucidledger.co"
+        
         # Navigate to project directory
         cd /home/ec2-user/lucidledger || cd /home/ubuntu/lucidledger
         
@@ -101,18 +101,34 @@ jobs:
         
         # Wait for services to be ready
         echo "⏳ Waiting for services to be ready..."
-        sleep 30
+        sleep 60
         
         # Check service status
         echo "📊 Checking service status..."
         docker-compose -f docker-compose.nginx.yml ps
         
-        # Test deployment
+        # Test deployment with retries
         echo "🧪 Testing deployment..."
-        if curl -f -s https://$DOMAIN > /dev/null; then
-          echo "✅ Deployment successful! App accessible at https://$DOMAIN"
-        else
-          echo "❌ Deployment failed - app not accessible"
+        MAX_RETRIES=5
+        RETRY_COUNT=0
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES..."
+          
+          if curl -f -s --max-time 30 https://$DOMAIN > /dev/null; then
+            echo "✅ Deployment successful! App accessible at https://$DOMAIN"
+            break
+          else
+            echo "⏳ App not ready yet, waiting 30 seconds..."
+            sleep 30
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          fi
+        done
+        
+        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+          echo "❌ Deployment test failed after $MAX_RETRIES attempts"
+          echo "📊 Checking service logs..."
+          docker-compose -f docker-compose.nginx.yml logs --tail=50
           exit 1
         fi
         

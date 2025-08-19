@@ -43,6 +43,24 @@
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^0.21.2"
   },
+  "overrides": {
+    "core-js": "^3.45.0",
+    "rimraf": "^5.0.5",
+    "glob": "^10.3.10",
+    "source-map": "^0.7.4",
+    "text-encoding": "^0.7.0",
+    "inflight": "^1.0.6",
+    "querystring": "^0.2.1",
+    "sourcemap-codec": "^1.4.8",
+    "@babel/plugin-transform-optional-chaining": "^7.23.4",
+    "@babel/plugin-transform-optional-catch-binding": "^7.23.4",
+    "@babel/plugin-transform-nullish-coalescing-operator": "^7.23.4",
+    "@babel/plugin-transform-logical-assignment-operators": "^7.23.4",
+    "@babel/plugin-transform-numeric-separator": "^7.23.4",
+    "@babel/plugin-transform-object-rest-spread": "^7.23.4",
+    "@babel/plugin-transform-async-generator-functions": "^7.23.4",
+    "@babel/plugin-transform-class-properties": "^7.23.4"
+  },
   "engines": {
     "node": ">=18.20.0"
   }

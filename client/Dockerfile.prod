@@ -1,8 +1,11 @@
 # Multi-stage build for production
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 
 # Set working directory
 WORKDIR /app
+
+# Suppress npm update notices
+RUN npm config set update-notifier false
 
 # Copy package files
 COPY package*.json ./

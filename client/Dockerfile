@@ -1,6 +1,9 @@
-FROM node:20-alpine as build
+FROM node:18-alpine as build
 
 WORKDIR /app
+
+# Suppress npm update notices
+RUN npm config set update-notifier false
 
 # Copy package files
 COPY package*.json ./
