@@ -35,21 +35,13 @@ jobs:
       working-directory: ./client
       run: |
         npm config set cache .npm-cache
-        if [ -f "package-lock.json" ]; then
-          npm ci
-        else
-          npm install
-        fi
+        npm install
         
     - name: Install backend dependencies
       working-directory: ./server
       run: |
         npm config set cache .npm-cache
-        if [ -f "package-lock.json" ]; then
-          npm ci
-        else
-          npm install
-        fi
+        npm install
       
     - name: Run frontend tests
       working-directory: ./client
