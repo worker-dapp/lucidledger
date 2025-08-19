@@ -12,19 +12,14 @@ import EmployerDashboard from "./pages/EmployerDashboard";
 import Dispute from "./pages/Dispute";
 import Payments from "./pages/Payments";
 import JobDetails from "./pages/JobDetails";
-import MyJobs from "./pages/MyJobs";
-import MyJobDetails from "./pages/MyJobDetails";
 import EmployerProfile from "./pages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
 import EmployerJobPortal from "./pages/EmployerJobPortal";
 import ViewOpenContracts from "./pages/ViewOpenContracts";
 import DAODashboard from "./pages/DAODashboard";
-import ReviewCompletedContracts from "./pages/ReviewCompletedContracts";
-import ReviewApplications from "./pages/ReviewApplications";
 import Job from "./pages/Job";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { AuthProvider } from "./api/AuthContext";
-// import ReviewCompletedContracts from "./pages/ReviewCompletedContracts";
 
 const App = () => {
   return (
@@ -51,8 +46,6 @@ const App = () => {
           <Route path="/dispute" element={<Dispute />} />
           <Route path="/payments" element={<Payments />} />
           <Route path="/job-details/:id" element={<JobDetails />} />
-          <Route path="/my-jobs" element={<MyJobs />} />
-          <Route path="/my-jobs/:id" element={<MyJobDetails />} />
           <Route path="/employer-profile" element={<EmployerProfile />} />
           <Route path="/employee-profile" element={<EmployeeProfile />} />
           <Route path="/view-employees" element={<EmployerJobPortal />} />
@@ -61,10 +54,7 @@ const App = () => {
           <Route path="/job" element={<Job />} />
           <Route path="/new-job" element={<Job />} />
           <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
-          {/* <Route path="/review-completed-contracts" element={ReviewCompletedContracts />} /> */}
-          <Route path="/review-completed-contracts" element={<ReviewCompletedContracts />} />
-          <Route path="/review-applications" element={<ReviewApplications />} />
-        </Routes>
+          </Routes>
         </AuthProvider>
       </div>
     </DynamicContextProvider>

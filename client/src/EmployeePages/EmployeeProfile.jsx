@@ -115,7 +115,6 @@ const EmployeeProfile = () => {
       if (skills.length >= 0) simulateSave('Skills saved');
     }, 800);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skills]);
 
   // Experience handlers

@@ -21,8 +21,8 @@ const ViewEmployees = () => {
         if (typeof contract.signers === 'string') {
           try {
             signers = JSON.parse(contract.signers);
-          } catch (e) {
-            console.warn(`Could not parse signers for contract ${contract.id}`);
+          } catch (err) {
+            console.warn(`Could not parse signers for contract ${contract.id}`, err);
           }
         } else if (Array.isArray(contract.signers)) {
           signers = contract.signers;
