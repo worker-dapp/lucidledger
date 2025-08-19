@@ -16,7 +16,7 @@ services:
     build: ./client
     container_name: client
     ports:
-      - "80:5173"
+      - "5173:5173"
     env_file:
       - ./client/.env
     depends_on:
