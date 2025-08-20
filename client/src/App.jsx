@@ -1,7 +1,6 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
-import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
 import EmployeeRegister from "./EmployeePages/EmployeeRegister";
 import EmployerRegister from "./pages/EmployerRegister";
@@ -25,22 +24,22 @@ import UserProfileModal from "./components/UserProfileModal";
 import { useState, useEffect } from "react";
 
 const employeeLoginView = {
-  type: SdkViewType.Login,
+  type: 'login',
   sections: [
-    { type: SdkViewSectionType.Email, label: "Employee Login" },
-    { type: SdkViewSectionType.Separator, label: "Or" },
-    { type: SdkViewSectionType.Social, defaultItem: "google" },
-    { type: SdkViewSectionType.Wallet }
+    { type: 'email', label: 'Employee Login' },
+    { type: 'separator', label: 'Or' },
+    { type: 'social', defaultItem: 'google' },
+    { type: 'wallet' }
   ]
 };
 
 const employerLoginView = {
-  type: SdkViewType.Login,
+  type: 'login',
   sections: [
-    { type: SdkViewSectionType.Email, label: "Employer Login" },
-    { type: SdkViewSectionType.Separator, label: "Or" },
-    { type: SdkViewSectionType.Social, defaultItem: "google" },
-    { type: SdkViewSectionType.Wallet }
+    { type: 'email', label: 'Employer Login' },
+    { type: 'separator', label: 'Or' },
+    { type: 'social', defaultItem: 'google' },
+    { type: 'wallet' }
   ]
 };
 
