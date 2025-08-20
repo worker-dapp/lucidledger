@@ -1,39 +1,57 @@
-name: Deploy to EC2
+name: Deploy
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment (prod or staging)'
+        required: true
+        default: 'prod'
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
 
 env:
-  DOMAIN: lucidledger.co
+  PROD_DOMAIN: lucidledger.co
+  STAGING_DOMAIN: staging.lucidledger.co
 
 jobs:
   test:
     name: Test Application
     runs-on: ubuntu-latest
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Setup Node.js
+
+    - name: Setup Node.js (client)
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
-        cache-dependency-path: |
-          client/package-lock.json
-          server/package-lock.json
-        
+        cache-dependency-path: client/package-lock.json
+
     - name: Install frontend dependencies
       working-directory: ./client
       run: |
         npm config set cache .npm-cache
         npm install
-        
+
+    - name: Build frontend
+      working-directory: ./client
+      env:
+        VITE_API_URL: https://lucidledger.co
+      run: npm run build
+
+    - name: Setup Node.js (server)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+
     - name: Install backend dependencies
       working-directory: ./server
       run: |
@@ -47,30 +65,41 @@ jobs:
     - name: Run backend tests
       working-directory: ./server
       run: npm run lint || echo "No lint script found, skipping"
-      
-    - name: Build frontend
-      working-directory: ./client
-      run: npm run build
 
   deploy:
     name: Deploy to EC2
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Select target host/user
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "TARGET_HOST=${{ secrets.STAGING_HOST }}" >> $GITHUB_ENV
+          echo "TARGET_USER=${{ secrets.STAGING_USER }}" >> $GITHUB_ENV
+          echo "TARGET_KEY<<EOF" >> $GITHUB_ENV
+          echo "${{ secrets.STAGING_SSH_KEY }}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        else
+          echo "TARGET_HOST=${{ secrets.EC2_HOST }}" >> $GITHUB_ENV
+          echo "TARGET_USER=${{ secrets.EC2_USER }}" >> $GITHUB_ENV
+          echo "TARGET_KEY<<EOF" >> $GITHUB_ENV
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        fi
+
     - name: Setup SSH
       uses: webfactory/ssh-agent@v0.8.0
       with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        ssh-private-key: ${{ env.TARGET_KEY }}
         
     - name: Add EC2 to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+        ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
         
     - name: Deploy to EC2
       run: |
@@ -81,15 +110,25 @@ jobs:
         
         echo "🚀 Starting deployment..."
         
-        # Set domain
-        DOMAIN="lucidledger.co"
+        # Set domain based on input
+        if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          DOMAIN="${{ env.STAGING_DOMAIN }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          [ -z "$BRANCH" ] && BRANCH=develop
+          REPO_DIR="/home/ec2-user/lucidledger-staging"
+        else
+          DOMAIN="${{ env.PROD_DOMAIN }}"
+          BRANCH="${{ github.event.inputs.branch }}"
+          [ -z "$BRANCH" ] && BRANCH=main
+          REPO_DIR="/home/ec2-user/lucidledger"
+        fi
         
         # Navigate to project directory
-        cd /home/ec2-user/lucidledger || cd /home/ubuntu/lucidledger
+        cd "$REPO_DIR" || cd /home/ubuntu/$(basename "$REPO_DIR")
         
         # Pull latest changes
         echo "📥 Pulling latest changes..."
-        git pull origin main
+        git pull origin "$BRANCH"
         
         # Stop existing services
         echo "🛑 Stopping existing services..."
@@ -138,10 +177,14 @@ jobs:
         chmod +x deploy.sh
         
         # Execute deployment script on EC2
-        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' < deploy.sh
+        ssh -o StrictHostKeyChecking=no "$TARGET_USER"@"$TARGET_HOST" 'bash -s' < deploy.sh
         
     - name: Deployment Status
       run: |
         echo "🎯 Deployment completed!"
-        echo "🌐 Your app is now live at: https://${{ env.DOMAIN }}"
+        if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "🌐 Staging at: https://${{ env.STAGING_DOMAIN }}"
+        else
+          echo "🌐 Production at: https://${{ env.PROD_DOMAIN }}"
+        fi
         echo "📱 Check the deployment status above for any errors"
