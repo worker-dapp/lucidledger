@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useAuth } from "../api/AuthContext";
 
 const EmployerLogIn = () => {
@@ -12,6 +13,7 @@ const EmployerLogIn = () => {
   const [error, setError] = useState("");
 
   const { signIn } = useAuth();
+  const { openModal } = useDynamicContext();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -94,6 +96,14 @@ const EmployerLogIn = () => {
               className="w-full font-medium p-4 bg-[#EE964B] hover:bg-[#d97b33] rounded-xl shadow-md transition-all hover:scale-105 hover:shadow-lg text-white"
               disabled={loading}>
               {loading ? "Logging in..." : "Log In"}
+            </button>
+
+            <button
+              type="button"
+              onClick={openModal}
+              className="w-full font-medium p-4 mt-2 border border-[#EE964B] text-[#EE964B] rounded-xl hover:bg-[#fff4ec]"
+            >
+              Sign in with Social / Wallet
             </button>
           </form>
 

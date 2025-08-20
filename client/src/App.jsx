@@ -1,6 +1,7 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
 import EmployeeRegister from "./EmployeePages/EmployeeRegister";
 import EmployerRegister from "./pages/EmployerRegister";
@@ -23,23 +24,31 @@ import { AuthProvider } from "./api/AuthContext";
 import UserProfileModal from "./components/UserProfileModal";
 import { useState, useEffect } from "react";
 
+const employeeLoginView = {
+  type: SdkViewType.Login,
+  sections: [
+    { type: SdkViewSectionType.Email, label: "Employee Login" },
+    { type: SdkViewSectionType.Separator, label: "Or" },
+    { type: SdkViewSectionType.Social, defaultItem: "google" },
+    { type: SdkViewSectionType.Wallet }
+  ]
+};
+
+const employerLoginView = {
+  type: SdkViewType.Login,
+  sections: [
+    { type: SdkViewSectionType.Email, label: "Employer Login" },
+    { type: SdkViewSectionType.Separator, label: "Or" },
+    { type: SdkViewSectionType.Social, defaultItem: "google" },
+    { type: SdkViewSectionType.Wallet }
+  ]
+};
+
 const App = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [isNewUser, setIsNewUser] = useState(false);
-
-  const handleAuthSuccess = (args) => {
-    if (args.user.newUser) {
-      console.log("New user created", args.user);
-      setIsNewUser(true);
-      setShowProfileModal(true);
-    } else {
-      console.log("User already exists", args.user);
-      // Check if profile is complete
-      if (!args.user.first_name || !args.user.last_name || !args.user.country) {
-        setShowProfileModal(true);
-      }
-    }
-  };
+  const location = useLocation();
+  const isEmployer = location.pathname.startsWith('/employerLogin');
+  const dynamicView = isEmployer ? employerLoginView : employeeLoginView;
 
   const handleProfileComplete = (profileData) => {
     console.log("Profile completed:", profileData);
@@ -57,9 +66,7 @@ const App = () => {
       settings={{
         environmentId: "bb03ee6d-6f22-4d73-b630-439914bf6b18",
         walletConnectors: [EthereumWalletConnectors],
-        events: {
-          onAuthSuccess: handleAuthSuccess,
-        },
+        overrides: { views: [dynamicView] },
       }}
     >
       <div>
