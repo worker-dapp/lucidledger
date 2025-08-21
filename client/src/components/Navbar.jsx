@@ -6,6 +6,15 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef(null);
 
+  const handleHomeClick = () => {
+    navigate('/employeeDashboard');
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleNavClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
 
   return (
     <div className="w-full z-50 bg-[#0D3B66] shadow-md">
