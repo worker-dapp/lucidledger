@@ -3,6 +3,7 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import LoginButtons from "../components/LoginButtons";
 import { useAuth } from "../api/AuthContext";
 
 const EmployeeLogIn = () => {
@@ -91,13 +92,7 @@ const EmployeeLogIn = () => {
               {loading ? "Logging in..." : "Log In"}
             </button>
 
-            <button
-              type="button"
-              onClick={openModal}
-              className="w-full font-medium p-4 mt-2 border border-[#EE964B] text-[#EE964B] rounded-xl hover:bg-[#fff4ec]"
-            >
-              Sign in with Social / Wallet
-            </button>
+            <LoginButtons variant="employee" />
           </form>
 
           <Link to="/employeeRegister">

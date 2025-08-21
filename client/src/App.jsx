@@ -66,6 +66,34 @@ const App = () => {
         environmentId: "bb03ee6d-6f22-4d73-b630-439914bf6b18",
         walletConnectors: [EthereumWalletConnectors],
         overrides: { views: [dynamicView] },
+        handlers: {
+          handleAuthenticatedUser: async (args) => {
+            try {
+              const role = localStorage.getItem('userRole');
+              if (role && args?.user) {
+                // Store role into Dynamic user metadata
+                // Fallback: store in localStorage for app-side checks
+                args.user.metadata = {
+                  ...(args.user.metadata || {}),
+                  role,
+                };
+                localStorage.setItem('persistedUserRole', role);
+              }
+            } finally {
+              localStorage.removeItem('userRole');
+            }
+          },
+        },
+        events: {
+          onAuthSuccess: (args) => {
+            const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
+            if (userRole === 'employee') {
+              window.location.href = '/employeeDashboard';
+            } else if (userRole === 'employer') {
+              window.location.href = '/employerDashboard';
+            }
+          },
+        },
       }}
     >
       <div>

@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "LIGHTNINGCSS_FORCE_WASM=1 vite",
+    "build": "LIGHTNINGCSS_FORCE_WASM=1 vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "LIGHTNINGCSS_FORCE_WASM=1 vite preview"
   },
   "dependencies": {
     "@dynamic-labs/ethereum": "^4.28.0",
