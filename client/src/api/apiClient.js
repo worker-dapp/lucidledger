@@ -39,19 +39,6 @@ class ApiClient {
     });
   }
 
-  async login(credentials) {
-    return this.request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  }
-
-  async getCurrentUser() {
-    return this.request('/api/auth/me', {
-      method: 'GET',
-    });
-  }
-
   // Profile update method
   async updateProfile(profileData) {
     return this.request('/api/auth/profile', {
