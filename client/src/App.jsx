@@ -2,26 +2,22 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import LandingPage from "./pages/LandingPage";
-import EmployeeRegister from "./EmployeePages/EmployeeRegister";
-import EmployerRegister from "./pages/EmployerRegister";
-import EmployeeLogIn from "./EmployeePages/EmployeeLogIn";
-import EmployerLogIn from "./pages/EmployerLogIn";
 import AboutPage from "./pages/NewAbout";
 import EmployeeDashboard from "./EmployeePages/EmployeeDashboard";
-import EmployerDashboard from "./pages/EmployerDashboard";
+import EmployerDashboard from "./EmployerPages/EmployerDashboard";
 import Dispute from "./pages/Dispute";
 import Payments from "./pages/Payments";
 import JobDetails from "./pages/JobDetails";
-import EmployerProfile from "./pages/EmployerProfile";
+import EmployerProfile from "./EmployerPages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
-import EmployerJobPortal from "./pages/EmployerJobPortal";
+import EmployerJobPortal from "./EmployerPages/EmployerJobPortal";
 import ViewOpenContracts from "./pages/ViewOpenContracts";
 import DAODashboard from "./pages/DAODashboard";
 import Job from "./pages/Job";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { AuthProvider } from "./api/AuthContext";
 import UserProfileModal from "./components/UserProfileModal";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const employeeLoginView = {
   type: 'login',
@@ -102,15 +98,9 @@ const App = () => {
           <Routes>
             <Route path="*" element={<h1>404 - Not Found</h1>} />
             <Route path="/" element={<LandingPage />} />
-            <Route path="/employeeRegister" element={<EmployeeRegister />} />
-            <Route path="/employerRegister" element={<EmployerRegister />} />
-            <Route path="/employeeLogin" element={<EmployeeLogIn />} />
-            <Route path="/employerLogin" element={<EmployerLogIn />} />
-            {/* <Route path='/about-us' element={<AboutUs />} /> */}
             <Route path="/about-us" element={<AboutPage />} />
             <Route path="/employerDashboard" element={<EmployerDashboard />} />
             <Route path="/employeeDashboard" element={<EmployeeDashboard />} />
-            {/* <Route path='/view-employees' element={<ViewEmployees />} /> */}
             <Route path="/dispute" element={<Dispute />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/job-details/:id" element={<JobDetails />} />
