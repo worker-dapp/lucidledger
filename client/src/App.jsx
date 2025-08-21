@@ -69,10 +69,10 @@ const App = () => {
         handlers: {
           handleAuthenticatedUser: async (args) => {
             try {
-              const role = localStorage.getItem('userRole');
+              const role =
+                localStorage.getItem('pendingRole') ||
+                localStorage.getItem('userRole');
               if (role && args?.user) {
-                // Store role into Dynamic user metadata
-                // Fallback: store in localStorage for app-side checks
                 args.user.metadata = {
                   ...(args.user.metadata || {}),
                   role,
@@ -80,6 +80,7 @@ const App = () => {
                 localStorage.setItem('persistedUserRole', role);
               }
             } finally {
+              localStorage.removeItem('pendingRole');
               localStorage.removeItem('userRole');
             }
           },

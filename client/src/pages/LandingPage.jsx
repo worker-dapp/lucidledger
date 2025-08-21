@@ -1,4 +1,3 @@
-
 import React from "react";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
@@ -6,6 +5,7 @@ import Footer from "../components/Footer";
 import employerImg from "../assets/employer.jpg";
 import employeeImg from "../assets/jobs.jpg";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import LoginButtons from "../components/LoginButtons";
 
 const LandingPage = () => {
   return (
@@ -38,7 +38,7 @@ const LandingPage = () => {
             <p className="text-[#6B7280] mt-2 text-sm md:text-base">
               Find and hire the best workers with ease.
             </p>
-            <DynamicWidget />
+            <LoginButtons variant="employer" storageKey="pendingRole" />
             <Link to="/employerRegister" className="w-full">
               <button
                 //  className="mt-6 bg-gradient-to-r from-[#FFB07F] via-[#FFA062] to-[#E08A44] text-white font-medium px-6 py-3 rounded-lg w-full transition-all hover:shadow-lg hover:brightness-110"
@@ -63,7 +63,7 @@ const LandingPage = () => {
             <p className="text-[#6B7280] mt-2 text-sm md:text-base">
               Find opportunities that suit your needs.
             </p>
-            <DynamicWidget />
+            <LoginButtons variant="employee" storageKey="pendingRole" />
             <Link to="/employeeRegister" className="w-full">
               <button
                 //   className="mt-6 bg-gradient-to-r from-[#FFB07F] via-[#FFA062] to-[#E08A44] text-white font-medium px-6 py-3 rounded-lg w-full transition-all hover:shadow-lg hover:brightness-110"
