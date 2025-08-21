@@ -1,16 +1,16 @@
 import React from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
-const LoginButtons = ({ variant = "both" }) => {
+const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
   const { setShowAuthFlow } = useDynamicContext();
 
   const handleEmployeeLogin = () => {
-    localStorage.setItem("userRole", "employee");
+    localStorage.setItem(storageKey, "employee");
     setShowAuthFlow(true);
   };
 
   const handleEmployerLogin = () => {
-    localStorage.setItem("userRole", "employer");
+    localStorage.setItem(storageKey, "employer");
     setShowAuthFlow(true);
   };
 
