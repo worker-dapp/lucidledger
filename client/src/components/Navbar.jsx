@@ -1,70 +1,11 @@
-import React, { useState, useRef, useEffect } from "react";
-import { NavLink, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../api/AuthContext";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import React, { useState, useRef } from "react";
+import { NavLink, Link } from "react-router-dom";
 import logo from "../assets/Android.png";
 
 const Navbar = () => {
-  const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
-  const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
-  const navigate = useNavigate();
 
-  // Close dropdown when clicking outside or pressing Escape
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
-        setIsMobileMenuOpen(false);
-      }
-    }
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        setDropdownOpen(false);
-        setIsMobileMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/");
-    setIsMobileMenuOpen(false);
-    setDropdownOpen(false);
-  };
-
-  const handleHomeClick = () => {
-    if (user) {
-      if (user.role === 'employee') {
-        navigate('/employeeDashboard');
-      } else if (user.role === 'employer') {
-        navigate('/employerDashboard');
-      } else {
-        navigate('/');
-      }
-    } else {
-      navigate('/');
-    }
-    setIsMobileMenuOpen(false);
-    setDropdownOpen(false);
-  };
-
-  const handleNavClick = () => {
-    setIsMobileMenuOpen(false);
-    setDropdownOpen(false);
-  };
-
-  const toggleDropdown = () => setDropdownOpen((v) => !v);
 
   return (
     <div className="w-full z-50 bg-[#0D3B66] shadow-md">
@@ -104,71 +45,6 @@ const Navbar = () => {
           >
             About Us
           </NavLink>
-          
-          {/* Dynamic Wallet Widget */}
-          <DynamicWidget />
-          
-          {/* User Menu */}
-          {user ? (
-            <div className='flex items-center gap-12'>
-              <span className="text-white text-sm">
-                Welcome, {user.first_name || user.email}
-              </span>
-              <Link 
-                to={user.role === 'employee' ? '/employee-profile' : '/employer-profile'} 
-                className='text-white hover:text-orange-600 transition-all text-lg'
-                onClick={handleNavClick}
-              >
-                Profile
-              </Link>
-              <button 
-                onClick={handleLogout} 
-                className='bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition-all shadow-md text-lg'
-              >
-                Log Out
-              </button>
-            </div>
-          ) : (
-            <div className='relative' ref={dropdownRef}>
-              <button 
-                onClick={toggleDropdown}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDropdown(); } }}
-                aria-haspopup="menu"
-                aria-expanded={isDropdownOpen}
-                aria-controls="landing-signin-menu"
-                className='bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 transition-all shadow-md text-lg'
-              >
-                Sign In
-              </button>
-
-              {isDropdownOpen && (
-                <div
-                  id="landing-signin-menu"
-                  role="menu"
-                  aria-label="Sign in options"
-                  className='absolute right-0 mt-2 min-w-44 bg-white border border-gray-200 shadow-lg rounded-lg z-50'
-                >
-                  <Link 
-                    to='/employeeLogin' 
-                    role="menuitem"
-                    className='block px-4 py-2 text-gray-900 hover:bg-orange-100 transition-all rounded-t-lg'
-                    onClick={handleNavClick}
-                  >
-                    Employee
-                  </Link>
-                  <Link 
-                    to='/employerLogin' 
-                    role="menuitem"
-                    className='block px-4 py-2 text-gray-900 hover:bg-orange-100 transition-all rounded-b-lg'
-                    onClick={handleNavClick}
-                  >
-                    Employer
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Mobile Menu Button */}
         <div className="lg:hidden">
@@ -216,45 +92,10 @@ const Navbar = () => {
             >
               About Us
             </NavLink>
-
-            {user ? (
-              <div className="pt-3 border-t border-[#1a4a7a] space-y-3">
-                <div className="text-white text-sm">Welcome, {user.first_name || user.email}</div>
-                <Link
-                  to={user.role === 'employee' ? '/employee-profile' : '/employer-profile'}
-                  onClick={handleNavClick}
-                  className='block w-full bg-white text-[#0D3B66] px-4 py-2 rounded text-center hover:bg-gray-100 transition-all'
-                >
-                  Profile
-                </Link>
-                <button 
-                  onClick={handleLogout} 
-                  className='block w-full bg-red-500 text-white px-4 py-2 rounded text-center hover:bg-red-600 transition-all'
-                >
-                  Log Out
-                </button>
-              </div>
-            ) : (
-              <div className="pt-3 border-t border-[#1a4a7a] space-y-2">
-                <Link 
-                  to='/employeeLogin' 
-                  onClick={handleNavClick}
-                  className='block w-full bg-orange-500 text-white px-4 py-2 rounded text-center hover:bg-orange-600 transition-all'
-                >
-                  Employee Sign In
-                </Link>
-                <Link 
-                  to='/employerLogin' 
-                  onClick={handleNavClick}
-                  className='block w-full bg-gray-600 text-white px-4 py-2 rounded text-center hover:bg-gray-700 transition-all'
-                >
-                  Employer Sign In
-                </Link>
-              </div>
-            )}
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };

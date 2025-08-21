@@ -19,9 +19,9 @@ const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
       <button
         type="button"
         onClick={handleEmployeeLogin}
-        className="w-full font-medium p-4 mt-2 border border-[#EE964B] text-[#EE964B] rounded-xl hover:bg-[#fff4ec]"
+        className="mt-6 bg-[#0d3b66] text-white font-medium px-6 py-3 rounded-lg w-full transition-all hover:bg-[#1a5a95] hover:shadow-lg cursor-pointer"
       >
-        Continue with Social / Wallet (Employee)
+        Find a Job →
       </button>
     );
   }
@@ -31,9 +31,9 @@ const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
       <button
         type="button"
         onClick={handleEmployerLogin}
-        className="w-full font-medium p-4 mt-2 border border-[#EE964B] text-[#EE964B] rounded-xl hover:bg-[#fff4ec]"
+        className="mt-6 bg-[#0d3b66] text-white font-medium px-6 py-3 rounded-lg w-full transition-all hover:bg-[#1a5a95] hover:shadow-lg cursor-pointer"
       >
-        Continue with Social / Wallet (Employer)
+        Create a Contract →
       </button>
     );
   }
@@ -43,14 +43,14 @@ const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
       <button
         type="button"
         onClick={handleEmployeeLogin}
-        className="w-full font-medium p-4 mt-2 border border-[#EE964B] text-[#EE964B] rounded-xl hover:bg-[#fff4ec]"
+        className="mt-6 bg-[#0d3b66] text-white font-medium px-6 py-3 rounded-lg w-full transition-all hover:bg-[#1a5a95] hover:shadow-lg cursor-pointer"
       >
         Login as Employee
       </button>
       <button
         type="button"
         onClick={handleEmployerLogin}
-        className="w-full font-medium p-4 mt-2 border border-[#EE964B] text-[#EE964B] rounded-xl hover:bg-[#fff4ec]"
+        className="mt-2 bg-[#0d3b66] text-white font-medium px-6 py-3 rounded-lg w-full transition-all hover:bg-[#1a5a95] hover:shadow-lg cursor-pointer"
       >
         Login as Employer
       </button>
