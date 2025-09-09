@@ -7,7 +7,6 @@ const Navbar = () => {
   const mobileMenuRef = useRef(null);
 
   const handleHomeClick = () => {
-    navigate('/employeeDashboard');
     setIsMobileMenuOpen(false);
   };
 

@@ -1,18 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { connectDB } from './config/database.js';
-import authRoutes from './routes/auth.js';
-import jobRoutes from './routes/jobs.js';
+import { connectDB, ensureSchemaInitialized } from './config/database.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT;
 
-// Connect to database
-connectDB();
+// Connect to database and ensure schema
+connectDB().then(() => ensureSchemaInitialized()).catch(() => {});
 
 // Middleware
 app.use(cors());
@@ -29,26 +27,19 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API info endpoint
+// API info endpoint (minimal)
 app.get('/api', (req, res) => {
   res.json({
     message: 'Lucid Ledger API',
     version: '1.0.0',
     endpoints: {
       health: 'GET /health',
-      api: 'GET /api',
-      'auth/signup': 'POST /api/auth/signup',
-      'auth/login': 'POST /api/auth/login',
-      'auth/me': 'GET /api/auth/me',
-      jobs: 'GET/POST /api/jobs',
-      'jobs/:id': 'GET/PUT/DELETE /api/jobs/:id'
+      api: 'GET /api'
     }
   });
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobRoutes);
+// No application routes enabled; server only maintains DB connection and health checks
 
 // Error handling middleware
 app.use((err, req, res, next) => {
