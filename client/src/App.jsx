@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
 import AboutPage from "./pages/NewAbout";
 import EmployeeDashboard from "./EmployeePages/EmployeeDashboard";
@@ -19,21 +20,22 @@ import { AuthProvider } from "./api/AuthContext";
 import UserProfileModal from "./components/UserProfileModal";
 import { useState } from "react";
 
-const employeeLoginView = {
-  type: 'login',
+const enhancedEmployeeView = {
+  type: SdkViewType.Login,
   sections: [
-    { type: 'email', label: 'Employee Login' },
-    { type: 'separator', label: 'Or' },
-    { type: 'phone', label: 'Employee Login' },
+    { type: SdkViewSectionType.Email, label: 'Employee Login', alignment: 'center' },
+    { type: SdkViewSectionType.Separator, label: 'Or' },
+    { type: SdkViewSectionType.Phone, label: 'Employee Login' },
   ]
 };
 
-const employerLoginView = {
-  type: 'login',
+const enhancedEmployerView = {
+  type: SdkViewType.Login,
   sections: [
-    { type: 'email', label: 'Employer Login' },
-    { type: 'separator', label: 'Or' },
-    { type: 'wallet', numOfItemsToDisplay: 3 }
+    { type: SdkViewSectionType.Email, label: 'Employer Login' },
+    { type: SdkViewSectionType.Separator, label: 'Or' },
+    { type: SdkViewSectionType.Social, defaultItem: 'google', numOfItemsToDisplay: 3 },
+    { type: SdkViewSectionType.Wallet, numOfItemsToDisplay: 5 },
   ]
 };
 
@@ -41,7 +43,7 @@ const App = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const location = useLocation();
   const isEmployer = location.pathname.startsWith('/employerLogin');
-  const dynamicView = isEmployer ? employerLoginView : employeeLoginView;
+  const dynamicView = isEmployer ? enhancedEmployerView : enhancedEmployeeView;
 
   const handleProfileComplete = (profileData) => {
     console.log("Profile completed:", profileData);

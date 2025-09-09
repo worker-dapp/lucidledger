@@ -1,12 +1,11 @@
 node_modules
+build
 dist
-.devcontainer
 .git
 .gitignore
-*.log
 npm-debug.log*
-.DS_Store
-.env
-coverage
-.vscode
+Dockerfile
+Dockerfile.prod
+**/*.local.*
+.env*
 
