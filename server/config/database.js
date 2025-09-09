@@ -1,8 +1,10 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
-import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+// Users table removed per latest requirements
+import { createEmployerTableSQL } from '../models/Employer.js';
+import { createEmployeeTableSQL } from '../models/Employee.js';
 
 dotenv.config();
 
@@ -63,29 +65,15 @@ export default pool;
 // Resolve path to init.sql (ESM-safe)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const initSqlPath = path.resolve(__dirname, '../init.sql');
 
 export const ensureSchemaInitialized = async () => {
   try {
-    const checkSql = `
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = 'users'
-      ) AS exists;
-    `;
-    const { rows } = await query(checkSql);
-    const exists = rows?.[0]?.exists === true;
-
-    if (exists) {
-      console.log('Schema check: users table already exists.');
-      return;
-    }
-
-    console.log('Schema check: users table missing. Creating from init.sql...');
-    const sql = await fs.readFile(initSqlPath, 'utf8');
-    await query(sql);
-    console.log('Schema init: users table and triggers created successfully.');
+    // Ensure employer and employee tables exist
+    console.log('Schema check: ensuring employer table exists...');
+    await query(createEmployerTableSQL);
+    console.log('Schema check: ensuring employee table exists...');
+    await query(createEmployeeTableSQL);
+    console.log('Schema init: employer and employee tables ensured.');
   } catch (error) {
     console.error('Schema init error:', error.message);
     throw error;
