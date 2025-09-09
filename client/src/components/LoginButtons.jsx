@@ -7,11 +7,14 @@ const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
   const handleEmployeeLogin = () => {
     localStorage.setItem(storageKey, "employee");
     setShowAuthFlow(true);
+    // notify app to refresh Dynamic view
+    window.dispatchEvent(new Event('roleSelected'));
   };
 
   const handleEmployerLogin = () => {
     localStorage.setItem(storageKey, "employer");
     setShowAuthFlow(true);
+    window.dispatchEvent(new Event('roleSelected'));
   };
 
   if (variant === "employee") {

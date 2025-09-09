@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
@@ -18,7 +18,7 @@ import Job from "./pages/Job";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { AuthProvider } from "./api/AuthContext";
 import UserProfileModal from "./components/UserProfileModal";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const enhancedEmployeeView = {
   type: SdkViewType.Login,
@@ -33,17 +33,47 @@ const enhancedEmployerView = {
   type: SdkViewType.Login,
   sections: [
     { type: SdkViewSectionType.Email, label: 'Employer Login' },
-    { type: SdkViewSectionType.Separator, label: 'Or' },
-    { type: SdkViewSectionType.Social, defaultItem: 'google', numOfItemsToDisplay: 3 },
-    { type: SdkViewSectionType.Wallet, numOfItemsToDisplay: 5 },
+    { type: SdkViewSectionType.Phone, label: 'Employer Login' },
+    { type: SdkViewSectionType.Wallet, numOfItemsToDisplay: 2 },
   ]
 };
 
 const App = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const location = useLocation();
-  const isEmployer = location.pathname.startsWith('/employerLogin');
-  const dynamicView = isEmployer ? enhancedEmployerView : enhancedEmployeeView;
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(
+    localStorage.getItem('userRole') ||
+    localStorage.getItem('pendingRole') ||
+    localStorage.getItem('persistedUserRole') || ''
+  );
+
+  const getLoginView = () => {
+    if (selectedRole === 'employer') return enhancedEmployerView;
+    if (selectedRole === 'employee') return enhancedEmployeeView;
+    return null;
+  };
+
+  useEffect(() => {
+    const updateRole = () => {
+      const nextRole =
+        localStorage.getItem('userRole') ||
+        localStorage.getItem('pendingRole') ||
+        localStorage.getItem('persistedUserRole') || '';
+      setSelectedRole(nextRole);
+    };
+
+    const onStorage = (e) => {
+      if (!e.key || ['userRole', 'pendingRole', 'persistedUserRole'].includes(e.key)) {
+        updateRole();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('roleSelected', updateRole);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('roleSelected', updateRole);
+    };
+  }, []);
 
   const handleProfileComplete = (profileData) => {
     console.log("Profile completed:", profileData);
@@ -57,10 +87,11 @@ const App = () => {
 
   return (
     <DynamicContextProvider
+      key={selectedRole || 'default'}
       settings={{
         environmentId: "bb03ee6d-6f22-4d73-b630-439914bf6b18",
         walletConnectors: [EthereumWalletConnectors],
-        overrides: { views: [dynamicView] },
+        overrides: { views: getLoginView() ? [getLoginView()] : [] },
         handlers: {
           handleAuthenticatedUser: async (args) => {
             try {
