@@ -8,8 +8,8 @@ RUN npm config set update-notifier false
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (including dev dependencies needed for build)
-RUN npm install
+# Install dependencies (tolerate lockfile drift inside container)
+RUN npm install --no-audit --no-fund && npm cache clean --force
 
 # Copy the rest of the application code
 COPY . .
