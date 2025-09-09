@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB, ensureSchemaInitialized } from './config/database.js';
+import employerRoutes from './routes/employers.js';
+import employeeRoutes from './routes/employees.js';
 
 // Load environment variables
 dotenv.config();
@@ -34,12 +36,16 @@ app.get('/api', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: 'GET /health',
-      api: 'GET /api'
+      api: 'GET /api',
+      employers: 'POST /api/employers, PUT /api/employers/:id',
+      employees: 'POST /api/employees, PUT /api/employees/:id'
     }
   });
 });
 
-// No application routes enabled; server only maintains DB connection and health checks
+// Minimal routes for creating/updating employer and employee
+app.use('/api/employers', employerRoutes);
+app.use('/api/employees', employeeRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

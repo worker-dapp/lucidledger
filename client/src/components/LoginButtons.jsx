@@ -60,4 +60,3 @@ const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
 
 export default LoginButtons;
 
-

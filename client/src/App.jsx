@@ -24,8 +24,7 @@ const employeeLoginView = {
   sections: [
     { type: 'email', label: 'Employee Login' },
     { type: 'separator', label: 'Or' },
-    { type: 'social', defaultItem: 'google' },
-    { type: 'wallet' }
+    { type: 'phone', label: 'Employee Login' },
   ]
 };
 
@@ -34,8 +33,7 @@ const employerLoginView = {
   sections: [
     { type: 'email', label: 'Employer Login' },
     { type: 'separator', label: 'Or' },
-    { type: 'social', defaultItem: 'google' },
-    { type: 'wallet' }
+    { type: 'wallet', numOfItemsToDisplay: 3 }
   ]
 };
 
@@ -48,7 +46,6 @@ const App = () => {
   const handleProfileComplete = (profileData) => {
     console.log("Profile completed:", profileData);
     setIsNewUser(false);
-    // You can add additional logic here like redirecting to dashboard
   };
 
   const handleCloseProfileModal = () => {
