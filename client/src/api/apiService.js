@@ -169,18 +169,8 @@ class ApiService {
     }
   }
 
-  // Users/Profiles (only update supported client-side)
-  async updateUserProfile(profileData) {
-    try {
-      const response = await apiClient.request('/api/auth/profile', {
-        method: 'PUT',
-        body: JSON.stringify(profileData),
-      });
-      return { data: response.data, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
-  }
+  // Users/Profiles
+  // Note: profile creation/update is performed via employer/employee endpoints
 
   // Payments
   async getPayments() {
