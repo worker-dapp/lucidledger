@@ -11,18 +11,47 @@ class ApiClient {
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...options.headers,
       },
       ...options,
     };
 
     const response = await fetch(url, config);
-    const data = await response.json();
+
+    const contentType = response.headers.get('content-type') || '';
+    let parsedBody = null;
+
+    // Handle no-content responses explicitly
+    if (response.status === 204 || response.status === 205) {
+      parsedBody = null;
+    } else if (contentType.includes('application/json')) {
+      try {
+        parsedBody = await response.json();
+      } catch (_) {
+        // Malformed or empty JSON body
+        parsedBody = null;
+      }
+    } else {
+      // Attempt to read as text for non-JSON responses
+      try {
+        const text = await response.text();
+        parsedBody = text && text.length ? text : null;
+      } catch (_) {
+        parsedBody = null;
+      }
+    }
 
     if (!response.ok) {
-      throw new Error(data.error || 'API request failed');
+      const message = (parsedBody && typeof parsedBody === 'object' && (parsedBody.error || parsedBody.message))
+        || (typeof parsedBody === 'string' && parsedBody)
+        || response.statusText
+        || 'API request failed';
+      throw new Error(message);
     }
-    return data;
+
+    // Return a consistent shape expected by callers
+    return { data: parsedBody };
   }
 
   // Profile update method (server exposes /api/auth/profile)
