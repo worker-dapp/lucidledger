@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import apiService, { createEmployer, createEmployee } from '../api/apiService';
+import apiService from '../api/apiService';
 import Navbar from "../components/Navbar";
 import { useNavigate } from 'react-router-dom';
 
@@ -119,10 +119,10 @@ const UserProfile = () => {
 
       const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
       if (role === 'employer') {
-        const { error } = await createEmployer(payload);
+        const { error } = await apiService.createEmployer(payload);
         if (error) throw error;
       } else {
-        const { error } = await createEmployee(payload);
+        const { error } = await apiService.createEmployee(payload);
         if (error) throw error;
       }
 
@@ -139,7 +139,7 @@ const UserProfile = () => {
   return (
     <>
       <Navbar />
-      <div className="w-2/3 mx-auto m-10 px-10 bg-white rounded shadow-md">
+      <div className="w-2/3 mx-auto m-10 p-10 bg-white rounded shadow-md">
         <h1 className="text-3xl font-bold text-[#0D3B66] mb-6 text-center">Complete Your Profile</h1>
 
         {submitted && (

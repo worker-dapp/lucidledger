@@ -54,13 +54,7 @@ class ApiClient {
     return { data: parsedBody };
   }
 
-  // Profile update method (server exposes /api/auth/profile)
-  async updateProfile(profileData) {
-    return this.request('/api/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify(profileData),
-    });
-  }
+  // Note: profile updates are handled via /api/employers or /api/employees
 
   // Token helpers no longer used; Dynamic handles auth
 }
