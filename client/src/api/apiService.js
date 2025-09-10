@@ -1,6 +1,54 @@
 import apiClient from './apiClient';
 
 class ApiService {
+  // Employer/Employee profiles
+  async createEmployer(profile) {
+    try {
+      const response = await apiClient.request('/api/employers', {
+        method: 'POST',
+        body: JSON.stringify(profile),
+      });
+      return { data: response.data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
+
+  async updateEmployer(id, profile) {
+    try {
+      const response = await apiClient.request(`/api/employers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(profile),
+      });
+      return { data: response.data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
+
+  async createEmployee(profile) {
+    try {
+      const response = await apiClient.request('/api/employees', {
+        method: 'POST',
+        body: JSON.stringify(profile),
+      });
+      return { data: response.data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
+
+  async updateEmployee(id, profile) {
+    try {
+      const response = await apiClient.request(`/api/employees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(profile),
+      });
+      return { data: response.data, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
   // Jobs
   async getJobs() {
     try {

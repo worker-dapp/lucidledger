@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import apiClient from '../api/apiClient';
+import apiService from '../api/apiService';
 import Navbar from "../components/Navbar";
 
 const UserProfile = () => {
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
+  const walletAddress = primaryWallet?.address || '';
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -100,7 +101,7 @@ const UserProfile = () => {
     if (!validateForm()) return;
     setLoading(true);
     try {
-      const response = await apiClient.updateProfile({
+      const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
         email: formData.email,
@@ -110,13 +111,20 @@ const UserProfile = () => {
         country: formData.country,
         zip_code: formData.zipCode,
         state: formData.state,
-        city: formData.city
-      });
+        city: formData.city,
+        wallet_address: walletAddress,
+      };
 
-      if (response.data) {
-        // client-side state sync can be handled elsewhere if needed
-        setSubmitted(true);
+      const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
+      if (role === 'employer') {
+        const { error } = await apiService.createEmployer(payload);
+        if (error) throw error;
+      } else {
+        const { error } = await apiService.createEmployee(payload);
+        if (error) throw error;
       }
+
+      setSubmitted(true);
     } catch (error) {
       console.error('Error updating profile:', error);
       setErrors({ submit: 'Failed to update profile. Please try again.' });
@@ -128,8 +136,8 @@ const UserProfile = () => {
   return (
     <>
       <Navbar />
-      <div className="w-2/3 mx-auto m-10 px-10 py-5 bg-white rounded shadow-md">
-        <h1 className="text-3xl font-bold text-[#0D3B66] mb-6">Complete Your Profile</h1>
+      <div className="w-2/3 mx-auto m-10 px-10 bg-white rounded shadow-md">
+        <h1 className="text-3xl font-bold text-[#0D3B66] mb-6 text-center">Complete Your Profile</h1>
 
         {submitted && (
           <div className="mb-4 p-3 rounded bg-green-50 text-green-700 border border-green-200">
