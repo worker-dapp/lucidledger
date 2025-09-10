@@ -248,5 +248,7 @@ class ApiService {
     }
   }
 }
-
-export default new ApiService(); 
+const apiServiceInstance = new ApiService();
+export default apiServiceInstance;
+export const createEmployer = (profile) => apiServiceInstance.createEmployer(profile);
+export const createEmployee = (profile) => apiServiceInstance.createEmployee(profile);
