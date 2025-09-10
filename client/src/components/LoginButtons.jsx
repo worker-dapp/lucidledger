@@ -6,22 +6,15 @@ const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
 
   const handleEmployeeLogin = () => {
     localStorage.setItem(storageKey, "employee");
-    // notify app to refresh Dynamic view
-    window.dispatchEvent(new Event('roleSelected'));
-    // open after provider re-renders with the new view
-    setTimeout(() => {
-      setShowAuthFlow?.(true);
-      openModal?.();
-    }, 50);
+    // immediately open auth flow (provider no longer remounts)
+    setShowAuthFlow?.(true);
+    openModal?.();
   };
 
   const handleEmployerLogin = () => {
     localStorage.setItem(storageKey, "employer");
-    window.dispatchEvent(new Event('roleSelected'));
-    setTimeout(() => {
-      setShowAuthFlow?.(true);
-      openModal?.();
-    }, 50);
+    setShowAuthFlow?.(true);
+    openModal?.();
   };
 
   if (variant === "employee") {

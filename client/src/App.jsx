@@ -77,7 +77,6 @@ const App = () => {
 
   return (
     <DynamicContextProvider
-      key={selectedRole || 'default'}
       settings={{
         environmentId: "bb03ee6d-6f22-4d73-b630-439914bf6b18",
         walletConnectors: [EthereumWalletConnectors],
