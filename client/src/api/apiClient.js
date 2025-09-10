@@ -16,12 +16,6 @@ class ApiClient {
       ...options,
     };
 
-    // Add auth token if available
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
     const response = await fetch(url, config);
     const data = await response.json();
 
@@ -31,15 +25,7 @@ class ApiClient {
     return data;
   }
 
-  // Authentication methods
-  async signup(userData) {
-    return this.request('/api/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-  }
-
-  // Profile update method
+  // Profile update method (server exposes /api/auth/profile)
   async updateProfile(profileData) {
     return this.request('/api/auth/profile', {
       method: 'PUT',
@@ -47,24 +33,7 @@ class ApiClient {
     });
   }
 
-  // Helper method to set auth token
-  setAuthToken(token) {
-    if (token) {
-      localStorage.setItem('authToken', token);
-    } else {
-      localStorage.removeItem('authToken');
-    }
-  }
-
-  // Helper method to get auth token
-  getAuthToken() {
-    return localStorage.getItem('authToken');
-  }
-
-  // Helper method to check if user is authenticated
-  isAuthenticated() {
-    return !!this.getAuthToken();
-  }
+  // Token helpers no longer used; Dynamic handles auth
 }
 
 export default new ApiClient(); 

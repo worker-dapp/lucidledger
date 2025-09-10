@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import img from '../assets/profile.webp';
 import EmployeeNavbar from "../components/EmployeeNavbar";
-import { useAuth } from "../api/AuthContext";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const PencilIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -11,7 +11,7 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 );
 
 const EmployeeProfile = () => {
-  const { user } = useAuth();
+  const { user } = useDynamicContext();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');

@@ -16,9 +16,8 @@ import ViewOpenContracts from "./pages/ViewOpenContracts";
 import DAODashboard from "./pages/DAODashboard";
 import Job from "./pages/Job";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
-import { AuthProvider } from "./api/AuthContext";
-import UserProfileModal from "./components/UserProfileModal";
 import { useEffect, useState } from "react";
+import UserProfile from "./pages/UserProfile";
 
 const enhancedEmployeeView = {
   type: SdkViewType.Login,
@@ -33,14 +32,14 @@ const enhancedEmployerView = {
   type: SdkViewType.Login,
   sections: [
     { type: SdkViewSectionType.Email, label: 'Employer Login' },
+    { type: SdkViewSectionType.Separator, label: 'Or' },
     { type: SdkViewSectionType.Phone, label: 'Employer Login' },
+    { type: SdkViewSectionType.Separator, label: 'Or' },
     { type: SdkViewSectionType.Wallet, numOfItemsToDisplay: 2 },
   ]
 };
 
 const App = () => {
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [isNewUser, setIsNewUser] = useState(false);
   const [selectedRole, setSelectedRole] = useState(
     localStorage.getItem('userRole') ||
     localStorage.getItem('pendingRole') ||
@@ -75,15 +74,6 @@ const App = () => {
     };
   }, []);
 
-  const handleProfileComplete = (profileData) => {
-    console.log("Profile completed:", profileData);
-    setIsNewUser(false);
-  };
-
-  const handleCloseProfileModal = () => {
-    setShowProfileModal(false);
-    setIsNewUser(false);
-  };
 
   return (
     <DynamicContextProvider
@@ -113,6 +103,12 @@ const App = () => {
         },
         events: {
           onAuthSuccess: (args) => {
+            const isNew = args?.user?.newUser === true;
+            if (isNew) {
+              window.location.href = '/user-profile';
+              return;
+            }
+
             const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
             if (userRole === 'employee') {
               window.location.href = '/employeeDashboard';
@@ -124,7 +120,6 @@ const App = () => {
       }}
     >
       <div>
-        <AuthProvider>
           <Routes>
             <Route path="*" element={<h1>404 - Not Found</h1>} />
             <Route path="/" element={<LandingPage />} />
@@ -142,15 +137,8 @@ const App = () => {
             <Route path="/job" element={<Job />} />
             <Route path="/new-job" element={<Job />} />
             <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
+            <Route path="/user-profile" element={<UserProfile />} />
           </Routes>
-
-          {/* User Profile Completion Modal */}
-          <UserProfileModal
-            isOpen={showProfileModal}
-            onClose={handleCloseProfileModal}
-            onComplete={handleProfileComplete}
-          />
-        </AuthProvider>
       </div>
     </DynamicContextProvider>
   );

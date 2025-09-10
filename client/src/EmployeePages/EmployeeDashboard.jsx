@@ -2,12 +2,11 @@ import React, { useState } from "react";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import JobLandingHero from "../components/JobLandingHero";
 import Footer from "../components/Footer";
-import { useAuth } from "../api/AuthContext";
-import UserProfileModal from "../components/UserProfileModal";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { User } from "lucide-react";
 
 const EmployeeDashboard = () => {
-  const { user, isProfileComplete } = useAuth();
+  const { user } = useDynamicContext();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const handleProfileComplete = (profileData) => {
@@ -20,7 +19,7 @@ const EmployeeDashboard = () => {
       <EmployeeNavbar />
       
       {/* Profile Completion Alert */}
-      {user && !isProfileComplete() && (
+      {user && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 mx-4 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

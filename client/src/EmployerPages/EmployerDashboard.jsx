@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Bell, CheckCircle, XCircle, Wallet, Settings, User } from "lucide-react";
 import apiService from "../api/apiService";
 import Navbar from "../components/Navbar";
-import { useAuth } from "../api/AuthContext";
-import UserProfileModal from "../components/UserProfileModal";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const EmployerDashboard = () => {
   const [userName, setUserName] = useState("");
@@ -14,7 +13,7 @@ const EmployerDashboard = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [walletInfo, setWalletInfo] = useState(null);
   const navigate = useNavigate();
-  const { user, isProfileComplete } = useAuth();
+  const { user } = useDynamicContext();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,7 +73,7 @@ const EmployerDashboard = () => {
       <Navbar />
 
       {/* Profile Completion Alert */}
-      {user && !isProfileComplete() && (
+      {user && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">

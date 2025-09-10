@@ -121,19 +121,10 @@ class ApiService {
     }
   }
 
-  // Users/Profiles
-  async getUserProfile() {
-    try {
-      const response = await apiClient.request('/api/auth/me', { method: 'GET' });
-      return { data: response.data, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
-  }
-
+  // Users/Profiles (only update supported client-side)
   async updateUserProfile(profileData) {
     try {
-      const response = await apiClient.request('/api/users/profile', {
+      const response = await apiClient.request('/api/auth/profile', {
         method: 'PUT',
         body: JSON.stringify(profileData),
       });

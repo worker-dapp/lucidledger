@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import img from "../assets/profile.webp";
 import Navbar from "../components/Navbar";
-import { useAuth } from "../api/AuthContext";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const EmployerProfile = () => {
   const [employerData, setEmployerData] = useState(null);
 
-  const { user } = useAuth();
+  const { user } = useDynamicContext();
 
   useEffect(() => {
     if (user) {
