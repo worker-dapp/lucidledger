@@ -2,19 +2,26 @@ import React from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const LoginButtons = ({ variant = "both", storageKey = "userRole" }) => {
-  const { setShowAuthFlow } = useDynamicContext();
+  const { setShowAuthFlow, openModal } = useDynamicContext();
 
   const handleEmployeeLogin = () => {
     localStorage.setItem(storageKey, "employee");
-    setShowAuthFlow(true);
     // notify app to refresh Dynamic view
     window.dispatchEvent(new Event('roleSelected'));
+    // open after provider re-renders with the new view
+    setTimeout(() => {
+      setShowAuthFlow?.(true);
+      openModal?.();
+    }, 50);
   };
 
   const handleEmployerLogin = () => {
     localStorage.setItem(storageKey, "employer");
-    setShowAuthFlow(true);
     window.dispatchEvent(new Event('roleSelected'));
+    setTimeout(() => {
+      setShowAuthFlow?.(true);
+      openModal?.();
+    }, 50);
   };
 
   if (variant === "employee") {

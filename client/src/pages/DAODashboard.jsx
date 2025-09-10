@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import apiService from "../api/apiService";
 import Navbar from "../components/Navbar";
-import { useAuth } from "../api/AuthContext";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const DaoDashboard = () => {
   const [walletInfo, setWalletInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user } = useDynamicContext();
 
   useEffect(() => {
     const fetchWallet = async () => {

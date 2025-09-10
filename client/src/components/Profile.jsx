@@ -1,7 +1,7 @@
-import { useAuth } from '../api/AuthContext';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
 export default function Profile() {
-  const { user, session, loading } = useAuth();
+  const { user } = useDynamicContext();
 
   if (loading) return <p>Loading...</p>;
   if (!user) return <p>Please log in.</p>;

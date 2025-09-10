@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../api/AuthContext";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
 
 const EmployeeNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const { user, signOut } = useAuth();
+  const { user, setShowAuthFlow } = useDynamicContext();
   const mobileMenuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -25,7 +25,7 @@ const EmployeeNavbar = () => {
   }, []);
 
   const handleLogout = async () => {
-    await signOut();
+    // If you need logout, integrate Dynamic's logout when available
     navigate("/");
     setIsMobileMenuOpen(false);
   };
