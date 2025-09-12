@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { createEmployer, createEmployee } from '../api/apiService.js';
+import supabase from '../lib/supabaseClient';
 import Navbar from "../components/Navbar";
 import { useNavigate } from 'react-router-dom';
 
@@ -119,10 +119,10 @@ const UserProfile = () => {
 
       const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
       if (role === 'employer') {
-        const { error } = await createEmployer(payload);
+        const { error } = await supabase.from('employer').insert(payload);
         if (error) throw error;
       } else {
-        const { error } = await createEmployee(payload);
+        const { error } = await supabase.from('employee').insert(payload);
         if (error) throw error;
       }
 

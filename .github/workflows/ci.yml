@@ -38,29 +38,6 @@ jobs:
           VITE_API_URL: https://lucidledger.co
         run: npm run build
 
-  server:
-    name: Server - Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: server
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
-
-      - name: Install deps
-        run: npm install
-
-      - name: Build (validate start script)
-        run: node -e "require('fs').accessSync('server.js')"
-
   security:
     name: Security - Dependency Audit
     runs-on: ubuntu-latest
@@ -77,19 +54,6 @@ jobs:
 
       - name: Client audit
         working-directory: client
-        run: |
-          npm install
-          npm audit --audit-level=moderate || true
-
-      - name: Setup Node (Server)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
-
-      - name: Server audit
-        working-directory: server
         run: |
           npm install
           npm audit --audit-level=moderate || true

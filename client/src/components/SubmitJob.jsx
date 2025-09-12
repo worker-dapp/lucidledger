@@ -1,4 +1,4 @@
-import apiService from "../api/apiService";
+import supabase from "../lib/supabaseClient";
 
 export async function SubmitJob(formData) {
   try {
@@ -26,7 +26,7 @@ export async function SubmitJob(formData) {
       company_description: formData.companyDescription,
     };
 
-    const { data, error } = await apiService.createJob(jobData);
+    const { data, error } = await supabase.from('jobs').insert(jobData).select('*').single();
 
     if (error) {
       console.error("Error creating job:", error);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import apiService from "../api/apiService";
+import supabase from "../lib/supabaseClient";
 
 const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
@@ -24,7 +24,7 @@ const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
   useEffect(() => {
     const fetchJobs = async () => {
-      const { data, error } = await apiService.getJobs();
+      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
 
       if (error) {
         console.error("Error fetching jobs:", error);
@@ -81,7 +81,7 @@ const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
   const handleJobStatusUpdate = async (jobId, newStatus) => {
     try {
-      const { error } = await apiService.updateJob(jobId, { status: newStatus });
+      const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
       
       if (error) {
         console.error("Error updating job:", error);

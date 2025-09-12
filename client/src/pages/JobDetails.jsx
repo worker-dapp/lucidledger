@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import apiService from "../api/apiService";
+import supabase from "../lib/supabaseClient";
 import Navbar from "../components/Navbar";
 
 const JobDetails = () => {
@@ -13,21 +13,16 @@ const JobDetails = () => {
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
-        const { data, error } = await apiService.getJobById(id);
+        const { data, error } = await supabase.from('jobs').select('*').eq('id', id).single();
         if (error) {
           console.error("Error fetching job details:", error);
-          // Fallback to mock data for development
-          const mockData = apiService.getMockData('jobs');
-          const mockJob = mockData.data.find(j => j.id == id);
-          setJob(mockJob);
+          setJob(null);
         } else {
           setJob(data);
         }
       } catch (error) {
         console.error("Error fetching job details:", error);
-        const mockData = apiService.getMockData('jobs');
-        const mockJob = mockData.data.find(j => j.id == id);
-        setJob(mockJob);
+        setJob(null);
       } finally {
         setLoading(false);
       }

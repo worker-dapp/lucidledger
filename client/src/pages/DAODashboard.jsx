@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import apiService from "../api/apiService";
+import supabase from "../lib/supabaseClient";
 import Navbar from "../components/Navbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
@@ -13,7 +13,7 @@ const DaoDashboard = () => {
       if (!user) return;
 
       try {
-        const { data, error } = await apiService.getWallet();
+        const { data, error } = await supabase.from('wallets').select('*').single();
         if (!error && data) {
           setWalletInfo(data);
         }

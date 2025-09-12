@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
-import apiService from "../api/apiService";
+import supabase from "../lib/supabaseClient";
 
 const EmployeeJobsPage = () => {
   const [jobs, setJobs] = useState([]);
@@ -34,7 +34,7 @@ const EmployeeJobsPage = () => {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await apiService.getJobs();
+      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
       
       if (error) {
         setError('Failed to fetch jobs');
