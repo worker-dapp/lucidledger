@@ -78,7 +78,7 @@ const App = () => {
   return (
     <DynamicContextProvider
       settings={{
-        environmentId: "bb03ee6d-6f22-4d73-b630-439914bf6b18",
+        environmentId: import.meta.env.VITE_DYNAMIC_ENV_ID,
         walletConnectors: [EthereumWalletConnectors],
         overrides: { views: getLoginView() ? [getLoginView()] : [] },
         handlers: {

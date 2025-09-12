@@ -1,15 +1,4 @@
 services:
-  backend:
-    build: ./server
-    container_name: server
-    ports:
-      - "5001:5001"
-    env_file:
-      - ./server/.env
-    restart: unless-stopped
-    networks:
-      - app-network
-
   frontend:
     build: ./client
     container_name: client
@@ -17,8 +6,6 @@ services:
       - "5173:5173"
     env_file:
       - ./client/.env
-    depends_on:
-      - backend
     restart: unless-stopped
     networks:
       - app-network

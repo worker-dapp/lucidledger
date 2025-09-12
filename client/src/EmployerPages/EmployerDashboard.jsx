@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, CheckCircle, XCircle, Wallet, Settings, User } from "lucide-react";
-import apiService from "../api/apiService";
+import supabase from "../lib/supabaseClient";
 import Navbar from "../components/Navbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
@@ -20,7 +20,7 @@ const EmployerDashboard = () => {
         setUserName(user.first_name || user.email.split("@")[0]);
 
         try {
-          const { data, error } = await apiService.getWallet();
+          const { data, error } = await supabase.from('wallets').select('*').single();
           if (!error && data) {
             setWalletInfo(data);
           }
@@ -30,7 +30,7 @@ const EmployerDashboard = () => {
       }
 
       try {
-        const { data: contracts, error: contractError } = await apiService.getContracts();
+        const { data: contracts, error: contractError } = await supabase.from('contracts').select('*');
         if (!contractError && contracts) {
           const unreviewed = contracts.filter(
             (contract) => contract.status === "open" && !contract.reviewed
@@ -39,12 +39,7 @@ const EmployerDashboard = () => {
         }
       } catch (error) {
         console.error("Error fetching contracts:", error);
-        // Fallback to mock data
-        const mockData = apiService.getMockData('contracts');
-        const unreviewed = mockData.data.filter(
-          (contract) => contract.status === "open" && !contract.reviewed
-        );
-        setUnreviewedContracts(unreviewed);
+        setUnreviewedContracts([]);
       }
     };
 
@@ -53,7 +48,7 @@ const EmployerDashboard = () => {
 
   const handleReview = async (id) => {
     try {
-      const { error } = await apiService.updateContract(id, { reviewed: true });
+      const { error } = await supabase.from('contracts').update({ reviewed: true }).eq('id', id);
       if (!error) {
         setUnreviewedContracts((prev) => prev.filter((c) => c.id !== id));
       }
