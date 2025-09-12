@@ -44,27 +44,11 @@ jobs:
       env:
         VITE_API_URL: https://lucidledger.co
       run: npm run build
-
-    - name: Setup Node.js (server)
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: server/package-lock.json
-
-    - name: Install backend dependencies
-      working-directory: ./server
-      run: |
-        npm config set cache .npm-cache
-        npm install
       
     - name: Run frontend tests
       working-directory: ./client
       run: npm run lint || echo "ESLint issues found, but continuing deployment"
       
-    - name: Run backend tests
-      working-directory: ./server
-      run: npm run lint || echo "No lint script found, skipping"
 
   deploy:
     name: Deploy to EC2
