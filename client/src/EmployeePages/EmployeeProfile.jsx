@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import img from '../assets/profile.webp';
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import supabase from "../lib/supabaseClient";
 
 const PencilIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -11,7 +12,7 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 );
 
 const EmployeeProfile = () => {
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -32,6 +33,8 @@ const EmployeeProfile = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [userDetails, setUserDetails] = useState(null);
 
   // Skills state
   const [skills, setSkills] = useState([]);
@@ -48,32 +51,124 @@ const EmployeeProfile = () => {
     { title: '',description: '', startDate: '', endDate: '' }
   ]);
 
+  // Fetch user details from Supabase
+  const fetchUserDetails = async () => {
+    if (!user || !primaryWallet?.address) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('employee')
+        .select('*')
+        .eq('wallet_address', primaryWallet.address)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Error fetching user details:', error);
+        setMessage('Error loading profile data');
+      } else if (data) {
+        setUserDetails(data);
+        // Populate form fields with fetched data
+        setFirstName(data.first_name || '');
+        setLastName(data.last_name || '');
+        setEmail(data.email || '');
+        setPhone(data.phone_number || '');
+        setAddress1(data.street_address || '');
+        setCity(data.city || '');
+        setStateRegion(data.state || '');
+        setPostalCode(data.zip_code || '');
+        setCountry(data.country || '');
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      setMessage('Error loading profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserDetails();
+  }, [user, primaryWallet]);
+
   useEffect(() => {
     if (user) {
-      setFirstName(user.first_name || '');
-      setLastName(user.last_name || '');
-      setEmail(user.email || '');
-      // Optionally hydrate phone/address/skills/experience from API later
+      // Fallback to Dynamic Labs user data if Supabase data not available
+      if (!userDetails) {
+        setFirstName(user.first_name || '');
+        setLastName(user.last_name || '');
+        setEmail(user.email || '');
+      }
     }
-  }, [user]);
+  }, [user, userDetails]);
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
 
-  const simulateSave = async (note = 'Profile updated') => {
+  const saveToSupabase = async (data, note = 'Profile updated') => {
     setIsSaving(true);
     setMessage('');
-    await new Promise((r) => setTimeout(r, 500));
-    setIsSaving(false);
-    setMessage(note);
+    
+    try {
+      if (!primaryWallet?.address) {
+        throw new Error('Wallet address not available');
+      }
+
+      const payload = {
+        ...data,
+        wallet_address: primaryWallet.address,
+        updated_at: new Date().toISOString()
+      };
+
+      if (userDetails) {
+        // Update existing record
+        const { error } = await supabase
+          .from('employee')
+          .update(payload)
+          .eq('wallet_address', primaryWallet.address);
+        
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('employee')
+          .insert(payload);
+        
+        if (error) throw error;
+      }
+
+      setMessage(note);
+      // Refresh user details
+      await fetchUserDetails();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setMessage('Error saving profile data');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveContact = async () => {
-    await simulateSave('Contact information saved');
+    const contactData = {
+      first_name: firstName,
+      last_name: lastName,
+      email: email,
+      phone_number: phone
+    };
+    await saveToSupabase(contactData, 'Contact information saved');
     setIsEditingContact(false);
   };
 
   const handleSaveAddress = async () => {
-    await simulateSave('Address saved');
+    const addressData = {
+      street_address: address1,
+      city: city,
+      state: stateRegion,
+      zip_code: postalCode,
+      country: country
+    };
+    await saveToSupabase(addressData, 'Address saved');
     setIsEditingAddress(false);
   };
 
@@ -108,11 +203,13 @@ const EmployeeProfile = () => {
     setSkills(prev => prev.filter(s => s !== value));
   };
 
-  // Debounced auto-save for skills (simulated)
+  // Debounced auto-save for skills
   useEffect(() => {
     if (!skills) return;
     const t = setTimeout(() => {
-      if (skills.length >= 0) simulateSave('Skills saved');
+      if (skills.length >= 0) {
+        saveToSupabase({ skills: skills }, 'Skills saved');
+      }
     }, 800);
     return () => clearTimeout(t);
   }, [skills]);
@@ -131,8 +228,24 @@ const EmployeeProfile = () => {
   };
 
   const saveExperiences = async () => {
-    await simulateSave('Work experience saved');
+    await saveToSupabase({ work_experience: experiences }, 'Work experience saved');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <EmployeeNavbar />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading profile...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">

@@ -7,7 +7,7 @@ import LogoutButton from "./LogoutButton";
 const EmployeeNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const { user, setShowAuthFlow } = useDynamicContext();
+  const { user } = useDynamicContext();
   const mobileMenuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -24,12 +24,6 @@ const EmployeeNavbar = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  const handleLogout = async () => {
-    // If you need logout, integrate Dynamic's logout when available
-    navigate("/");
-    setIsMobileMenuOpen(false);
-  };
 
   const handleHomeClick = () => {
     navigate('/employeeDashboard');
