@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import img from "../assets/profile.webp";
-import Navbar from "../components/Navbar";
+import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import supabase from "../lib/supabaseClient";
 
@@ -57,7 +57,7 @@ const EmployerProfile = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FFFFFF]">
-        <Navbar />
+        <EmployerNavbar />
         <div className="flex flex-col justify-center items-center p-20 gap-10">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
@@ -70,7 +70,7 @@ const EmployerProfile = () => {
 
   return (
     <div className="min-h-screen bg-[#FFFFFF]">
-      <Navbar />
+      <EmployerNavbar />
       <div className="flex flex-col justify-center items-center p-20 gap-10">
         <div className="w-full bg-[#FAF0CA] p-8 rounded-2xl shadow-md flex items-center gap-8">
           <img

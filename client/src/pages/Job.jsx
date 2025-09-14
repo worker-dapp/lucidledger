@@ -5,7 +5,7 @@ import EmploymentType from "../Form/EmploymentType";
 import Responsibilities from "../Form/Responsibilities";
 import TheJob from "../Form/TheJob"
 import ContractFactory from "../Form/ContractFactory";
-import Navbar from "../components/Navbar";
+import EmployerNavbar from "../components/EmployerNavbar";
 import Oracles from "../Form/Oracles";
 import { SubmitJob } from "../components/SubmitJob";
 
@@ -118,7 +118,7 @@ export default function Job() {
 
   return (
     <>
-    <Navbar />
+    <EmployerNavbar />
     <div className="w-2/3 mx-auto m-10 p-10 bg-white rounded shadow-md">
       <StepIndicator
         currentStep={step}
