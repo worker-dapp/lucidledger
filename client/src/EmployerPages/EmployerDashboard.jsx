@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, CheckCircle, XCircle, Wallet, Settings, User } from "lucide-react";
 import supabase from "../lib/supabaseClient";
-import Navbar from "../components/Navbar";
+import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const EmployerDashboard = () => {
@@ -61,7 +61,7 @@ const EmployerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#FFFFFF] relative">
-      <Navbar />
+      <EmployerNavbar />
 
       {/* Profile Completion Alert */}
       {user && (
