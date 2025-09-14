@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
+import LogoutButton from "./LogoutButton";
 
 const EmployeeNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -97,6 +98,7 @@ const EmployeeNavbar = () => {
             <span>🆘</span>
             Support Center
           </NavLink>
+          <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
         </div>
 
         {/* Mobile Menu Button */}
@@ -157,11 +159,7 @@ const EmployeeNavbar = () => {
                       <p className="text-[#F4D35E] text-sm">Employee</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={handleLogout} 
-                    className='bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-all'>
-                    Log Out
-                  </button>
+                  <LogoutButton className='bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-all' />
                 </div>
               </div>
             )}

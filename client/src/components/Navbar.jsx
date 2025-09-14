@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { NavLink, Link } from "react-router-dom";
 import logo from "../assets/Android.png";
+import LogoutButton from "./LogoutButton";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -53,6 +54,7 @@ const Navbar = () => {
           >
             About Us
           </NavLink>
+          <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
 
         {/* Mobile Menu Button */}
         <div className="lg:hidden">
