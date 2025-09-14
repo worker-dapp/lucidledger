@@ -17,7 +17,6 @@ import DAODashboard from "./pages/DAODashboard";
 import Job from "./pages/Job";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { useEffect, useState } from "react";
-import UserProfile from "./pages/UserProfile";
 
 const enhancedEmployeeView = {
   type: SdkViewType.Login,
@@ -134,9 +133,7 @@ const App = () => {
             <Route path="/view-open-contracts" element={<ViewOpenContracts />} />
             <Route path="/dao" element={<DAODashboard />} />
             <Route path="/job" element={<Job />} />
-            <Route path="/new-job" element={<Job />} />
             <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
-            <Route path="/user-profile" element={<UserProfile />} />
           </Routes>
       </div>
     </DynamicContextProvider>

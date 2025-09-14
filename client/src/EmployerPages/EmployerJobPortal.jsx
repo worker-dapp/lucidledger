@@ -130,7 +130,7 @@ const EmployerJobPortal = () => {
 
         {/* Button or Link to create new job */}
         <Link
-          to="/new-job"
+          to="/job"
           className="bg-[#EE964B] text-white px-6 py-2 rounded-full shadow-md hover:bg-[#d97b33] transition">
           Create a new Job
         </Link>
