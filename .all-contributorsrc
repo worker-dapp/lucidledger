@@ -1,9 +1,13 @@
 {
   "projectName": "lucidledger",
   "projectOwner": "worker-dapp",
+  "repoType": "github",
+  "repoHost": "https://github.com",
   "files": [
-    "README.md"
+    "CONTRIBUTERS.md"
   ],
+  "imageSize": 100,
+  "commit": true,
   "commitType": "docs",
   "commitConvention": "angular",
   "contributorsPerLine": 7,
@@ -23,3 +27,4 @@
     }
   ]
 }
+
