@@ -16,14 +16,14 @@ Thank you for your interest in contributing to this project. We are a collaborat
 
 ## Contributor Lifecycle Policy
 
-We are an academic project with many contributors who rotate in and out (e.g., students, research assistants). To balance collaboration and governance, we follow this lifecycle:
+We are an open source project with many contributors who rotate in and out (e.g., students, research assistants and members of the broader OS community). To balance collaboration and governance, we follow this lifecycle:
 
 1. **External Contributor**  
    - Anyone may submit pull requests.  
    - Contributions are attributed via Git history automatically.  
 
 2. **Member**  
-   - Active students/researchers may be invited to join the organization as *Members*.  
+   - Active contributors may be invited to join the organization as *Members*.  
    - Members typically receive **Write** or **Maintain** access to specific repositories.  
 
 3. **Owner**  
@@ -32,7 +32,7 @@ We are an academic project with many contributors who rotate in and out (e.g., s
    - The number of owners is intentionally small for security and sustainability.  
 
 4. **Alumni**  
-   - When a student/researcher completes their role, they are removed from organization membership.  
+   - When a contributor completes their role, they are removed from organization membership.  
    - Their contributions remain permanently visible in Git history and the Contributors graph.  
    - They may also be listed in `CONTRIBUTORS.md` or via the [all-contributors bot](https://allcontributors.org/) to recognize their efforts.  
 
