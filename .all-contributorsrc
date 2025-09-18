@@ -1,4 +1,25 @@
 {
-  "projectName": "<insert the repo's name>",
-  "projectOwner": "<insert the repo's owner/orgs>"
+  "projectName": "lucidledger",
+  "projectOwner": "worker-dapp",
+  "files": [
+    "README.md"
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "eteitelbaum",
+      "name": "Emmanuel Teitelbaum",
+      "avatar_url": "https://avatars.githubusercontent.com/u/62634082?v=4",
+      "profile": "http://www.emmanuelteitelbaum.com",
+      "contributions": [
+        "ideas",
+        "doc",
+        "promotion",
+        "design",
+        "code"
+      ]
+    }
+  ]
 }
