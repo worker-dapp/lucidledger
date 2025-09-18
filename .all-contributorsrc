@@ -24,7 +24,18 @@
         "design",
         "code"
       ]
+    },
+    {
+      "login": "hanumantjain",
+      "name": "Hanumant Jain",
+      "avatar_url": "https://avatars.githubusercontent.com/u/75195679?v=4",
+      "profile": "http://hanumantjain.tech",
+      "contributions": [
+        "code",
+        "infra",
+        "ideas",
+        "doc"
+      ]
     }
   ]
 }
-
