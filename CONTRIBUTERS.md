@@ -5,11 +5,10 @@ Many thanks to these amazing collaborators:
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
-<table>
-  <!-- bot will fill this table automatically -->
-</table>
+
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
+
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ---
@@ -35,3 +34,4 @@ When contributors move on from active development, they remain listed here in re
 ---
 
 ✨ *This project follows the [all-contributors](https://allcontributors.org/) specification. Contributions of any kind are welcome!*  
+
