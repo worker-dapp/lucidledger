@@ -5,6 +5,13 @@ Many thanks to these amazing collaborators:
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="http://www.emmanuelteitelbaum.com"><img src="https://avatars.githubusercontent.com/u/62634082?v=4?s=100" width="100px;" alt="Emmanuel Teitelbaum"/><br /><sub><b>Emmanuel Teitelbaum</b></sub></a><br /><a href="#ideas-eteitelbaum" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/worker-dapp/lucidledger/commits?author=eteitelbaum" title="Documentation">📖</a> <a href="#promotion-eteitelbaum" title="Promotion">📣</a> <a href="#design-eteitelbaum" title="Design">🎨</a> <a href="https://github.com/worker-dapp/lucidledger/commits?author=eteitelbaum" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
