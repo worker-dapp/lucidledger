@@ -94,6 +94,11 @@ const App = () => {
         environmentId: dynamicEnvId,
         walletConnectors: [EthereumWalletConnectors],
         overrides: { views: getLoginView() ? [getLoginView()] : [] },
+        // Add debug info for production
+        ...(import.meta.env.MODE === 'production' && {
+          debugMode: true,
+          enableLogging: true,
+        }),
         handlers: {
           handleAuthenticatedUser: async (args) => {
             try {
