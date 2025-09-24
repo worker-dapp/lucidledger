@@ -1,0 +1,32 @@
+FROM node:20.18-alpine
+
+WORKDIR /app
+
+# Suppress npm update notices
+RUN npm config set update-notifier false
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (tolerate lockfile drift inside container)
+RUN npm install --no-audit --no-fund && npm cache clean --force
+
+# Copy the rest of the application code
+COPY . .
+
+# Create a non-root user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Change ownership of the app directory
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+EXPOSE 5001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:5001/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Start the server
+CMD ["npm", "run", "dev"]

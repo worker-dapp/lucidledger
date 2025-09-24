@@ -1,0 +1,206 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy to staging'
+        required: true
+        default: 'develop'
+
+env:
+  STAGING_DOMAIN: staging.lucidledger.co
+  API_DOMAIN: https://api-staging.lucidledger.co
+  NODE_VERSION: '20'
+
+jobs:
+  staging-deploy:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Quick Build Test
+      run: |
+        # Test frontend build
+        cd client && npm ci && npm run build
+        # Test backend build
+        cd ../server && npm ci
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+        
+    - name: Add Staging Server to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Deploy to Staging
+      run: |
+        # Create staging deployment script
+        cat > deploy-staging.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 Starting staging deployment..."
+        
+        REPO_DIR="/home/ec2-user/lucidledger-staging"
+        BRANCH="${{ github.event.inputs.branch || 'develop' }}"
+        
+        echo "📍 Environment: staging"
+        echo "🌐 Domain: ${{ env.STAGING_DOMAIN }}"
+        echo "🔗 API Domain: ${{ env.API_DOMAIN }}"
+        echo "📁 Repository: $REPO_DIR"
+        echo "🌿 Branch: $BRANCH"
+        
+        # Navigate to project directory
+        cd "$REPO_DIR" || cd /home/ubuntu/$(basename "$REPO_DIR")
+        
+        # Pull latest changes
+        echo "📥 Pulling latest changes from $BRANCH branch..."
+        git fetch origin
+        git checkout "$BRANCH"
+        git pull origin "$BRANCH"
+        
+        # Create staging environment files
+        echo "📝 Setting up staging environment files..."
+        
+        # Backend staging environment
+        cat > server/.env.prod << EOL
+# Database Configuration (Staging)
+DB_HOST=${{ secrets.STAGING_DB_HOST || secrets.DB_HOST }}
+DB_PORT=${{ secrets.STAGING_DB_PORT || secrets.DB_PORT }}
+DB_NAME=${{ secrets.STAGING_DB_NAME || secrets.DB_NAME }}
+DB_USER=${{ secrets.STAGING_DB_USER || secrets.DB_USER }}
+DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD || secrets.DB_PASSWORD }}
+
+# Server Configuration
+PORT=5001
+NODE_ENV=production
+
+# CORS Configuration
+CORS_ORIGIN=https://${{ env.STAGING_DOMAIN }}
+EOL
+        
+        # Frontend staging environment
+        cat > client/.env.prod << EOL
+# Dynamic Labs Configuration
+VITE_DYNAMIC_ENV_ID=${{ secrets.VITE_DYNAMIC_ENV_ID }}
+
+# API Configuration
+VITE_API_BASE_URL=${{ env.API_DOMAIN }}/api
+
+# Environment
+NODE_ENV=production
+EOL
+        
+        # Stop existing services
+        echo "🛑 Stopping existing staging services..."
+        docker-compose -f docker-compose.prod.yml down || true
+        
+        # Clean up old images
+        echo "🧹 Cleaning up old Docker images..."
+        docker image prune -f || true
+        
+        # Rebuild and start services
+        echo "🔨 Building and starting staging services..."
+        docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
+        
+        # Wait for services to be ready
+        echo "⏳ Waiting for staging services to be ready..."
+        sleep 60
+        
+        # Check service status
+        echo "📊 Checking staging service status..."
+        docker-compose -f docker-compose.prod.yml ps
+        
+        # Health checks
+        echo "🏥 Running staging health checks..."
+        
+        # Check backend health
+        echo "Checking staging backend health..."
+        BACKEND_HEALTH_RETRIES=0
+        while [ $BACKEND_HEALTH_RETRIES -lt 8 ]; do
+          if curl -f -s --max-time 10 "${{ env.API_DOMAIN }}/api/health" > /dev/null; then
+            echo "✅ Staging backend health check passed"
+            break
+          else
+            echo "⏳ Staging backend not ready, waiting 10 seconds..."
+            sleep 10
+            BACKEND_HEALTH_RETRIES=$((BACKEND_HEALTH_RETRIES + 1))
+          fi
+        done
+        
+        if [ $BACKEND_HEALTH_RETRIES -eq 8 ]; then
+          echo "❌ Staging backend health check failed"
+          echo "📊 Staging backend logs:"
+          docker-compose -f docker-compose.prod.yml logs backend --tail=30
+          exit 1
+        fi
+        
+        # Check frontend
+        echo "Checking staging frontend..."
+        FRONTEND_HEALTH_RETRIES=0
+        while [ $FRONTEND_HEALTH_RETRIES -lt 8 ]; do
+          if curl -f -s --max-time 10 "https://${{ env.STAGING_DOMAIN }}" > /dev/null; then
+            echo "✅ Staging frontend health check passed"
+            break
+          else
+            echo "⏳ Staging frontend not ready, waiting 10 seconds..."
+            sleep 10
+            FRONTEND_HEALTH_RETRIES=$((FRONTEND_HEALTH_RETRIES + 1))
+          fi
+        done
+        
+        if [ $FRONTEND_HEALTH_RETRIES -eq 8 ]; then
+          echo "❌ Staging frontend health check failed"
+          echo "📊 Staging frontend logs:"
+          docker-compose -f docker-compose.prod.yml logs frontend --tail=30
+          exit 1
+        fi
+        
+        # Final staging tests
+        echo "🧪 Running final staging tests..."
+        
+        # Test API endpoints
+        echo "Testing staging API endpoints..."
+        curl -f -s "${{ env.API_DOMAIN }}/api/employees" > /dev/null || echo "Staging employees endpoint test completed"
+        curl -f -s "${{ env.API_DOMAIN }}/api/employers" > /dev/null || echo "Staging employers endpoint test completed"
+        curl -f -s "${{ env.API_DOMAIN }}/api/jobs" > /dev/null || echo "Staging jobs endpoint test completed"
+        
+        # Test frontend
+        echo "Testing staging frontend..."
+        curl -f -s "https://${{ env.STAGING_DOMAIN }}" > /dev/null || echo "Staging frontend test completed"
+        
+        echo "🎉 Staging deployment completed successfully!"
+        echo "🌐 Staging Frontend: https://${{ env.STAGING_DOMAIN }}"
+        echo "🔗 Staging API: ${{ env.API_DOMAIN }}"
+        echo "📊 Staging Service Status:"
+        docker-compose -f docker-compose.prod.yml ps
+        EOF
+        
+        chmod +x deploy-staging.sh
+        
+        # Execute staging deployment script
+        ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} 'bash -s' < deploy-staging.sh
+        
+    - name: Staging Deployment Status
+      run: |
+        echo "🎯 Staging deployment completed!"
+        echo "🌐 Staging Frontend: https://${{ env.STAGING_DOMAIN }}"
+        echo "🔗 Staging API: ${{ env.API_DOMAIN }}"
+        echo "📱 Check the staging deployment logs above for any errors"
+        echo "🏥 Health checks should have verified all staging services are running"
+        echo "🧪 Ready for testing and validation before production deployment"

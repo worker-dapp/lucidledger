@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, CheckCircle, XCircle, Wallet, Settings, User } from "lucide-react";
-import supabase from "../lib/supabaseClient";
 import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import apiService from '../services/api';
 
 const EmployerDashboard = () => {
   const [userName, setUserName] = useState("");
@@ -20,9 +20,10 @@ const EmployerDashboard = () => {
         setUserName(user.first_name || user.email.split("@")[0]);
 
         try {
-          const { data, error } = await supabase.from('wallets').select('*').single();
-          if (!error && data) {
-            setWalletInfo(data);
+          // Get wallet info from localStorage instead of Supabase
+          const walletData = localStorage.getItem('walletInfo');
+          if (walletData) {
+            setWalletInfo(JSON.parse(walletData));
           }
         } catch (error) {
           console.error("Error fetching wallet:", error);
@@ -30,8 +31,10 @@ const EmployerDashboard = () => {
       }
 
       try {
-        const { data: contracts, error: contractError } = await supabase.from('contracts').select('*');
-        if (!contractError && contracts) {
+        // Get contracts from localStorage instead of Supabase
+        const contractsData = localStorage.getItem('contracts');
+        if (contractsData) {
+          const contracts = JSON.parse(contractsData);
           const unreviewed = contracts.filter(
             (contract) => contract.status === "open" && !contract.reviewed
           );
@@ -48,8 +51,14 @@ const EmployerDashboard = () => {
 
   const handleReview = async (id) => {
     try {
-      const { error } = await supabase.from('contracts').update({ reviewed: true }).eq('id', id);
-      if (!error) {
+      // Update contract in localStorage instead of Supabase
+      const contractsData = localStorage.getItem('contracts');
+      if (contractsData) {
+        const contracts = JSON.parse(contractsData);
+        const updatedContracts = contracts.map(contract => 
+          contract.id === id ? { ...contract, reviewed: true } : contract
+        );
+        localStorage.setItem('contracts', JSON.stringify(updatedContracts));
         setUnreviewedContracts((prev) => prev.filter((c) => c.id !== id));
       }
     } catch (error) {

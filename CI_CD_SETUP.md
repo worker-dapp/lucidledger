@@ -1,15 +1,15 @@
 # CI/CD Pipeline Setup for Lucid Ledger
 
-This guide explains how to set up and use the automated CI/CD pipeline for deploying your Lucid Ledger application to EC2.
+This guide explains how to set up and use the automated CI/CD pipeline for deploying your full-stack Lucid Ledger application to EC2.
 
 ## 🏗️ **Pipeline Overview**
 
 The CI/CD pipeline consists of several workflows:
 
-1. **Main Deployment** (`deploy.yml`) - Deploys to production on main branch
-2. **Security Scanning** (`security.yml`) - Scans for vulnerabilities
-3. **SSL Renewal** (`ssl-renewal.yml`) - Automatically renews SSL certificates
-4. **Staging Deployment** (`staging.yml`) - Deploys to staging environment
+1. **CI/CD Pipeline** (`ci.yml`) - Comprehensive testing, building, and security scanning
+2. **Production Deployment** (`deploy.yml`) - Deploys full-stack to production on main branch
+3. **Staging Deployment** (`staging.yml`) - Deploys to staging environment on develop branch
+4. **SSL Renewal** (`ssl-renewal.yml`) - Automatically renews SSL certificates
 
 ## 🔧 **Setup Requirements**
 
@@ -21,17 +21,35 @@ You need to add these secrets in your GitHub repository:
 
 #### **Required Secrets:**
 ```
+# EC2 Access
 EC2_HOST          - Your EC2 instance public IP or domain
 EC2_USER          - SSH username (ec2-user or ubuntu)
 SSH_PRIVATE_KEY   - Your private SSH key for EC2 access
-EC2_INSTANCE_ID   - Your EC2 instance ID (optional)
+
+# Database Configuration
+DB_HOST           - AWS RDS endpoint
+DB_PORT           - Database port (5432)
+DB_NAME           - Database name
+DB_USER           - Database username
+DB_PASSWORD       - Database password
+
+# Application Configuration
+VITE_DYNAMIC_ENV_ID - Dynamic Labs environment ID
 ```
 
 #### **Optional Secrets (for staging):**
 ```
+# Staging EC2 Access
 STAGING_HOST      - Staging EC2 instance IP/domain
 STAGING_USER      - Staging SSH username
 STAGING_SSH_KEY   - Staging SSH private key
+
+# Staging Database (if different from production)
+STAGING_DB_HOST   - Staging database endpoint
+STAGING_DB_PORT   - Staging database port
+STAGING_DB_NAME   - Staging database name
+STAGING_DB_USER   - Staging database username
+STAGING_DB_PASSWORD - Staging database password
 ```
 
 ### **2. SSH Key Setup**
@@ -62,24 +80,61 @@ Ensure your EC2 instance has:
 
 ## 🚀 **How the Pipeline Works**
 
-### **Main Deployment Workflow:**
+### **CI/CD Pipeline (`ci.yml`):**
 
-1. **Trigger:** Push to `main` branch or create PR
-2. **Test Phase:**
+1. **Frontend Testing:**
    - Install dependencies
-   - Run linting
-   - Build frontend
-3. **Deploy Phase:**
+   - Run ESLint
+   - Build application
+   - Upload build artifacts
+
+2. **Backend Testing:**
+   - Install dependencies
+   - Test database connection
+   - Build Docker images
+   - Run linting (if available)
+
+3. **Security Scanning:**
+   - Trivy vulnerability scanner
+   - Dependency audits (frontend & backend)
+   - CodeQL analysis
+
+4. **Docker Build Testing:**
+   - Build frontend images (dev & prod)
+   - Build backend images (dev & prod)
+   - Test docker-compose configurations
+
+5. **Integration Testing:**
+   - PostgreSQL service for testing
+   - Database migration testing
+   - API endpoint testing
+   - Full-stack health checks
+
+### **Production Deployment (`deploy.yml`):**
+
+1. **Pre-Deploy Tests:**
+   - Frontend build test
+   - Backend build test
+   - Docker build validation
+
+2. **Deploy Phase:**
    - SSH to EC2
    - Pull latest code
-   - Rebuild and restart services
-   - Test deployment
+   - Create environment files
+   - Stop existing services
+   - Rebuild and start full-stack services
+   - Health checks (backend & frontend)
+   - API endpoint testing
 
-### **Security Workflow:**
+### **Staging Deployment (`staging.yml`):**
 
-1. **Dependency Check:** Run `npm audit`
-2. **Docker Security:** Scan images with Trivy
-3. **Code Analysis:** GitHub CodeQL analysis
+1. **Trigger:** Push to `develop` branch
+2. **Quick Build Test:** Validate builds
+3. **Deploy to Staging:**
+   - Use staging environment variables
+   - Deploy to staging server
+   - Health checks
+   - Ready for testing
 
 ### **SSL Renewal Workflow:**
 
@@ -92,10 +147,10 @@ Ensure your EC2 instance has:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `deploy.yml` | Push to `main` | Production deployment |
-| `security.yml` | Push/PR + Weekly | Security scanning |
-| `ssl-renewal.yml` | Weekly + Manual | SSL certificate renewal |
+| `ci.yml` | Push/PR + Weekly | Comprehensive testing & security |
+| `deploy.yml` | Push to `main` | Production full-stack deployment |
 | `staging.yml` | Push to `develop` | Staging deployment |
+| `ssl-renewal.yml` | Weekly + Manual | SSL certificate renewal |
 
 ## 🔄 **Deployment Process**
 

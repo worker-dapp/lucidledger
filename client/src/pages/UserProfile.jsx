@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import supabase from '../lib/supabaseClient';
 import Navbar from "../components/Navbar";
 import { useNavigate } from 'react-router-dom';
+import apiService from '../services/api';
 
 const UserProfile = () => {
   const { user, primaryWallet } = useDynamicContext();
@@ -118,12 +118,12 @@ const UserProfile = () => {
       };
 
       const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
+      
+      // Submit profile data to API
       if (role === 'employer') {
-        const { error } = await supabase.from('employer').insert(payload);
-        if (error) throw error;
+        await apiService.createEmployer(payload);
       } else {
-        const { error } = await supabase.from('employee').insert(payload);
-        if (error) throw error;
+        await apiService.createEmployee(payload);
       }
 
       setSubmitted(true);
