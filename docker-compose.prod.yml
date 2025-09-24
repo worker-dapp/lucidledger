@@ -1,11 +1,13 @@
 services:
   frontend:
-    build: ./client
-    container_name: lucidledger-client
+    build: 
+      context: ./client
+      dockerfile: Dockerfile.prod
+    container_name: lucidledger-client-prod
     ports:
-      - "5173:5173"
+      - "80:80"
     env_file:
-      - ./client/.env
+      - ./client/.env.prod
     restart: unless-stopped
     depends_on:
       - backend
@@ -13,12 +15,14 @@ services:
       - app-network
 
   backend:
-    build: ./server
-    container_name: lucidledger-server
+    build: 
+      context: ./server
+      dockerfile: Dockerfile.prod
+    container_name: lucidledger-server-prod
     ports:
       - "5001:5001"
     env_file:
-      - ./server/.env
+      - ./server/.env.prod
     restart: unless-stopped
     networks:
       - app-network

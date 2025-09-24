@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import supabase from "../lib/supabaseClient";
 import Navbar from "../components/Navbar";
+import apiService from '../services/api';
 
 const JobDetails = () => {
   const { id } = useParams();
@@ -13,13 +13,9 @@ const JobDetails = () => {
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
-        const { data, error } = await supabase.from('jobs').select('*').eq('id', id).single();
-        if (error) {
-          console.error("Error fetching job details:", error);
-          setJob(null);
-        } else {
-          setJob(data);
-        }
+        // Get job details from API
+        const response = await apiService.getJobById(id);
+        setJob(response.data);
       } catch (error) {
         console.error("Error fetching job details:", error);
         setJob(null);

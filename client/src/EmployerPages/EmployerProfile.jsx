@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import img from "../assets/profile.webp";
 import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import supabase from "../lib/supabaseClient";
+import apiService from '../services/api';
 
 const PencilIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -60,7 +60,7 @@ const EmployerProfile = () => {
     '201-500 employees', '501-1000 employees', '1000+ employees'
   ];
 
-  // Fetch user details from Supabase
+  // Fetch user details from localStorage
   const fetchUserDetails = async () => {
     if (!user || !primaryWallet?.address) {
       setLoading(false);
@@ -68,16 +68,11 @@ const EmployerProfile = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('employer')
-        .select('*')
-        .eq('wallet_address', primaryWallet.address)
-        .single();
+      // Get employer profile from API
+      const response = await apiService.getEmployerByWallet(primaryWallet.address);
+      const data = response.data;
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error fetching employer details:', error);
-        setMessage('Error loading profile data');
-      } else if (data) {
+      if (data) {
         setUserDetails(data);
         // Populate form fields with fetched data
         setFirstName(data.first_name || '');
@@ -121,7 +116,7 @@ const EmployerProfile = () => {
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
 
-  const saveToSupabase = async (data, note = 'Profile updated') => {
+  const saveToAPI = async (data, note = 'Profile updated') => {
     setIsSaving(true);
     setMessage('');
     
@@ -132,25 +127,15 @@ const EmployerProfile = () => {
 
       const payload = {
         ...data,
-        wallet_address: primaryWallet.address,
-        updated_at: new Date().toISOString()
+        wallet_address: primaryWallet.address
       };
 
       if (userDetails) {
         // Update existing record
-        const { error } = await supabase
-          .from('employer')
-          .update(payload)
-          .eq('wallet_address', primaryWallet.address);
-        
-        if (error) throw error;
+        await apiService.updateEmployer(userDetails.id, payload);
       } else {
-        // Insert new record
-        const { error } = await supabase
-          .from('employer')
-          .insert(payload);
-        
-        if (error) throw error;
+        // Create new record
+        await apiService.createEmployer(payload);
       }
 
       setMessage(note);
@@ -171,7 +156,7 @@ const EmployerProfile = () => {
       email: email,
       phone_number: phone
     };
-    await saveToSupabase(contactData, 'Contact information saved');
+    await saveToAPI(contactData, 'Contact information saved');
     setIsEditingContact(false);
   };
 
@@ -183,7 +168,7 @@ const EmployerProfile = () => {
       zip_code: postalCode,
       country: country
     };
-    await saveToSupabase(addressData, 'Address saved');
+    await saveToAPI(addressData, 'Address saved');
     setIsEditingAddress(false);
   };
 
@@ -196,7 +181,7 @@ const EmployerProfile = () => {
       website: website,
       linkedin: linkedin
     };
-    await saveToSupabase(companyData, 'Company information saved');
+    await saveToAPI(companyData, 'Company information saved');
     setIsEditingCompany(false);
   };
 

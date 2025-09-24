@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import img from '../assets/profile.webp';
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import supabase from "../lib/supabaseClient";
+import apiService from '../services/api';
 
 const PencilIcon = ({ className = "w-5 h-5" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
@@ -51,7 +51,7 @@ const EmployeeProfile = () => {
     { title: '',description: '', startDate: '', endDate: '' }
   ]);
 
-  // Fetch user details from Supabase
+  // Fetch user details from localStorage
   const fetchUserDetails = async () => {
     if (!user || !primaryWallet?.address) {
       setLoading(false);
@@ -59,16 +59,11 @@ const EmployeeProfile = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('employee')
-        .select('*')
-        .eq('wallet_address', primaryWallet.address)
-        .single();
+      // Get employee profile from API
+      const response = await apiService.getEmployeeByWallet(primaryWallet.address);
+      const data = response.data;
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-        console.error('Error fetching user details:', error);
-        setMessage('Error loading profile data');
-      } else if (data) {
+      if (data) {
         setUserDetails(data);
         // Populate form fields with fetched data
         setFirstName(data.first_name || '');
@@ -106,7 +101,7 @@ const EmployeeProfile = () => {
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
 
-  const saveToSupabase = async (data, note = 'Profile updated') => {
+  const saveToAPI = async (data, note = 'Profile updated') => {
     setIsSaving(true);
     setMessage('');
     
@@ -117,25 +112,15 @@ const EmployeeProfile = () => {
 
       const payload = {
         ...data,
-        wallet_address: primaryWallet.address,
-        updated_at: new Date().toISOString()
+        wallet_address: primaryWallet.address
       };
 
       if (userDetails) {
         // Update existing record
-        const { error } = await supabase
-          .from('employee')
-          .update(payload)
-          .eq('wallet_address', primaryWallet.address);
-        
-        if (error) throw error;
+        await apiService.updateEmployee(userDetails.id, payload);
       } else {
-        // Insert new record
-        const { error } = await supabase
-          .from('employee')
-          .insert(payload);
-        
-        if (error) throw error;
+        // Create new record
+        await apiService.createEmployee(payload);
       }
 
       setMessage(note);
@@ -156,7 +141,7 @@ const EmployeeProfile = () => {
       email: email,
       phone_number: phone
     };
-    await saveToSupabase(contactData, 'Contact information saved');
+    await saveToAPI(contactData, 'Contact information saved');
     setIsEditingContact(false);
   };
 
@@ -168,7 +153,7 @@ const EmployeeProfile = () => {
       zip_code: postalCode,
       country: country
     };
-    await saveToSupabase(addressData, 'Address saved');
+    await saveToAPI(addressData, 'Address saved');
     setIsEditingAddress(false);
   };
 
@@ -208,7 +193,7 @@ const EmployeeProfile = () => {
     if (!skills) return;
     const t = setTimeout(() => {
       if (skills.length >= 0) {
-        saveToSupabase({ skills: skills }, 'Skills saved');
+        saveToAPI({ skills: skills }, 'Skills saved');
       }
     }, 800);
     return () => clearTimeout(t);
@@ -228,7 +213,7 @@ const EmployeeProfile = () => {
   };
 
   const saveExperiences = async () => {
-    await saveToSupabase({ work_experience: experiences }, 'Work experience saved');
+    await saveToAPI({ work_experience: experiences }, 'Work experience saved');
   };
 
   if (loading) {

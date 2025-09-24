@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import supabase from "../lib/supabaseClient";
 import Navbar from "../components/Navbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
@@ -13,9 +12,10 @@ const DaoDashboard = () => {
       if (!user) return;
 
       try {
-        const { data, error } = await supabase.from('wallets').select('*').single();
-        if (!error && data) {
-          setWalletInfo(data);
+        // Get wallet info from localStorage instead of Supabase
+        const walletData = localStorage.getItem('walletInfo');
+        if (walletData) {
+          setWalletInfo(JSON.parse(walletData));
         }
       } catch (error) {
         console.error("Error fetching wallet info:", error);

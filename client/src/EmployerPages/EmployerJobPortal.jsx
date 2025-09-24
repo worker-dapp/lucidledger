@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import supabase from "../lib/supabaseClient";
 import EmployerNavbar from "../components/EmployerNavbar";
+import apiService from '../services/api';
 
 const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
@@ -25,13 +25,15 @@ const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
   useEffect(() => {
     const fetchJobs = async () => {
-      const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
-
-      if (error) {
+      try {
+        // Get jobs from API
+        const response = await apiService.getAllJobs();
+        const data = response.data || [];
+        
+        setContracts(data);
+        setFilteredContracts(data);
+      } catch (error) {
         console.error("Error fetching jobs:", error);
-      } else {
-        setContracts(data || []);
-        setFilteredContracts(data || []);
       }
     };
     fetchJobs();
@@ -82,21 +84,17 @@ const EmployerJobPortal = () => {
   // --------------------------------------------------------------------------
   const handleJobStatusUpdate = async (jobId, newStatus) => {
     try {
-      const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
+      // Update job status via API
+      await apiService.updateJobStatus(jobId, newStatus);
       
-      if (error) {
-        console.error("Error updating job:", error);
-        alert("Could not update job status!");
-      } else {
-        // Update local state
-        setContracts((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
-        );
-        setFilteredContracts((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
-        );
-        setOpenSignersModal(false);
-      }
+      // Update local state
+      setContracts((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
+      );
+      setFilteredContracts((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
+      );
+      setOpenSignersModal(false);
     } catch (err) {
       console.error("Unexpected error:", err);
       alert("Something went wrong!");

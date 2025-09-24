@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
-import supabase from '../supabaseClient';
 
 const ViewEmployees = () => {
   const [search, setSearch] = useState("");
@@ -8,9 +7,12 @@ const ViewEmployees = () => {
 
   useEffect(() => {
     const fetchContracts = async () => {
-      const { data, error } = await supabase.from("contracts").select("*");
-      if (error) {
-        console.error("Error fetching contracts:", error);
+      // Get contracts from localStorage instead of Supabase
+      const contractsData = localStorage.getItem('contracts');
+      const data = contractsData ? JSON.parse(contractsData) : [];
+      
+      if (!data || data.length === 0) {
+        console.log("No contracts found in localStorage");
         return;
       }
 
