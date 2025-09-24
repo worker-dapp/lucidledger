@@ -75,7 +75,7 @@ const App = () => {
 
 
   // Check if Dynamic Labs environment ID is configured
-  const dynamicEnvId = import.meta.env.VITE_DYNAMIC_ENV_ID;
+  const dynamicEnvId = import.meta.env.VITE_DYNAMIC_ENV_ID || 'bb03ee6d-6f22-4d73-b630-439914bf6b18';
   
   if (!dynamicEnvId) {
     console.error('VITE_DYNAMIC_ENV_ID is not configured. Please set this environment variable.');
