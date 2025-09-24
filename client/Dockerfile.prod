@@ -16,6 +16,14 @@ RUN npm ci --legacy-peer-deps=false || npm install
 # Copy source code
 COPY . .
 
+# Accept build arguments
+ARG VITE_API_BASE_URL
+ARG VITE_DYNAMIC_ENV_ID
+
+# Set environment variables for build
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_DYNAMIC_ENV_ID=$VITE_DYNAMIC_ENV_ID
+
 # Build the application
 RUN npm run build
 
