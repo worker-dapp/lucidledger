@@ -18,16 +18,10 @@ export default defineConfig({
   build: {
     // Increase the warning threshold for chunk sizes (in kB)
     chunkSizeWarningLimit: 1500,
+    // Disable manual chunk splitting to avoid React context issues
     rollupOptions: {
       output: {
-        // Split vendor libraries to keep the main chunk smaller
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react')) return 'react-vendor'
-            if (id.includes('date-fns')) return 'date-fns'
-            return 'vendor'
-          }
-        },
+        manualChunks: undefined,
       },
     },
   },
