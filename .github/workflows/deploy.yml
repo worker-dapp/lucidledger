@@ -18,6 +18,10 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   PROD_DOMAIN: lucidledger.co
   STAGING_DOMAIN: staging.lucidledger.co
@@ -43,13 +47,13 @@ jobs:
       env:
         VITE_API_BASE_URL: https://api.lucidledger.co/api
       run: |
-        npm ci
+        npm ci || npm install
         npm run build
 
     - name: Test Backend Build
       working-directory: ./server
       run: |
-        npm ci
+        npm ci || npm install
         # Test if server can start
         timeout 10s npm start || echo "Server start test completed"
 

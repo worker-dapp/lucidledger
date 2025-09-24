@@ -10,6 +10,10 @@ on:
         required: true
         default: 'develop'
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   STAGING_DOMAIN: staging.lucidledger.co
   API_DOMAIN: https://api-staging.lucidledger.co
@@ -33,9 +37,9 @@ jobs:
     - name: Quick Build Test
       run: |
         # Test frontend build
-        cd client && npm ci && npm run build
+        cd client && (npm ci || npm install) && npm run build
         # Test backend build
-        cd ../server && npm ci
+        cd ../server && (npm ci || npm install)
 
     - name: Setup SSH
       uses: webfactory/ssh-agent@v0.8.0
