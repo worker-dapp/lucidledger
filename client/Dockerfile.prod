@@ -10,8 +10,8 @@ RUN npm config set update-notifier false
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (fallback to npm install if lock file is out of sync)
-RUN npm ci --only=production --legacy-peer-deps=false || npm install --only=production
+# Install all dependencies (including dev dependencies needed for build)
+RUN npm ci --legacy-peer-deps=false || npm install
 
 # Copy source code
 COPY . .
