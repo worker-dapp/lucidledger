@@ -143,12 +143,12 @@ const EmployeeNavbar = () => {
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-[#EE964B] rounded-full flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">
-                        {user.first_name ? user.first_name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                        {user.first_name ? user.first_name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : (user.phone ? user.phone.charAt(0).toUpperCase() : 'U'))}
                       </span>
                     </div>
                     <div>
                       <p className="text-white font-semibold">
-                        {user.first_name || user.email}
+                        {user.first_name || (user.email ? user.email.split("@")[0] : user.phone || 'User')}
                       </p>
                       <p className="text-[#F4D35E] text-sm">Employee</p>
                     </div>
