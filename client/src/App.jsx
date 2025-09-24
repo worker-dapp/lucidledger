@@ -17,6 +17,7 @@ import DAODashboard from "./pages/DAODashboard";
 import Job from "./pages/Job";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { useEffect, useState } from "react";
+import UserProfile from "./pages/UserProfile";
 
 const enhancedEmployeeView = {
   type: SdkViewType.Login,
@@ -73,9 +74,8 @@ const App = () => {
     };
   }, []);
 
-
   // Check if Dynamic Labs environment ID is configured
-  const dynamicEnvId = import.meta.env.VITE_DYNAMIC_ENV_ID || 'bb03ee6d-6f22-4d73-b630-439914bf6b18';
+  const dynamicEnvId = import.meta.env.VITE_DYNAMIC_ENV_ID;
   
   if (!dynamicEnvId) {
     console.error('VITE_DYNAMIC_ENV_ID is not configured. Please set this environment variable.');
@@ -116,22 +116,12 @@ const App = () => {
         events: {
           onAuthSuccess: (args) => {
             const isNew = args?.user?.newUser === true;
-            const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
-            
             if (isNew) {
-              // New users go to their profile page based on role
-              if (userRole === 'employee') {
-                window.location.href = '/employee-profile';
-              } else if (userRole === 'employer') {
-                window.location.href = '/employer-profile';
-              } else {
-                // Fallback if no role is set
-                window.location.href = '/';
-              }
+              window.location.href = '/user-profile';
               return;
             }
 
-            // Existing users go to their dashboard
+            const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
             if (userRole === 'employee') {
               window.location.href = '/employeeDashboard';
             } else if (userRole === 'employer') {
@@ -157,7 +147,9 @@ const App = () => {
             <Route path="/view-open-contracts" element={<ViewOpenContracts />} />
             <Route path="/dao" element={<DAODashboard />} />
             <Route path="/job" element={<Job />} />
+            <Route path="/new-job" element={<Job />} />
             <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
+            <Route path="/user-profile" element={<UserProfile />} />
           </Routes>
       </div>
     </DynamicContextProvider>

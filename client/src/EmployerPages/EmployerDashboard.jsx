@@ -17,7 +17,7 @@ const EmployerDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
-        setUserName(user.first_name || user.email.split("@")[0]);
+        setUserName(user.first_name || (user.email ? user.email.split("@")[0] : user.phone || 'User'));
 
         try {
           // Get wallet info from localStorage instead of Supabase
