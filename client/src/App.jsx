@@ -116,12 +116,22 @@ const App = () => {
         events: {
           onAuthSuccess: (args) => {
             const isNew = args?.user?.newUser === true;
+            const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
+            
             if (isNew) {
-              window.location.href = '/user-profile';
+              // New users go to their profile page based on role
+              if (userRole === 'employee') {
+                window.location.href = '/employee-profile';
+              } else if (userRole === 'employer') {
+                window.location.href = '/employer-profile';
+              } else {
+                // Fallback if no role is set
+                window.location.href = '/';
+              }
               return;
             }
 
-            const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
+            // Existing users go to their dashboard
             if (userRole === 'employee') {
               window.location.href = '/employeeDashboard';
             } else if (userRole === 'employer') {
