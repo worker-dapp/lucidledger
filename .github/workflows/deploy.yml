@@ -131,16 +131,6 @@ jobs:
         echo "📥 Pulling latest changes..."
         git pull origin "$BRANCH"
         
-        # Create environment files
-        echo "📝 Creating environment files..."
-        
-        # Frontend environment
-        cat > client/.env << EOL
-VITE_API_BASE_URL=$API_DOMAIN/api
-VITE_DYNAMIC_ENV_ID=${{ secrets.VITE_DYNAMIC_ENV_ID }}
-NODE_ENV=production
-EOL
-        
         # Stop existing services
         echo "🛑 Stopping existing services..."
         docker-compose -f docker-compose.nginx.yml down || true
