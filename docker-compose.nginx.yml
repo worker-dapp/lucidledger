@@ -26,7 +26,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: lucidledger-frontend
     env_file:
-      - ./client/.env.prod
+      - ./client/.env
     restart: unless-stopped
     networks:
       - app-network
@@ -39,7 +39,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: lucidledger-backend
     env_file:
-      - ./server/.env.prod
+      - ./server/.env
     restart: unless-stopped
     networks:
       - app-network
