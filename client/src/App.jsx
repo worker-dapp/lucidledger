@@ -74,10 +74,24 @@ const App = () => {
   }, []);
 
 
+  // Check if Dynamic Labs environment ID is configured
+  const dynamicEnvId = import.meta.env.VITE_DYNAMIC_ENV_ID;
+  
+  if (!dynamicEnvId) {
+    console.error('VITE_DYNAMIC_ENV_ID is not configured. Please set this environment variable.');
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <h2>Configuration Error</h2>
+        <p>Dynamic Labs environment ID is not configured.</p>
+        <p>Please contact the administrator.</p>
+      </div>
+    );
+  }
+
   return (
     <DynamicContextProvider
       settings={{
-        environmentId: import.meta.env.VITE_DYNAMIC_ENV_ID,
+        environmentId: dynamicEnvId,
         walletConnectors: [EthereumWalletConnectors],
         overrides: { views: getLoginView() ? [getLoginView()] : [] },
         handlers: {

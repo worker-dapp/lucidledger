@@ -130,6 +130,38 @@ jobs:
         echo "📥 Pulling latest changes..."
         git pull origin "$BRANCH"
         
+        # Create environment files
+        echo "📝 Creating environment files..."
+        
+        # Backend environment
+        cat > server/.env << EOL
+# Database Configuration
+DB_HOST=${{ secrets.DB_HOST }}
+DB_PORT=${{ secrets.DB_PORT }}
+DB_NAME=${{ secrets.DB_NAME }}
+DB_USER=${{ secrets.DB_USER }}
+DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+# Server Configuration
+PORT=5001
+NODE_ENV=production
+
+# CORS Configuration
+CORS_ORIGIN=https://$DOMAIN
+EOL
+        
+        # Frontend environment
+        cat > client/.env << EOL
+# Dynamic Labs Configuration
+VITE_DYNAMIC_ENV_ID=${{ secrets.VITE_DYNAMIC_ENV_ID }}
+
+# API Configuration
+VITE_API_BASE_URL=$API_DOMAIN/api
+
+# Environment
+NODE_ENV=production
+EOL
+        
         # Stop existing services
         echo "🛑 Stopping existing services..."
         docker-compose -f docker-compose.nginx.yml down || true
