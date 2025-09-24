@@ -42,7 +42,8 @@ jobs:
     - name: Build frontend
       working-directory: ./client
       env:
-        VITE_API_URL: https://lucidledger.co
+        VITE_API_BASE_URL: https://lucidledger.co/api
+        VITE_DYNAMIC_ENV_ID: ${{ secrets.VITE_DYNAMIC_ENV_ID }}
       run: npm run build
 
     - name: Setup Node.js (server)
