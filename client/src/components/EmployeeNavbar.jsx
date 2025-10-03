@@ -35,7 +35,7 @@ const EmployeeNavbar = () => {
   };
 
   return (
-    <div className="w-full z-50 bg-[#0D3B66] shadow-md">
+    <div className="fixed top-0 left-0 right-0 w-full z-50 bg-[#0D3B66] shadow-md">
       <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
         {/* Enhanced Brand Name */}
         <Link

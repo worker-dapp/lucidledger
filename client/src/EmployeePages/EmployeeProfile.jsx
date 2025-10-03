@@ -220,7 +220,7 @@ const EmployeeProfile = () => {
     return (
       <div className="min-h-screen bg-white">
         <EmployeeNavbar />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="pt-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
@@ -236,7 +236,7 @@ const EmployeeProfile = () => {
     <div className="min-h-screen bg-white">
       <EmployeeNavbar />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="pt-26 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header: Avatar + Name */}
         <div className="flex items-center gap-6 mb-8">
           <img
