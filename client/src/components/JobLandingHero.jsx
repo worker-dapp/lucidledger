@@ -95,55 +95,58 @@ const JobLandingHero = () => {
       </div>
 
       {/* Second Div - Job Search Tool */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0D3B66] mb-4">
+      <div className="w-full bg-[#0D3B66] py-12 sm:py-16 md:py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl p-4 sm:p-6 md:p-8 lg:p-12">
+          <div className="text-center mb-6 sm:mb-8">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 sm:mb-4">
               Find your next job.
             </h2>
-            <p className="text-gray-600 text-lg">
+            <p className="text-[#F4D35E] text-base sm:text-lg md:text-xl">
               Search thousands of opportunities across all industries
             </p>
           </div>
 
           {/* Search Form */}
-          <form onSubmit={handleSearch} className="mb-8">
-            <div className="flex flex-col sm:flex-row gap-4">
+          <form onSubmit={handleSearch} className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <div className="flex-1">
                 <input
                   type="text"
                   placeholder="Search jobs, keywords, companies..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-6 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-[#EE964B] focus:outline-none transition-all"
+                  className="w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg border-2 border-[#F4D35E] rounded-lg sm:rounded-xl focus:border-[#EE964B] focus:outline-none transition-all bg-white/10 backdrop-blur-sm text-white placeholder-white/70"
                 />
               </div>
               <button
                 type="submit"
-                className="bg-[#EE964B] hover:bg-[#d97b33] text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                className="bg-[#EE964B] hover:bg-[#d97b33] text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg sm:rounded-xl font-semibold text-base sm:text-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
               >
                 <span>🔍</span>
-                Search Jobs
+                <span className="hidden sm:inline">Search Jobs</span>
+                <span className="sm:hidden">Search</span>
               </button>
             </div>
           </form>
 
           {/* Popular Searches */}
           <div>
-            <h3 className="text-lg font-semibold text-[#0D3B66] mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">
               Popular searches:
             </h3>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               {popularSearches.map((search, index) => (
                 <button
                   key={index}
                   onClick={() => handlePopularSearch(search)}
-                  className="bg-gray-100 hover:bg-[#EE964B] hover:text-white text-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-all border border-gray-200 hover:border-[#EE964B]"
+                  className="bg-white/20 hover:bg-[#EE964B] hover:text-white text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all border border-[#F4D35E] hover:border-[#EE964B] backdrop-blur-sm"
                 >
                   {search}
                 </button>
               ))}
             </div>
+          </div>
           </div>
         </div>
       </div>
