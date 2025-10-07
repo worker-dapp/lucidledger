@@ -22,9 +22,9 @@ const EmployeeJobsPage = () => {
     const searchQuery = searchParams.get('search');
     if (searchQuery && jobs.length > 0) {
       const filteredJobs = jobs.filter(job => 
-        job.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.jobLocation.toLowerCase().includes(searchQuery.toLowerCase())
+        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.location.toLowerCase().includes(searchQuery.toLowerCase())
       );
       if (filteredJobs.length > 0) {
         setSelectedJob(filteredJobs[0]);
@@ -144,7 +144,7 @@ const EmployeeJobsPage = () => {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-semibold text-[#0D3B66] text-base sm:text-lg">
-                        {job.jobTitle}
+                        {job.title}
                       </h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         job.status === 'active' ? 'bg-green-100 text-green-800' :
@@ -155,11 +155,11 @@ const EmployeeJobsPage = () => {
                       </span>
                     </div>
                     
-                    <p className="text-gray-600 mb-2 text-sm sm:text-base">{job.companyName}</p>
+                    <p className="text-gray-600 mb-2 text-sm sm:text-base">{job.company_name}</p>
                     
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
-                      <span>📍 {job.jobLocation}</span>
-                      <span>💰 {job.currency} {job.jobPay}/{job.payFrequency}</span>
+                      <span>📍 {job.location}</span>
+                      <span>💰 {job.currency} {job.salary}/{job.pay_frequency}</span>
                     </div>
                     
                     <div className="mt-2 text-xs text-gray-400">
@@ -199,38 +199,38 @@ const EmployeeJobsPage = () => {
                 <div className="flex flex-wrap gap-2 sm:gap-4 justify-center">
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📍 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.jobLocation}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location}</span>
                   </div>
                   
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">💰 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.currency} {selectedJob.jobPay}/{selectedJob.payFrequency}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.currency} {selectedJob.salary}/{selectedJob.pay_frequency}</span>
                   </div>
                   
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📅 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.JobType || 'Not specified'}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.job_type || 'Not specified'}</span>
                   </div>
                   
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">🏢 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.jobLocationType || 'Not specified'}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location_type || 'Not specified'}</span>
                   </div>
                 </div>
 
                 {/* Description */}
-                {selectedJob.summary && (
+                {selectedJob.description && (
                   <div>
                     <h4 className="font-semibold text-[#0D3B66] mb-2">📝 Job Summary</h4>
-                    <p className="text-gray-600 leading-relaxed">{selectedJob.summary}</p>
+                    <p className="text-gray-600 leading-relaxed">{selectedJob.description}</p>
                   </div>
                 )}
 
                 {/* Responsibilities */}
-                {selectedJob.responsiblities && (
+                {selectedJob.responsibilities && (
                   <div>
                     <h4 className="font-semibold text-[#0D3B66] mb-2">🎯 Responsibilities</h4>
-                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">{selectedJob.responsiblities}</p>
+                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">{selectedJob.responsibilities}</p>
                   </div>
                 )}
 
@@ -244,26 +244,26 @@ const EmployeeJobsPage = () => {
 
                 {/* Additional Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedJob.additionalCompensation && (
+                  {selectedJob.additional_compensation && (
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-[#0D3B66] mb-2">💎 Additional Compensation</h4>
-                      <p className="text-gray-600">{selectedJob.additionalCompensation}</p>
+                      <p className="text-gray-600">{selectedJob.additional_compensation}</p>
                     </div>
                   )}
                   
-                  {selectedJob.employeeBenefits && (
+                  {selectedJob.employee_benefits && (
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-[#0D3B66] mb-2">🏥 Employee Benefits</h4>
-                      <p className="text-gray-600">{selectedJob.employeeBenefits}</p>
+                      <p className="text-gray-600">{selectedJob.employee_benefits}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Company Description */}
-                {selectedJob.companyDescription && (
+                {selectedJob.company_description && (
                   <div>
                     <h4 className="font-semibold text-[#0D3B66] mb-2">🏢 About the Company</h4>
-                    <p className="text-gray-600 leading-relaxed">{selectedJob.companyDescription}</p>
+                    <p className="text-gray-600 leading-relaxed">{selectedJob.company_description}</p>
                   </div>
                 )}
 
@@ -332,38 +332,38 @@ const EmployeeJobsPage = () => {
                 <div className="flex flex-wrap gap-2 sm:gap-4 justify-center">
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📍 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.jobLocation}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location}</span>
                   </div>
                   
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">💰 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.currency} {selectedJob.jobPay}/{selectedJob.payFrequency}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.currency} {selectedJob.salary}/{selectedJob.pay_frequency}</span>
                   </div>
                   
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📅 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.JobType || 'Not specified'}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.job_type || 'Not specified'}</span>
                   </div>
                   
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">🏢 </span>
-                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.jobLocationType || 'Not specified'}</span>
+                    <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location_type || 'Not specified'}</span>
                   </div>
                 </div>
 
                 {/* Description */}
-                {selectedJob.summary && (
+                {selectedJob.description && (
                   <div>
                     <h4 className="font-semibold text-[#0D3B66] mb-2">📝 Job Summary</h4>
-                    <p className="text-gray-600 leading-relaxed">{selectedJob.summary}</p>
+                    <p className="text-gray-600 leading-relaxed">{selectedJob.description}</p>
                   </div>
                 )}
 
                 {/* Responsibilities */}
-                {selectedJob.responsiblities && (
+                {selectedJob.responsibilities && (
                   <div>
                     <h4 className="font-semibold text-[#0D3B66] mb-2">🎯 Responsibilities</h4>
-                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">{selectedJob.responsiblities}</p>
+                    <p className="text-gray-600 leading-relaxed whitespace-pre-line">{selectedJob.responsibilities}</p>
                   </div>
                 )}
 
@@ -377,26 +377,26 @@ const EmployeeJobsPage = () => {
 
                 {/* Additional Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedJob.additionalCompensation && (
+                  {selectedJob.additional_compensation && (
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-[#0D3B66] mb-2">💎 Additional Compensation</h4>
-                      <p className="text-gray-600">{selectedJob.additionalCompensation}</p>
+                      <p className="text-gray-600">{selectedJob.additional_compensation}</p>
                     </div>
                   )}
                   
-                  {selectedJob.employeeBenefits && (
+                  {selectedJob.employee_benefits && (
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-[#0D3B66] mb-2">🏥 Employee Benefits</h4>
-                      <p className="text-gray-600">{selectedJob.employeeBenefits}</p>
+                      <p className="text-gray-600">{selectedJob.employee_benefits}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Company Description */}
-                {selectedJob.companyDescription && (
+                {selectedJob.company_description && (
                   <div>
                     <h4 className="font-semibold text-[#0D3B66] mb-2">🏢 About the Company</h4>
-                    <p className="text-gray-600 leading-relaxed">{selectedJob.companyDescription}</p>
+                    <p className="text-gray-600 leading-relaxed">{selectedJob.company_description}</p>
                   </div>
                 )}
 

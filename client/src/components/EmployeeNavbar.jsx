@@ -68,7 +68,7 @@ const EmployeeNavbar = () => {
               }`
             }>
             <span>📋</span>
-            Job Tracker
+            All Jobs
           </NavLink>
 
           <NavLink
