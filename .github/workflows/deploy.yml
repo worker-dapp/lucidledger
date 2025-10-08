@@ -100,7 +100,7 @@ jobs:
     - name: Add EC2 to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
+        ssh-keyscan -H "${{ env.TARGET_HOST }}" >> ~/.ssh/known_hosts
         
     - name: Deploy to EC2
       run: |
@@ -180,7 +180,7 @@ jobs:
         chmod +x deploy.sh
         
         # Execute deployment script on EC2
-        ssh -o StrictHostKeyChecking=no "$TARGET_USER"@"$TARGET_HOST" 'bash -s' < deploy.sh
+        ssh -o StrictHostKeyChecking=no "${{ env.TARGET_USER }}"@"${{ env.TARGET_HOST }}" 'bash -s' < deploy.sh
         
     - name: Deployment Status
       run: |
