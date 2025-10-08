@@ -1,5 +1,7 @@
 const Job = require('../models/Job');
+const JobApplication = require('../models/JobApplication');
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 class JobController {
   // Create a new job
@@ -24,9 +26,43 @@ class JobController {
   // Get all jobs
   static async getAllJobs(req, res) {
     try {
-      const jobs = await Job.findAll({
-        order: [['created_at', 'DESC']]
-      });
+      const { employee_id } = req.query;
+      
+      let jobs;
+      
+      if (employee_id) {
+        // If employee_id is provided, include application status
+        jobs = await sequelize.query(
+          `SELECT j.*, 
+                  ja.is_saved, 
+                  ja.application_status,
+                  j.title as "jobTitle",
+                  j.company_name as "companyName"
+           FROM jobs j
+           LEFT JOIN job_applications ja ON j.id = ja.job_id AND ja.employee_id = :employeeId
+           ORDER BY j.created_at DESC`,
+          {
+            replacements: { employeeId: employee_id },
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+      } else {
+        // If no employee_id, just get all jobs
+        jobs = await Job.findAll({
+          order: [['created_at', 'DESC']]
+        });
+        
+        // Add field mappings for consistency
+        jobs = jobs.map(job => {
+          const jobData = job.toJSON();
+          return {
+            ...jobData,
+            jobTitle: jobData.title,
+            companyName: jobData.company_name
+          };
+        });
+      }
+      
       res.status(200).json({
         success: true,
         data: jobs,

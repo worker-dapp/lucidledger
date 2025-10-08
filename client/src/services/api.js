@@ -97,8 +97,9 @@ class ApiService {
     });
   }
 
-  async getAllJobs() {
-    return this.request('/jobs');
+  async getAllJobs(employeeId = null) {
+    const params = employeeId ? `?employee_id=${employeeId}` : '';
+    return this.request(`/jobs${params}`);
   }
 
   async getJobById(id) {
@@ -125,6 +126,36 @@ class ApiService {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+  }
+
+  // Job Application API methods
+  async saveJob(employeeId, jobId) {
+    return this.request('/job-applications/save', {
+      method: 'POST',
+      body: JSON.stringify({ employee_id: employeeId, job_id: jobId }),
+    });
+  }
+
+  async unsaveJob(employeeId, jobId) {
+    return this.request('/job-applications/unsave', {
+      method: 'POST',
+      body: JSON.stringify({ employee_id: employeeId, job_id: jobId }),
+    });
+  }
+
+  async applyToJob(employeeId, jobId) {
+    return this.request('/job-applications/apply', {
+      method: 'POST',
+      body: JSON.stringify({ employee_id: employeeId, job_id: jobId }),
+    });
+  }
+
+  async getSavedJobs(employeeId) {
+    return this.request(`/job-applications/saved/${employeeId}`);
+  }
+
+  async getAppliedJobs(employeeId) {
+    return this.request(`/job-applications/applied/${employeeId}`);
   }
 
   // Health check
