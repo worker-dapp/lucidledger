@@ -2,7 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
+
+// Import database connection
+const { sequelize } = require('./config/database');
 
 // Import routes
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -77,11 +82,46 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-});
+// Function to run migrations on startup
+async function runMigrationsOnStartup() {
+  try {
+    console.log('🔍 Checking database tables...');
+    const migrationPath = path.join(__dirname, 'migrations/create-all-tables.sql');
+    
+    if (!fs.existsSync(migrationPath)) {
+      console.log('⚠️  Migration file not found, skipping...');
+      return;
+    }
+    
+    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    await sequelize.query(migrationSQL);
+    
+    console.log('✅ Database tables verified/created successfully!');
+  } catch (error) {
+    // Don't crash the server if migrations fail (tables might already exist)
+    console.error('⚠️  Migration check failed (this is usually fine if tables already exist):', error.message);
+  }
+}
+
+// Start server with automatic migrations
+async function startServer() {
+  try {
+    // Run migrations first
+    await runMigrationsOnStartup();
+    
+    // Then start the server
+    app.listen(PORT, () => {
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
 
 module.exports = app;
