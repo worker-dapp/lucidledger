@@ -21,15 +21,31 @@ const EmployeeJobsPage = () => {
   // Fetch employee data on component mount
   useEffect(() => {
     const fetchEmployeeData = async () => {
-      if (!user || !primaryWallet?.address) {
+      if (!user) {
+        console.log('No user logged in');
         return;
       }
 
       try {
-        const response = await apiService.getEmployeeByWallet(primaryWallet.address);
-        setEmployeeData(response.data);
+        // Try to get employee by email first (primary method)
+        if (user.email) {
+          console.log('Fetching employee data by email:', user.email);
+          const response = await apiService.getEmployeeByEmail(user.email);
+          setEmployeeData(response.data);
+          console.log('Employee data loaded:', response.data);
+        } 
+        // Fallback to wallet address if email is not available
+        else if (primaryWallet?.address) {
+          console.log('Fetching employee data by wallet:', primaryWallet.address);
+          const response = await apiService.getEmployeeByWallet(primaryWallet.address);
+          setEmployeeData(response.data);
+          console.log('Employee data loaded:', response.data);
+        } else {
+          console.warn('No email or wallet address available for authentication');
+        }
       } catch (error) {
         console.error('Error fetching employee data:', error);
+        console.error('User object:', user);
       }
     };
 
@@ -111,9 +127,14 @@ const EmployeeJobsPage = () => {
   };
 
   const handleSaveJob = async (job) => {
+    if (!user) {
+      alert('Please log in to save jobs');
+      return;
+    }
+
     const employeeId = employeeData?.id;
     if (!employeeId) {
-      alert('Please log in to save jobs');
+      alert('Unable to find your employee profile. Please complete your profile first.');
       return;
     }
 
@@ -149,9 +170,14 @@ const EmployeeJobsPage = () => {
   };
 
   const handleApplyToJob = async (job) => {
+    if (!user) {
+      alert('Please log in to apply for jobs');
+      return;
+    }
+
     const employeeId = employeeData?.id;
     if (!employeeId) {
-      alert('Please log in to apply for jobs');
+      alert('Unable to find your employee profile. Please complete your profile first.');
       return;
     }
 
