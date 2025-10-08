@@ -25,6 +25,9 @@ ARG VITE_DYNAMIC_ENV_ID
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_DYNAMIC_ENV_ID=$VITE_DYNAMIC_ENV_ID
 
+# Increase Node.js heap size for build (use up to 1.5GB)
+ENV NODE_OPTIONS="--max-old-space-size=1536"
+
 # Build the application
 RUN npm run build
 
