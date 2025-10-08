@@ -34,8 +34,6 @@ const enhancedEmployerView = {
     { type: SdkViewSectionType.Email, label: 'Employer Login' },
     { type: SdkViewSectionType.Separator, label: 'Or' },
     { type: SdkViewSectionType.Phone, label: 'Employer Login' },
-    { type: SdkViewSectionType.Separator, label: 'Or' },
-    { type: SdkViewSectionType.Wallet, numOfItemsToDisplay: 2 },
   ]
 };
 
