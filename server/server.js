@@ -8,6 +8,7 @@ require('dotenv').config();
 const employeeRoutes = require('./routes/employeeRoutes');
 const employerRoutes = require('./routes/employerRoutes');
 const jobRoutes = require('./routes/jobRoutes');
+const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,6 +57,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/employees', employeeRoutes);
 app.use('/api/employers', employerRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/job-applications', jobApplicationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
+import { sampleJobs } from '../data/sampleJobs';
 
 const EmployeeJobsPage = () => {
   const [jobs, setJobs] = useState([]);
@@ -11,6 +12,18 @@ const EmployeeJobsPage = () => {
   const [error, setError] = useState(null);
   const [searchParams] = useSearchParams();
   const [showJobModal, setShowJobModal] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'accepted'
+  const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
+  
+  // Get employee ID from localStorage (adjust based on your auth implementation)
+  const getEmployeeId = () => {
+    const employeeData = localStorage.getItem('employee');
+    if (employeeData) {
+      const employee = JSON.parse(employeeData);
+      return employee.id || employee.employee_id;
+    }
+    return null;
+  };
 
   // Fetch jobs on component mount
   useEffect(() => {
@@ -37,19 +50,26 @@ const EmployeeJobsPage = () => {
       setLoading(true);
       setError(null);
       
+      // Get employee ID to fetch job application status
+      const employeeId = getEmployeeId();
+      
       // Get jobs from API
-      const response = await apiService.getAllJobs();
+      const response = await apiService.getAllJobs(employeeId);
       const data = response.data || [];
       
-      setJobs(data);
-      if (data && data.length > 0) {
-        setSelectedJob(data[0]);
+      // Use sample jobs if no jobs found from API
+      const jobsToDisplay = data.length > 0 ? data : sampleJobs;
+      
+      setJobs(jobsToDisplay);
+      if (jobsToDisplay && jobsToDisplay.length > 0) {
+        setSelectedJob(jobsToDisplay[0]);
       }
     } catch (err) {
       console.error('API Error:', err);
       setError('Failed to load jobs. Please try again later.');
-      setJobs([]);
-      setSelectedJob(null);
+      // Use sample jobs even on error
+      setJobs(sampleJobs);
+      setSelectedJob(sampleJobs[0]);
     } finally {
       setLoading(false);
     }
@@ -77,6 +97,86 @@ const EmployeeJobsPage = () => {
     }
   };
 
+  const handleSaveJob = async (job) => {
+    const employeeId = getEmployeeId();
+    if (!employeeId) {
+      alert('Please log in to save jobs');
+      return;
+    }
+
+    setProcessingJobId(job.id);
+    try {
+      if (job.is_saved) {
+        // Unsave the job
+        await apiService.unsaveJob(employeeId, job.id);
+        // Update local state
+        setJobs(jobs.map(j => 
+          j.id === job.id ? { ...j, is_saved: false } : j
+        ));
+        if (selectedJob?.id === job.id) {
+          setSelectedJob({ ...selectedJob, is_saved: false });
+        }
+      } else {
+        // Save the job
+        await apiService.saveJob(employeeId, job.id);
+        // Update local state
+        setJobs(jobs.map(j => 
+          j.id === job.id ? { ...j, is_saved: true } : j
+        ));
+        if (selectedJob?.id === job.id) {
+          setSelectedJob({ ...selectedJob, is_saved: true });
+        }
+      }
+    } catch (err) {
+      console.error('Error saving job:', err);
+      alert('Failed to save job. Please try again.');
+    } finally {
+      setProcessingJobId(null);
+    }
+  };
+
+  const handleApplyToJob = async (job) => {
+    const employeeId = getEmployeeId();
+    if (!employeeId) {
+      alert('Please log in to apply for jobs');
+      return;
+    }
+
+    // Check if already applied
+    if (job.application_status === 'applied' || job.application_status === 'accepted') {
+      alert('You have already applied to this job');
+      return;
+    }
+
+    setProcessingJobId(job.id);
+    try {
+      await apiService.applyToJob(employeeId, job.id);
+      // Update local state
+      setJobs(jobs.map(j => 
+        j.id === job.id ? { ...j, application_status: 'applied' } : j
+      ));
+      if (selectedJob?.id === job.id) {
+        setSelectedJob({ ...selectedJob, application_status: 'applied' });
+      }
+      alert('Application submitted successfully!');
+    } catch (err) {
+      console.error('Error applying to job:', err);
+      alert('Failed to apply to job. Please try again.');
+    } finally {
+      setProcessingJobId(null);
+    }
+  };
+
+  const getFilteredJobs = () => {
+    if (activeFilter === 'all') return jobs;
+    if (activeFilter === 'saved') return jobs.filter(job => job.is_saved);
+    if (activeFilter === 'applied') return jobs.filter(job => job.application_status === 'applied');
+    if (activeFilter === 'accepted') return jobs.filter(job => job.application_status === 'accepted');
+    return jobs;
+  };
+
+  const filteredJobs = getFilteredJobs();
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -92,26 +192,26 @@ const EmployeeJobsPage = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <EmployeeNavbar />
-        <div className="pt-26 flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <p className="text-gray-600">{error}</p>
-            <button 
-              onClick={fetchJobs}
-              className="mt-4 bg-[#EE964B] text-white px-6 py-2 rounded-lg hover:bg-[#d97b33] transition-all"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  // if (error) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50">
+  //       <EmployeeNavbar />
+  //       <div className="pt-26 flex items-center justify-center h-96">
+  //         <div className="text-center">
+  //           <div className="text-red-500 text-6xl mb-4">⚠️</div>
+  //           <p className="text-gray-600">{error}</p>
+  //           <button 
+  //             onClick={fetchJobs}
+  //             className="mt-4 bg-[#EE964B] text-white px-6 py-2 rounded-lg hover:bg-[#d97b33] transition-all"
+  //           >
+  //             Try Again
+  //           </button>
+  //         </div>
+  //       </div>
+  //       <Footer />
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="h-screen bg-gray-50 overflow-hidden">
@@ -125,14 +225,63 @@ const EmployeeJobsPage = () => {
           <div className="col-span-12 lg:col-span-4 bg-gray-100 p-3 sm:p-4 lg:p-6 overflow-y-auto">
             <h2 className="text-lg sm:text-xl font-semibold text-[#0D3B66] mb-3 sm:mb-4">Job Listings</h2>
             
-            {jobs.length === 0 ? (
+            {/* Filter Navigation */}
+            <div className="flex gap-2 mb-4 bg-white p-1 rounded-lg shadow-sm">
+              <button
+                onClick={() => setActiveFilter('all')}
+                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                  activeFilter === 'all'
+                    ? 'bg-[#EE964B] text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                All Jobs
+              </button>
+              <button
+                onClick={() => setActiveFilter('saved')}
+                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                  activeFilter === 'saved'
+                    ? 'bg-[#EE964B] text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Saved
+              </button>
+              <button
+                onClick={() => setActiveFilter('applied')}
+                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                  activeFilter === 'applied'
+                    ? 'bg-[#EE964B] text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Applied
+              </button>
+              <button
+                onClick={() => setActiveFilter('accepted')}
+                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                  activeFilter === 'accepted'
+                    ? 'bg-[#EE964B] text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Accepted
+              </button>
+            </div>
+            
+            {filteredJobs.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-gray-400 text-6xl mb-4">📋</div>
-                <p className="text-gray-600">No jobs available at the moment</p>
+                <p className="text-gray-600">
+                  {activeFilter === 'all' 
+                    ? 'No jobs available at the moment'
+                    : `No ${activeFilter} jobs`
+                  }
+                </p>
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">
-                {jobs.map((job) => (
+                {filteredJobs.map((job) => (
                   <div
                     key={job.id}
                     onClick={() => handleJobClick(job)}
@@ -269,11 +418,39 @@ const EmployeeJobsPage = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
-                  <button className="flex-1 bg-[#EE964B] text-white py-3 px-4 sm:px-6 rounded-lg font-semibold hover:bg-[#d97b33] transition-all text-sm sm:text-base">
-                    Apply Now
+                  <button 
+                    onClick={() => handleApplyToJob(selectedJob)}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
+                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
+                    }`}
+                  >
+                    {processingJobId === selectedJob.id 
+                      ? 'Processing...' 
+                      : selectedJob.application_status === 'applied' 
+                        ? 'Applied ✓' 
+                        : selectedJob.application_status === 'accepted'
+                          ? 'Accepted ✓'
+                          : 'Apply Now'
+                    }
                   </button>
-                  <button className="flex-1 bg-gray-200 text-[#0D3B66] py-3 px-4 sm:px-6 rounded-lg font-semibold hover:bg-gray-300 transition-all text-sm sm:text-base">
-                    Save Job
+                  <button 
+                    onClick={() => handleSaveJob(selectedJob)}
+                    disabled={processingJobId === selectedJob.id}
+                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                      selectedJob.is_saved
+                        ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
+                        : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
+                    }`}
+                  >
+                    {processingJobId === selectedJob.id 
+                      ? 'Processing...' 
+                      : selectedJob.is_saved 
+                        ? 'Saved ✓' 
+                        : 'Save Job'
+                    }
                   </button>
                 </div>
 
@@ -402,11 +579,39 @@ const EmployeeJobsPage = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
-                  <button className="flex-1 bg-[#EE964B] text-white py-3 px-4 sm:px-6 rounded-lg font-semibold hover:bg-[#d97b33] transition-all text-sm sm:text-base">
-                    Apply Now
+                  <button 
+                    onClick={() => handleApplyToJob(selectedJob)}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
+                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
+                    }`}
+                  >
+                    {processingJobId === selectedJob.id 
+                      ? 'Processing...' 
+                      : selectedJob.application_status === 'applied' 
+                        ? 'Applied ✓' 
+                        : selectedJob.application_status === 'accepted'
+                          ? 'Accepted ✓'
+                          : 'Apply Now'
+                    }
                   </button>
-                  <button className="flex-1 bg-gray-200 text-[#0D3B66] py-3 px-4 sm:px-6 rounded-lg font-semibold hover:bg-gray-300 transition-all text-sm sm:text-base">
-                    Save Job
+                  <button 
+                    onClick={() => handleSaveJob(selectedJob)}
+                    disabled={processingJobId === selectedJob.id}
+                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                      selectedJob.is_saved
+                        ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
+                        : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
+                    }`}
+                  >
+                    {processingJobId === selectedJob.id 
+                      ? 'Processing...' 
+                      : selectedJob.is_saved 
+                        ? 'Saved ✓' 
+                        : 'Save Job'
+                    }
                   </button>
                 </div>
 

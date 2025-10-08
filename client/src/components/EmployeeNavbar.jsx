@@ -174,7 +174,7 @@ const EmployeeNavbar = () => {
                     isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
                   }`
                 }>
-                📋 Job Tracker
+                📋 All Jobs
               </NavLink>
 
               <NavLink

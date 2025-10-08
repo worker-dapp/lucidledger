@@ -66,6 +66,22 @@ CREATE TABLE IF NOT EXISTS public.jobs (
     CONSTRAINT jobs_pkey PRIMARY KEY (id)
 ) TABLESPACE pg_default;
 
+-- Create job_applications table for AWS RDS PostgreSQL
+CREATE TABLE IF NOT EXISTS public.job_applications (
+    id bigserial NOT NULL,
+    employee_id bigint NOT NULL,
+    job_id bigint NOT NULL,
+    is_saved boolean NOT NULL DEFAULT false,
+    application_status text NULL,
+    applied_at timestamp with time zone NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT job_applications_pkey PRIMARY KEY (id),
+    CONSTRAINT job_applications_unique_employee_job UNIQUE (employee_id, job_id),
+    CONSTRAINT job_applications_employee_fkey FOREIGN KEY (employee_id) REFERENCES public.employee(id) ON DELETE CASCADE,
+    CONSTRAINT job_applications_job_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id) ON DELETE CASCADE
+) TABLESPACE pg_default;
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_employee_email ON public.employee (email);
 CREATE INDEX IF NOT EXISTS idx_employee_wallet_address ON public.employee (wallet_address);
@@ -81,10 +97,17 @@ CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON public.jobs (job_type);
 CREATE INDEX IF NOT EXISTS idx_jobs_company_name ON public.jobs (company_name);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON public.jobs (created_at);
 
+CREATE INDEX IF NOT EXISTS idx_job_applications_employee_id ON public.job_applications (employee_id);
+CREATE INDEX IF NOT EXISTS idx_job_applications_job_id ON public.job_applications (job_id);
+CREATE INDEX IF NOT EXISTS idx_job_applications_is_saved ON public.job_applications (is_saved);
+CREATE INDEX IF NOT EXISTS idx_job_applications_application_status ON public.job_applications (application_status);
+CREATE INDEX IF NOT EXISTS idx_job_applications_created_at ON public.job_applications (created_at);
+
 -- Add comments for documentation
 COMMENT ON TABLE public.employee IS 'Employee profiles managed through Dynamic.xyz authentication';
 COMMENT ON TABLE public.employer IS 'Employer profiles managed through Dynamic.xyz authentication';
 COMMENT ON TABLE public.jobs IS 'Job postings in the marketplace';
+COMMENT ON TABLE public.job_applications IS 'Job applications and saved jobs for employees';
 
 COMMENT ON COLUMN public.employee.id IS 'Primary key - auto-incrementing bigint';
 COMMENT ON COLUMN public.employee.email IS 'Email address from Dynamic.xyz - must be unique';
@@ -97,3 +120,8 @@ COMMENT ON COLUMN public.employer.wallet_address IS 'Blockchain wallet address f
 COMMENT ON COLUMN public.jobs.id IS 'Primary key - auto-incrementing bigint';
 COMMENT ON COLUMN public.jobs.status IS 'Job status: draft, active, paused, closed, filled';
 COMMENT ON COLUMN public.jobs.salary IS 'Salary amount with 2 decimal places';
+
+COMMENT ON COLUMN public.job_applications.id IS 'Primary key - auto-incrementing bigint';
+COMMENT ON COLUMN public.job_applications.is_saved IS 'Whether the employee has saved this job';
+COMMENT ON COLUMN public.job_applications.application_status IS 'Application status: null (not applied), applied, accepted, rejected';
+COMMENT ON COLUMN public.job_applications.applied_at IS 'Timestamp when the employee applied to the job';
