@@ -4,8 +4,10 @@ import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
 import { sampleJobs } from '../data/sampleJobs';
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const EmployeeJobsPage = () => {
+  const { user, primaryWallet } = useDynamicContext();
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,21 +16,35 @@ const EmployeeJobsPage = () => {
   const [showJobModal, setShowJobModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'accepted'
   const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
-  
-  // Get employee ID from localStorage (adjust based on your auth implementation)
-  const getEmployeeId = () => {
-    const employeeData = localStorage.getItem('employee');
-    if (employeeData) {
-      const employee = JSON.parse(employeeData);
-      return employee.id || employee.employee_id;
-    }
-    return null;
-  };
+  const [employeeData, setEmployeeData] = useState(null); // Store employee data from API
 
-  // Fetch jobs on component mount
+  // Fetch employee data on component mount
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    const fetchEmployeeData = async () => {
+      if (!user || !primaryWallet?.address) {
+        return;
+      }
+
+      try {
+        const response = await apiService.getEmployeeByWallet(primaryWallet.address);
+        setEmployeeData(response.data);
+      } catch (error) {
+        console.error('Error fetching employee data:', error);
+      }
+    };
+
+    fetchEmployeeData();
+  }, [user, primaryWallet]);
+
+  // Fetch jobs when employee data is loaded
+  useEffect(() => {
+    if (employeeData) {
+      fetchJobs(employeeData.id);
+    } else {
+      // Load jobs without employee context if not logged in
+      fetchJobs(null);
+    }
+  }, [employeeData]);
 
   // Handle search query from URL
   useEffect(() => {
@@ -45,13 +61,10 @@ const EmployeeJobsPage = () => {
     }
   }, [searchParams, jobs]);
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (employeeId = null) => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Get employee ID to fetch job application status
-      const employeeId = getEmployeeId();
       
       // Get jobs from API
       const response = await apiService.getAllJobs(employeeId);
@@ -98,7 +111,7 @@ const EmployeeJobsPage = () => {
   };
 
   const handleSaveJob = async (job) => {
-    const employeeId = getEmployeeId();
+    const employeeId = employeeData?.id;
     if (!employeeId) {
       alert('Please log in to save jobs');
       return;
@@ -136,7 +149,7 @@ const EmployeeJobsPage = () => {
   };
 
   const handleApplyToJob = async (job) => {
-    const employeeId = getEmployeeId();
+    const employeeId = employeeData?.id;
     if (!employeeId) {
       alert('Please log in to apply for jobs');
       return;
