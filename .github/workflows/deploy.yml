@@ -111,21 +111,31 @@ jobs:
         
         echo "🚀 Starting deployment..."
         
+        # Check system resources
+        echo "💾 System resources:"
+        free -h
+        df -h /
+        
         # Set domain based on input
         if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
           DOMAIN="${{ env.STAGING_DOMAIN }}"
           BRANCH="${{ github.event.inputs.branch }}"
           [ -z "$BRANCH" ] && BRANCH=develop
-          REPO_DIR="/home/ec2-user/lucidledger-staging"
+          REPO_DIR="lucidledger-staging"
         else
           DOMAIN="${{ env.PROD_DOMAIN }}"
           BRANCH="${{ github.event.inputs.branch }}"
           [ -z "$BRANCH" ] && BRANCH=main
-          REPO_DIR="/home/ec2-user/lucidledger"
+          REPO_DIR="lucidledger"
         fi
         
-        # Navigate to project directory
-        cd "$REPO_DIR" || cd /home/ubuntu/$(basename "$REPO_DIR")
+        # Navigate to project directory (try ubuntu user first, then ec2-user)
+        cd "/home/ubuntu/$REPO_DIR" 2>/dev/null || cd "/home/ec2-user/$REPO_DIR" || {
+          echo "❌ Error: Could not find repository directory"
+          exit 1
+        }
+        
+        echo "📁 Working directory: $(pwd)"
         
         # Pull latest changes
         echo "📥 Pulling latest changes..."
@@ -135,13 +145,23 @@ jobs:
         echo "🛑 Stopping existing services..."
         docker-compose -f docker-compose.nginx.yml down || true
         
-        # Rebuild and start services
+        # Clean up Docker to free memory
+        echo "🧹 Cleaning up Docker..."
+        docker system prune -af --volumes || true
+        
+        # Rebuild and start services with environment variables
         echo "🔨 Rebuilding and starting services..."
+        export VITE_API_BASE_URL="https://$DOMAIN/api"
+        export VITE_DYNAMIC_ENV_ID="bb03ee6d-6f22-4d73-b630-439914bf6b18"
         docker-compose -f docker-compose.nginx.yml up -d --build
         
-        # Wait for services to be ready
+        # Wait for services to be ready (longer wait for build process)
         echo "⏳ Waiting for services to be ready..."
-        sleep 60
+        sleep 90
+        
+        # Check if services are running
+        echo "🔍 Checking Docker containers..."
+        docker ps
         
         # Check service status
         echo "📊 Checking service status..."
