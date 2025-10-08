@@ -52,7 +52,7 @@ const EmployeeJobsPage = () => {
     fetchEmployeeData();
   }, [user, primaryWallet]);
 
-  // Fetch jobs when employee data is loaded
+  // Fetch jobs when employee data is loaded or filter changes
   useEffect(() => {
     if (employeeData) {
       fetchJobs(employeeData.id);
@@ -60,7 +60,7 @@ const EmployeeJobsPage = () => {
       // Load jobs without employee context if not logged in
       fetchJobs(null);
     }
-  }, [employeeData]);
+  }, [employeeData, activeFilter]);
 
   // Handle search query from URL
   useEffect(() => {
@@ -82,23 +82,67 @@ const EmployeeJobsPage = () => {
       setLoading(true);
       setError(null);
       
-      // Get jobs from API
-      const response = await apiService.getAllJobs(employeeId);
-      const data = response.data || [];
+      let data = [];
       
-      // Use sample jobs if no jobs found from API
-      const jobsToDisplay = data.length > 0 ? data : sampleJobs;
+      // Fetch based on active filter
+      if (activeFilter === 'all') {
+        // Get all jobs with application status if logged in
+        const response = await apiService.getAllJobs(employeeId);
+        data = response.data || [];
+      } else if (activeFilter === 'saved' && employeeId) {
+        // Get only saved jobs for this employee
+        const response = await apiService.getSavedJobs(employeeId);
+        data = response.data || [];
+        // Extract job data from application records
+        data = data.map(app => ({
+          ...app.job,
+          is_saved: true,
+          application_status: app.application_status
+        }));
+      } else if (activeFilter === 'applied' && employeeId) {
+        // Get only applied jobs for this employee
+        const response = await apiService.getAppliedJobs(employeeId);
+        data = response.data || [];
+        // Extract job data from application records
+        data = data.map(app => ({
+          ...app.job,
+          is_saved: app.is_saved,
+          application_status: app.application_status
+        }));
+      } else if (activeFilter === 'accepted' && employeeId) {
+        // Get only accepted jobs for this employee
+        const response = await apiService.getAppliedJobs(employeeId);
+        data = response.data || [];
+        // Filter for accepted status
+        data = data
+          .filter(app => app.application_status === 'accepted')
+          .map(app => ({
+            ...app.job,
+            is_saved: app.is_saved,
+            application_status: app.application_status
+          }));
+      }
+      
+      // Use sample jobs if no jobs found from API (only for 'all' filter)
+      const jobsToDisplay = data.length > 0 ? data : (activeFilter === 'all' ? sampleJobs : []);
       
       setJobs(jobsToDisplay);
       if (jobsToDisplay && jobsToDisplay.length > 0) {
         setSelectedJob(jobsToDisplay[0]);
+      } else {
+        setSelectedJob(null);
       }
     } catch (err) {
       console.error('API Error:', err);
       setError('Failed to load jobs. Please try again later.');
-      // Use sample jobs even on error
-      setJobs(sampleJobs);
-      setSelectedJob(sampleJobs[0]);
+      // Use sample jobs even on error (only for 'all' filter)
+      if (activeFilter === 'all') {
+        setJobs(sampleJobs);
+        setSelectedJob(sampleJobs[0]);
+      } else {
+        setJobs([]);
+        setSelectedJob(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -143,12 +187,18 @@ const EmployeeJobsPage = () => {
       if (job.is_saved) {
         // Unsave the job
         await apiService.unsaveJob(employeeId, job.id);
-        // Update local state
-        setJobs(jobs.map(j => 
-          j.id === job.id ? { ...j, is_saved: false } : j
-        ));
-        if (selectedJob?.id === job.id) {
-          setSelectedJob({ ...selectedJob, is_saved: false });
+        
+        // If on saved filter, refetch to update the list
+        if (activeFilter === 'saved') {
+          await fetchJobs(employeeId);
+        } else {
+          // Update local state
+          setJobs(jobs.map(j => 
+            j.id === job.id ? { ...j, is_saved: false } : j
+          ));
+          if (selectedJob?.id === job.id) {
+            setSelectedJob({ ...selectedJob, is_saved: false });
+          }
         }
       } else {
         // Save the job
@@ -190,13 +240,20 @@ const EmployeeJobsPage = () => {
     setProcessingJobId(job.id);
     try {
       await apiService.applyToJob(employeeId, job.id);
-      // Update local state
-      setJobs(jobs.map(j => 
-        j.id === job.id ? { ...j, application_status: 'applied' } : j
-      ));
-      if (selectedJob?.id === job.id) {
-        setSelectedJob({ ...selectedJob, application_status: 'applied' });
+      
+      // If on applied or accepted filter, refetch to update the list
+      if (activeFilter === 'applied' || activeFilter === 'accepted') {
+        await fetchJobs(employeeId);
+      } else {
+        // Update local state
+        setJobs(jobs.map(j => 
+          j.id === job.id ? { ...j, application_status: 'applied' } : j
+        ));
+        if (selectedJob?.id === job.id) {
+          setSelectedJob({ ...selectedJob, application_status: 'applied' });
+        }
       }
+      
       alert('Application submitted successfully!');
     } catch (err) {
       console.error('Error applying to job:', err);
@@ -206,15 +263,8 @@ const EmployeeJobsPage = () => {
     }
   };
 
-  const getFilteredJobs = () => {
-    if (activeFilter === 'all') return jobs;
-    if (activeFilter === 'saved') return jobs.filter(job => job.is_saved);
-    if (activeFilter === 'applied') return jobs.filter(job => job.application_status === 'applied');
-    if (activeFilter === 'accepted') return jobs.filter(job => job.application_status === 'accepted');
-    return jobs;
-  };
-
-  const filteredJobs = getFilteredJobs();
+  // Jobs are already filtered by the API, so we can use them directly
+  const filteredJobs = jobs;
 
   if (loading) {
     return (
@@ -277,7 +327,13 @@ const EmployeeJobsPage = () => {
                 All Jobs
               </button>
               <button
-                onClick={() => setActiveFilter('saved')}
+                onClick={() => {
+                  if (!user) {
+                    alert('Please log in to view saved jobs');
+                    return;
+                  }
+                  setActiveFilter('saved');
+                }}
                 className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
                   activeFilter === 'saved'
                     ? 'bg-[#EE964B] text-white shadow-sm'
@@ -287,7 +343,13 @@ const EmployeeJobsPage = () => {
                 Saved
               </button>
               <button
-                onClick={() => setActiveFilter('applied')}
+                onClick={() => {
+                  if (!user) {
+                    alert('Please log in to view applied jobs');
+                    return;
+                  }
+                  setActiveFilter('applied');
+                }}
                 className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
                   activeFilter === 'applied'
                     ? 'bg-[#EE964B] text-white shadow-sm'
@@ -297,7 +359,13 @@ const EmployeeJobsPage = () => {
                 Applied
               </button>
               <button
-                onClick={() => setActiveFilter('accepted')}
+                onClick={() => {
+                  if (!user) {
+                    alert('Please log in to view accepted jobs');
+                    return;
+                  }
+                  setActiveFilter('accepted');
+                }}
                 className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
                   activeFilter === 'accepted'
                     ? 'bg-[#EE964B] text-white shadow-sm'
