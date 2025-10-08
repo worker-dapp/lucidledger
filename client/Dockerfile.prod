@@ -11,7 +11,8 @@ RUN npm config set update-notifier false
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies needed for build)
-RUN npm ci --legacy-peer-deps=false || npm install
+# Use npm install instead of npm ci to handle lock file drift gracefully
+RUN npm install --no-audit --no-fund
 
 # Copy source code
 COPY . .
