@@ -167,7 +167,7 @@ const EmployeeNavbar = () => {
               </button>
               
               <NavLink
-                to="/my-jobs"
+                to="/employee-jobs"
                 onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
