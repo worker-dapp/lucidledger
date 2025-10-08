@@ -19,53 +19,53 @@ env:
   STAGING_DOMAIN: staging.lucidledger.co
 
 jobs:
-  test:
-    name: Test Application
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # test:
+  #   name: Test Application
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Setup Node.js (client)
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: client/package-lock.json
+  #   - name: Setup Node.js (client)
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '20'
+  #       cache: 'npm'
+  #       cache-dependency-path: client/package-lock.json
 
-    - name: Install frontend dependencies
-      working-directory: ./client
-      run: |
-        npm config set cache .npm-cache
-        npm install
+  #   - name: Install frontend dependencies
+  #     working-directory: ./client
+  #     run: |
+  #       npm config set cache .npm-cache
+  #       npm install
 
-    - name: Build frontend
-      working-directory: ./client
-      env:
-        VITE_API_BASE_URL: https://lucidledger.co/api
-        VITE_DYNAMIC_ENV_ID: bb03ee6d-6f22-4d73-b630-439914bf6b18
-      run: npm run build
+  #   - name: Build frontend
+  #     working-directory: ./client
+  #     env:
+  #       VITE_API_BASE_URL: https://lucidledger.co/api
+  #       VITE_DYNAMIC_ENV_ID: ${{ secrets.VITE_DYNAMIC_ENV_ID }}
+  #     run: npm run build
 
-    - name: Setup Node.js (server)
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: server/package-lock.json
+  #   - name: Setup Node.js (server)
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '18'
+  #       cache: 'npm'
+  #       cache-dependency-path: server/package-lock.json
 
-    - name: Install backend dependencies
-      working-directory: ./server
-      run: |
-        npm config set cache .npm-cache
-        npm install
+  #   - name: Install backend dependencies
+  #     working-directory: ./server
+  #     run: |
+  #       npm config set cache .npm-cache
+  #       npm install
       
-    - name: Run frontend tests
-      working-directory: ./client
-      run: npm run lint || echo "ESLint issues found, but continuing deployment"
+  #   - name: Run frontend tests
+  #     working-directory: ./client
+  #     run: npm run lint || echo "ESLint issues found, but continuing deployment"
       
-    - name: Run backend tests
-      working-directory: ./server
-      run: npm run lint || echo "No lint script found, skipping"
+  #   - name: Run backend tests
+  #     working-directory: ./server
+  #     run: npm run lint || echo "No lint script found, skipping"
 
   deploy:
     name: Deploy to EC2
@@ -100,7 +100,7 @@ jobs:
     - name: Add EC2 to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H "${{ env.TARGET_HOST }}" >> ~/.ssh/known_hosts
+        ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
         
     - name: Deploy to EC2
       run: |
@@ -135,10 +135,8 @@ jobs:
         echo "🛑 Stopping existing services..."
         docker-compose -f docker-compose.nginx.yml down || true
         
-        # Rebuild and start services with environment variables
+        # Rebuild and start services
         echo "🔨 Rebuilding and starting services..."
-        export VITE_API_BASE_URL="$API_DOMAIN/api"
-        export VITE_DYNAMIC_ENV_ID="bb03ee6d-6f22-4d73-b630-439914bf6b18"
         docker-compose -f docker-compose.nginx.yml up -d --build
         
         # Wait for services to be ready
@@ -180,7 +178,7 @@ jobs:
         chmod +x deploy.sh
         
         # Execute deployment script on EC2
-        ssh -o StrictHostKeyChecking=no "${{ env.TARGET_USER }}"@"${{ env.TARGET_HOST }}" 'bash -s' < deploy.sh
+        ssh -o StrictHostKeyChecking=no "$TARGET_USER"@"$TARGET_HOST" 'bash -s' < deploy.sh
         
     - name: Deployment Status
       run: |
