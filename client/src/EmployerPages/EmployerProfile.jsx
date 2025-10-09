@@ -18,6 +18,7 @@ const EmployerProfile = () => {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+1');
 
   // Address fields
   const [address1, setAddress1] = useState('');
@@ -46,6 +47,41 @@ const EmployerProfile = () => {
 
   // Company edit mode
   const [isEditingCompany, setIsEditingCompany] = useState(false);
+
+  // Constants for dropdowns
+  const countryCodes = [
+    { code: '+1', country: 'US/Canada' },
+    { code: '+44', country: 'UK' },
+    { code: '+91', country: 'India' },
+    { code: '+61', country: 'Australia' },
+    { code: '+86', country: 'China' },
+    { code: '+81', country: 'Japan' },
+    { code: '+49', country: 'Germany' },
+    { code: '+33', country: 'France' },
+    { code: '+39', country: 'Italy' },
+    { code: '+34', country: 'Spain' }
+  ];
+
+  const countries = [
+    'United States', 'Canada', 'United Kingdom', 'India', 'Australia',
+    'China', 'Japan', 'Germany', 'France', 'Italy', 'Spain', 'Brazil',
+    'Mexico', 'South Korea', 'Netherlands', 'Switzerland', 'Sweden',
+    'Norway', 'Denmark', 'Finland', 'Poland', 'Russia', 'Turkey',
+    'Saudi Arabia', 'South Africa', 'Egypt', 'Nigeria', 'Kenya'
+  ];
+
+  const usStates = [
+    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
+    'Colorado', 'Connecticut','District of Columbia', 'Delaware', 'Florida', 'Georgia',
+    'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+    'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+    'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+    'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+  ];
 
   // Industry suggestions
   const industrySuggestions = [
@@ -79,7 +115,9 @@ const EmployerProfile = () => {
         setLastName(data.last_name || '');
         setEmail(data.email || '');
         setPhone(data.phone_number || '');
+        setCountryCode(data.country_code || '+1');
         setAddress1(data.street_address || '');
+        setAddress2(data.street_address2 || '');
         setCity(data.city || '');
         setStateRegion(data.state || '');
         setPostalCode(data.zip_code || '');
@@ -154,7 +192,8 @@ const EmployerProfile = () => {
       first_name: firstName,
       last_name: lastName,
       email: email,
-      phone_number: phone
+      phone_number: phone,
+      country_code: countryCode
     };
     await saveToAPI(contactData, 'Contact information saved');
     setIsEditingContact(false);
@@ -163,6 +202,7 @@ const EmployerProfile = () => {
   const handleSaveAddress = async () => {
     const addressData = {
       street_address: address1,
+      street_address2: address2,
       city: city,
       state: stateRegion,
       zip_code: postalCode,
@@ -259,13 +299,26 @@ const EmployerProfile = () => {
                 />
 
                 <label className="block text-sm text-gray-600 mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full mb-6 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                  placeholder="+1 555 555 5555"
-                />
+                <div className="flex gap-2 mb-6">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                  >
+                    {countryCodes.map(({ code, country }) => (
+                      <option key={code} value={code}>
+                        {code} ({country})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                    placeholder="555 555 5555"
+                  />
+                </div>
 
                 <div className="flex gap-3">
                   <button
@@ -291,7 +344,7 @@ const EmployerProfile = () => {
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Phone</div>
-                  <div className="text-gray-800">{phone || '—'}</div>
+                  <div className="text-gray-800">{phone ? `${countryCode} ${phone}` : '—'}</div>
                 </div>
               </div>
             )}
@@ -344,13 +397,16 @@ const EmployerProfile = () => {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">State / Region</label>
-                    <input
-                      type="text"
+                    <select
                       value={stateRegion}
                       onChange={(e) => setStateRegion(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                      placeholder="State / Region"
-                    />
+                    >
+                      <option value="">Select State</option>
+                      {usStates.map((state) => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -367,13 +423,16 @@ const EmployerProfile = () => {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">Country</label>
-                    <input
-                      type="text"
+                    <select
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                      placeholder="Country"
-                    />
+                    >
+                      <option value="">Select Country</option>
+                      {countries.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 

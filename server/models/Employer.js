@@ -32,6 +32,10 @@ const Employer = sequelize.define('Employer', {
     type: DataTypes.STRING(255),
     allowNull: true
   },
+  street_address2: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
   country: {
     type: DataTypes.STRING(100),
     allowNull: true
@@ -50,6 +54,30 @@ const Employer = sequelize.define('Employer', {
   },
   country_code: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  company_name: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  company_description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  industry: {
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
+  company_size: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  website: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  linkedin: {
+    type: DataTypes.STRING(255),
     allowNull: true
   }
 }, {

@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
-import { sampleJobs } from '../data/sampleJobs';
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const EmployeeJobsPage = () => {
@@ -121,26 +120,17 @@ const EmployeeJobsPage = () => {
           }));
       }
       
-      // Use sample jobs if no jobs found from API (only for 'all' filter)
-      const jobsToDisplay = data.length > 0 ? data : (activeFilter === 'all' ? sampleJobs : []);
-      
-      setJobs(jobsToDisplay);
-      if (jobsToDisplay && jobsToDisplay.length > 0) {
-        setSelectedJob(jobsToDisplay[0]);
+      setJobs(data);
+      if (data && data.length > 0) {
+        setSelectedJob(data[0]);
       } else {
         setSelectedJob(null);
       }
     } catch (err) {
       console.error('API Error:', err);
       setError('Failed to load jobs. Please try again later.');
-      // Use sample jobs even on error (only for 'all' filter)
-      if (activeFilter === 'all') {
-        setJobs(sampleJobs);
-        setSelectedJob(sampleJobs[0]);
-      } else {
-        setJobs([]);
-        setSelectedJob(null);
-      }
+      setJobs([]);
+      setSelectedJob(null);
     } finally {
       setLoading(false);
     }
@@ -239,16 +229,20 @@ const EmployeeJobsPage = () => {
     try {
       await apiService.applyToJob(employeeId, job.id);
       
+      // If on saved filter, refetch to remove the job from saved list
+      if (activeFilter === 'saved') {
+        await fetchJobs(employeeId);
+      }
       // If on applied or accepted filter, refetch to update the list
-      if (activeFilter === 'applied' || activeFilter === 'accepted') {
+      else if (activeFilter === 'applied' || activeFilter === 'accepted') {
         await fetchJobs(employeeId);
       } else {
-        // Update local state
+        // Update local state - mark as applied and unsaved
         setJobs(jobs.map(j => 
-          j.id === job.id ? { ...j, application_status: 'applied' } : j
+          j.id === job.id ? { ...j, application_status: 'applied', is_saved: false } : j
         ));
         if (selectedJob?.id === job.id) {
-          setSelectedJob({ ...selectedJob, application_status: 'applied' });
+          setSelectedJob({ ...selectedJob, application_status: 'applied', is_saved: false });
         }
       }
       
@@ -279,26 +273,26 @@ const EmployeeJobsPage = () => {
     );
   }
 
-  // if (error) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50">
-  //       <EmployeeNavbar />
-  //       <div className="pt-26 flex items-center justify-center h-96">
-  //         <div className="text-center">
-  //           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-  //           <p className="text-gray-600">{error}</p>
-  //           <button 
-  //             onClick={fetchJobs}
-  //             className="mt-4 bg-[#EE964B] text-white px-6 py-2 rounded-lg hover:bg-[#d97b33] transition-all"
-  //           >
-  //             Try Again
-  //           </button>
-  //         </div>
-  //       </div>
-  //       <Footer />
-  //     </div>
-  //   );
-  // }
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <EmployeeNavbar />
+        <div className="pt-26 flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <p className="text-gray-600">{error}</p>
+            <button 
+              onClick={fetchJobs}
+              className="mt-4 bg-[#EE964B] text-white px-6 py-2 rounded-lg hover:bg-[#d97b33] transition-all"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-gray-50 overflow-hidden">
@@ -543,11 +537,13 @@ const EmployeeJobsPage = () => {
                   </button>
                   <button 
                     onClick={() => handleSaveJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
                     className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.is_saved
-                        ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
-                        : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : selectedJob.is_saved
+                          ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
+                          : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
                     }`}
                   >
                     {processingJobId === selectedJob.id 
@@ -704,11 +700,13 @@ const EmployeeJobsPage = () => {
                   </button>
                   <button 
                     onClick={() => handleSaveJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
                     className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.is_saved
-                        ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
-                        : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : selectedJob.is_saved
+                          ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
+                          : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
                     }`}
                   >
                     {processingJobId === selectedJob.id 

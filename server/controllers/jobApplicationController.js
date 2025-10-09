@@ -128,6 +128,11 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
+    // Remove job from saved jobs if it was saved
+    await SavedJob.destroy({
+      where: { employee_id, job_id }
+    });
+
     res.status(200).json({
       success: true,
       message: 'Application submitted successfully',
