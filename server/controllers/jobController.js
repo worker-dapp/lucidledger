@@ -31,15 +31,16 @@ class JobController {
       let jobs;
       
       if (employee_id) {
-        // If employee_id is provided, include application status
+        // If employee_id is provided, include application status and saved status
         jobs = await sequelize.query(
           `SELECT j.*, 
-                  ja.is_saved, 
+                  CASE WHEN sj.id IS NOT NULL THEN true ELSE false END as is_saved,
                   ja.application_status,
                   j.title as "jobTitle",
                   j.company_name as "companyName"
            FROM jobs j
            LEFT JOIN job_applications ja ON j.id = ja.job_id AND ja.employee_id = :employeeId
+           LEFT JOIN saved_jobs sj ON j.id = sj.job_id AND sj.employee_id = :employeeId
            ORDER BY j.created_at DESC`,
           {
             replacements: { employeeId: employee_id },
