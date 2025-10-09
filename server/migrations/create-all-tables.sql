@@ -71,7 +71,6 @@ CREATE TABLE IF NOT EXISTS public.job_applications (
     id bigserial NOT NULL,
     employee_id bigint NOT NULL,
     job_id bigint NOT NULL,
-    is_saved boolean NOT NULL DEFAULT false,
     application_status text NULL,
     applied_at timestamp with time zone NULL,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -80,6 +79,20 @@ CREATE TABLE IF NOT EXISTS public.job_applications (
     CONSTRAINT job_applications_unique_employee_job UNIQUE (employee_id, job_id),
     CONSTRAINT job_applications_employee_fkey FOREIGN KEY (employee_id) REFERENCES public.employee(id) ON DELETE CASCADE,
     CONSTRAINT job_applications_job_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id) ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- Create saved_jobs table for AWS RDS PostgreSQL
+CREATE TABLE IF NOT EXISTS public.saved_jobs (
+    id bigserial NOT NULL,
+    employee_id bigint NOT NULL,
+    job_id bigint NOT NULL,
+    saved_at timestamp with time zone NOT NULL DEFAULT now(),
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT saved_jobs_pkey PRIMARY KEY (id),
+    CONSTRAINT saved_jobs_unique_employee_job UNIQUE (employee_id, job_id),
+    CONSTRAINT saved_jobs_employee_fkey FOREIGN KEY (employee_id) REFERENCES public.employee(id) ON DELETE CASCADE,
+    CONSTRAINT saved_jobs_job_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id) ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
 -- Create indexes for better performance
@@ -99,15 +112,19 @@ CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON public.jobs (created_at);
 
 CREATE INDEX IF NOT EXISTS idx_job_applications_employee_id ON public.job_applications (employee_id);
 CREATE INDEX IF NOT EXISTS idx_job_applications_job_id ON public.job_applications (job_id);
-CREATE INDEX IF NOT EXISTS idx_job_applications_is_saved ON public.job_applications (is_saved);
 CREATE INDEX IF NOT EXISTS idx_job_applications_application_status ON public.job_applications (application_status);
 CREATE INDEX IF NOT EXISTS idx_job_applications_created_at ON public.job_applications (created_at);
+
+CREATE INDEX IF NOT EXISTS idx_saved_jobs_employee_id ON public.saved_jobs (employee_id);
+CREATE INDEX IF NOT EXISTS idx_saved_jobs_job_id ON public.saved_jobs (job_id);
+CREATE INDEX IF NOT EXISTS idx_saved_jobs_saved_at ON public.saved_jobs (saved_at);
 
 -- Add comments for documentation
 COMMENT ON TABLE public.employee IS 'Employee profiles managed through Dynamic.xyz authentication';
 COMMENT ON TABLE public.employer IS 'Employer profiles managed through Dynamic.xyz authentication';
 COMMENT ON TABLE public.jobs IS 'Job postings in the marketplace';
-COMMENT ON TABLE public.job_applications IS 'Job applications and saved jobs for employees';
+COMMENT ON TABLE public.job_applications IS 'Job applications for employees';
+COMMENT ON TABLE public.saved_jobs IS 'Saved jobs bookmarked by employees';
 
 COMMENT ON COLUMN public.employee.id IS 'Primary key - auto-incrementing bigint';
 COMMENT ON COLUMN public.employee.email IS 'Email address from Dynamic.xyz - must be unique';
@@ -122,6 +139,10 @@ COMMENT ON COLUMN public.jobs.status IS 'Job status: draft, active, paused, clos
 COMMENT ON COLUMN public.jobs.salary IS 'Salary amount with 2 decimal places';
 
 COMMENT ON COLUMN public.job_applications.id IS 'Primary key - auto-incrementing bigint';
-COMMENT ON COLUMN public.job_applications.is_saved IS 'Whether the employee has saved this job';
 COMMENT ON COLUMN public.job_applications.application_status IS 'Application status: null (not applied), applied, accepted, rejected';
 COMMENT ON COLUMN public.job_applications.applied_at IS 'Timestamp when the employee applied to the job';
+
+COMMENT ON COLUMN public.saved_jobs.id IS 'Primary key - auto-incrementing bigint';
+COMMENT ON COLUMN public.saved_jobs.employee_id IS 'Reference to employee who saved the job';
+COMMENT ON COLUMN public.saved_jobs.job_id IS 'Reference to the saved job';
+COMMENT ON COLUMN public.saved_jobs.saved_at IS 'Timestamp when the job was saved';

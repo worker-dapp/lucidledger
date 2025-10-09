@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const JobApplication = sequelize.define('JobApplication', {
+const SavedJob = sequelize.define('SavedJob', {
   id: {
     type: DataTypes.BIGINT,
     primaryKey: true,
@@ -23,18 +23,13 @@ const JobApplication = sequelize.define('JobApplication', {
       key: 'id'
     }
   },
-  application_status: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    // null = not applied, 'applied' = applied, 'accepted' = accepted, 'rejected' = rejected
-    defaultValue: null
-  },
-  applied_at: {
+  saved_at: {
     type: DataTypes.DATE,
-    allowNull: true
+    allowNull: false,
+    defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'job_applications',
+  tableName: 'saved_jobs',
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
@@ -46,4 +41,5 @@ const JobApplication = sequelize.define('JobApplication', {
   ]
 });
 
-module.exports = JobApplication;
+module.exports = SavedJob;
+

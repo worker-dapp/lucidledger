@@ -1,4 +1,5 @@
 const JobApplication = require('../models/JobApplication');
+const SavedJob = require('../models/SavedJob');
 const Job = require('../models/Job');
 const { sequelize } = require('../config/database');
 
@@ -14,28 +15,30 @@ exports.saveJob = async (req, res) => {
       });
     }
 
-    // Check if application record already exists
-    let application = await JobApplication.findOne({
+    // Check if saved job already exists
+    let savedJob = await SavedJob.findOne({
       where: { employee_id, job_id }
     });
 
-    if (application) {
-      // Update existing record
-      application.is_saved = true;
-      await application.save();
-    } else {
-      // Create new record
-      application = await JobApplication.create({
-        employee_id,
-        job_id,
-        is_saved: true
+    if (savedJob) {
+      return res.status(200).json({
+        success: true,
+        message: 'Job already saved',
+        data: savedJob
       });
     }
+
+    // Create new saved job record
+    savedJob = await SavedJob.create({
+      employee_id,
+      job_id,
+      saved_at: new Date()
+    });
 
     res.status(200).json({
       success: true,
       message: 'Job saved successfully',
-      data: application
+      data: savedJob
     });
   } catch (error) {
     console.error('Error saving job:', error);
@@ -59,19 +62,21 @@ exports.unsaveJob = async (req, res) => {
       });
     }
 
-    const application = await JobApplication.findOne({
+    // Delete the saved job record
+    const deleted = await SavedJob.destroy({
       where: { employee_id, job_id }
     });
 
-    if (application) {
-      application.is_saved = false;
-      await application.save();
+    if (deleted === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Saved job not found'
+      });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Job unsaved successfully',
-      data: application
+      message: 'Job unsaved successfully'
     });
   } catch (error) {
     console.error('Error unsaving job:', error);
@@ -143,20 +148,55 @@ exports.getSavedJobs = async (req, res) => {
   try {
     const { employeeId } = req.params;
 
-    const applications = await JobApplication.findAll({
-      where: { 
-        employee_id: employeeId,
-        is_saved: true
-      },
-      include: [{
-        model: Job,
-        as: 'job'
-      }]
-    });
+    // Use raw query to join with job_applications to get application_status
+    const savedJobs = await sequelize.query(
+      `SELECT sj.*, 
+              j.*,
+              ja.application_status,
+              sj.saved_at
+       FROM saved_jobs sj
+       INNER JOIN jobs j ON sj.job_id = j.id
+       LEFT JOIN job_applications ja ON ja.employee_id = sj.employee_id AND ja.job_id = sj.job_id
+       WHERE sj.employee_id = :employeeId
+       ORDER BY sj.saved_at DESC`,
+      {
+        replacements: { employeeId },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    // Transform the flat structure to match the expected format
+    const formattedSavedJobs = savedJobs.map(saved => ({
+      id: saved.id,
+      employee_id: saved.employee_id,
+      job_id: saved.job_id,
+      saved_at: saved.saved_at,
+      created_at: saved.created_at,
+      updated_at: saved.updated_at,
+      application_status: saved.application_status,
+      job: {
+        id: saved.job_id,
+        title: saved.title,
+        company_name: saved.company_name,
+        location: saved.location,
+        location_type: saved.location_type,
+        salary: saved.salary,
+        currency: saved.currency,
+        pay_frequency: saved.pay_frequency,
+        job_type: saved.job_type,
+        description: saved.description,
+        responsibilities: saved.responsibilities,
+        skills: saved.skills,
+        additional_compensation: saved.additional_compensation,
+        employee_benefits: saved.employee_benefits,
+        company_description: saved.company_description,
+        status: saved.status
+      }
+    }));
 
     res.status(200).json({
       success: true,
-      data: applications
+      data: formattedSavedJobs
     });
   } catch (error) {
     console.error('Error fetching saved jobs:', error);
@@ -173,20 +213,56 @@ exports.getAppliedJobs = async (req, res) => {
   try {
     const { employeeId } = req.params;
 
-    const applications = await JobApplication.findAll({
-      where: { 
-        employee_id: employeeId,
-        application_status: ['applied', 'accepted']
-      },
-      include: [{
-        model: Job,
-        as: 'job'
-      }]
-    });
+    // Use raw query to join with saved_jobs to get is_saved status
+    const applications = await sequelize.query(
+      `SELECT ja.*, 
+              j.*,
+              CASE WHEN sj.id IS NOT NULL THEN true ELSE false END as is_saved
+       FROM job_applications ja
+       INNER JOIN jobs j ON ja.job_id = j.id
+       LEFT JOIN saved_jobs sj ON sj.employee_id = ja.employee_id AND sj.job_id = ja.job_id
+       WHERE ja.employee_id = :employeeId 
+         AND ja.application_status IN ('applied', 'accepted')
+       ORDER BY ja.applied_at DESC`,
+      {
+        replacements: { employeeId },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    // Transform the flat structure to match the expected format
+    const formattedApplications = applications.map(app => ({
+      id: app.id,
+      employee_id: app.employee_id,
+      job_id: app.job_id,
+      application_status: app.application_status,
+      applied_at: app.applied_at,
+      created_at: app.created_at,
+      updated_at: app.updated_at,
+      is_saved: app.is_saved,
+      job: {
+        id: app.job_id,
+        title: app.title,
+        company_name: app.company_name,
+        location: app.location,
+        location_type: app.location_type,
+        salary: app.salary,
+        currency: app.currency,
+        pay_frequency: app.pay_frequency,
+        job_type: app.job_type,
+        description: app.description,
+        responsibilities: app.responsibilities,
+        skills: app.skills,
+        additional_compensation: app.additional_compensation,
+        employee_benefits: app.employee_benefits,
+        company_description: app.company_description,
+        status: app.status
+      }
+    }));
 
     res.status(200).json({
       success: true,
-      data: applications
+      data: formattedApplications
     });
   } catch (error) {
     console.error('Error fetching applied jobs:', error);

@@ -1,229 +1,110 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Bell, CheckCircle, XCircle, Wallet, Settings, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FileText, Users, FolderOpen, CheckCircle, AlertTriangle, Archive } from "lucide-react";
 import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import apiService from '../services/api';
 
 const EmployerDashboard = () => {
   const [userName, setUserName] = useState("");
-  const [showMessages, setShowMessages] = useState(false);
-  const [unreviewedContracts, setUnreviewedContracts] = useState([]);
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [walletInfo, setWalletInfo] = useState(null);
   const navigate = useNavigate();
   const { user } = useDynamicContext();
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (user) {
-        setUserName(user.first_name || (user.email ? user.email.split("@")[0] : user.phone || 'User'));
-
-        try {
-          // Get wallet info from localStorage instead of Supabase
-          const walletData = localStorage.getItem('walletInfo');
-          if (walletData) {
-            setWalletInfo(JSON.parse(walletData));
-          }
-        } catch (error) {
-          console.error("Error fetching wallet:", error);
-        }
-      }
-
-      try {
-        // Get contracts from localStorage instead of Supabase
-        const contractsData = localStorage.getItem('contracts');
-        if (contractsData) {
-          const contracts = JSON.parse(contractsData);
-          const unreviewed = contracts.filter(
-            (contract) => contract.status === "open" && !contract.reviewed
-          );
-          setUnreviewedContracts(unreviewed);
-        }
-      } catch (error) {
-        console.error("Error fetching contracts:", error);
-        setUnreviewedContracts([]);
-      }
-    };
-
-    fetchData();
-  }, [user]);
-
-  const handleReview = async (id) => {
-    try {
-      // Update contract in localStorage instead of Supabase
-      const contractsData = localStorage.getItem('contracts');
-      if (contractsData) {
-        const contracts = JSON.parse(contractsData);
-        const updatedContracts = contracts.map(contract => 
-          contract.id === id ? { ...contract, reviewed: true } : contract
-        );
-        localStorage.setItem('contracts', JSON.stringify(updatedContracts));
-        setUnreviewedContracts((prev) => prev.filter((c) => c.id !== id));
-      }
-    } catch (error) {
-      console.error("Error updating contract:", error);
+    if (user) {
+      setUserName(user.first_name || (user.email ? user.email.split("@")[0] : user.phone || 'User'));
     }
-  };
+  }, [user]);
 
   
 
+  const dashboardItems = [
+    {
+      title: "Create New Contract",
+      icon: FileText,
+      description: "Draft and initialize new contracts",
+      iconColor: "bg-[#EE964B]",
+      to: "/job",
+    },
+    {
+      title: "Review Applications",
+      icon: Users,
+      description: "Review pending contract applications",
+      iconColor: "bg-blue-500",
+      to: "/review-applications",
+    },
+    {
+      title: "View Open Contracts",
+      icon: FolderOpen,
+      description: "Browse all active contracts",
+      iconColor: "bg-green-500",
+      to: "/view-open-contracts",
+    },
+    {
+      title: "Review Completed Contracts",
+      icon: CheckCircle,
+      description: "View finalized contracts",
+      iconColor: "bg-green-600",
+      to: "/review-completed-contracts",
+    },
+    {
+      title: "View Ongoing Disputes",
+      icon: AlertTriangle,
+      description: "Monitor and resolve disputes",
+      iconColor: "bg-yellow-500",
+      to: "/dispute",
+    },
+    {
+      title: "View Closed Contracts",
+      icon: Archive,
+      description: "Access archived contracts",
+      iconColor: "bg-gray-500",
+      to: "/payments",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#FFFFFF] relative">
+    <div className="min-h-screen bg-gray-50">
       <EmployerNavbar />
 
-      {/* Profile Completion Alert */}
-      {user && (
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
-          <div className="flex items-center">
-            <User className="text-blue-400 mr-2" />
-            <p className="text-blue-700">
-              Please complete your profile to access all features.
-            </p>
-          </div>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-[#0D3B66] mb-2">
+            Welcome, {userName}!
+          </h1>
+          <p className="text-gray-600">
+            Manage all your contracts in one place
+          </p>
         </div>
-      )}
 
-      {/* Top-right: Icons */}
-      <div className="absolute top-32 right-6 flex items-center gap-4">
-        <button
-          onClick={() => setShowMessages(!showMessages)}
-          className="relative p-2 rounded-full bg-orange-100 hover:bg-orange-200 transition"
-        >
-          <Bell className="text-orange-600" />
-          {unreviewedContracts.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5">
-              {unreviewedContracts.length}
-            </span>
-          )}
-        </button>
+        {/* Dashboard Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {dashboardItems.map(({ title, icon: Icon, description, iconColor, to }) => (
+            <div
+              key={title}
+              onClick={() => navigate(to)}
+              className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white border border-gray-200 rounded-xl p-6"
+            >
+              <div className="flex flex-col items-start gap-4">
+                <div
+                  className={`p-3 rounded-xl ${iconColor} bg-opacity-10 group-hover:scale-110 transition-transform duration-300`}
+                >
+                  <Icon className={`h-8 w-8 ${iconColor.replace("bg-", "text-")}`} />
+                </div>
 
-        {/* Wallet */}
-        <button
-          onClick={() => setShowWalletModal(true)}
-          className="p-2 rounded-full bg-orange-100 hover:bg-orange-200 transition"
-        >
-          <Wallet className="text-orange-600" />
-        </button>
-
-        {/* DAO / Settings */}
-        <button
-          onClick={() => navigate("/dao")}
-          className="p-2 rounded-full bg-orange-100 hover:bg-orange-200 transition"
-        >
-          <Settings className="text-orange-600" />
-        </button>
-      </div>
-
-      {/* Notification Dropdown */}
-      {showMessages && (
-        <div className="absolute right-6 top-16 w-80 bg-white shadow-lg rounded-lg p-4 z-10">
-          <h4 className="text-md font-semibold text-gray-900 mb-2">
-            Unreviewed Contracts
-          </h4>
-          {unreviewedContracts.length === 0 ? (
-            <p className="text-sm text-gray-600">No unreviewed contracts.</p>
-          ) : (
-            <ul className="space-y-3">
-              {unreviewedContracts.map((contract) => {
-                const signerName =
-                  Array.isArray(contract.signers) && contract.signers.length > 0
-                    ? contract.signers[0]?.name || "Someone"
-                    : "Someone";
-                return (
-                  <li key={contract.id} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-800 truncate">
-                      {signerName} has accepted:{" "}
-                      <strong>{contract.title || contract.contracttitle}</strong>
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleReview(contract.id)}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <CheckCircle size={20} />
-                      </button>
-                      <button
-                        onClick={() =>
-                          setUnreviewedContracts((prev) =>
-                            prev.filter((c) => c.id !== contract.id)
-                          )
-                        }
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <XCircle size={20} />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {/* Welcome */}
-      <div className="text-3xl text-center p-12">Welcome, {userName}!</div>
-
-      {/* Action Cards */}
-      <div className="flex flex-wrap justify-center gap-12 p-12">
-        {[
-          { to: "/job", label: "Create New Contract" },
-          { to: "/review-applications", label: "Review Applications" },
-          { to: "/view-open-contracts", label: "View Open Contracts" },
-          { to: "/review-completed-contracts", label: "Review Completed Contracts" },
-          { to: "/dispute", label: "View Ongoing Disputes" },
-          { to: "/payments", label: "View Closed Contracts" },
-        ].map(({ to, label }) => (
-          <Link key={to} to={to} className={cardClass}>
-            {label}
-          </Link>
-        ))}
-      </div>
-
-      {/* Wallet Modal */}
-      {showWalletModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900">
-              Wallet Summary
-            </h2>
-            {walletInfo ? (
-              <>
-                <p className="text-md text-gray-700 mb-2">
-                  🧾 <strong>Wallet Address:</strong>{" "}
-                  {walletInfo.wallet_address?.slice(0, 6)}...
-                  {walletInfo.wallet_address?.slice(-4)}
-                </p>
-                <p className="text-lg mb-2">
-                  💰 <strong>Current Balance:</strong>{" "}
-                  <span className="text-green-700">
-                    ${parseFloat(walletInfo.usd_balance || 0).toFixed(2)}
-                  </span>
-                </p>
-              </>
-            ) : (
-              <p className="text-red-500">No wallet connected or found.</p>
-            )}
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowWalletModal(false)}
-                className="px-4 py-2 rounded bg-orange-500 text-white hover:bg-orange-600 transition"
-              >
-                Close
-              </button>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-[#0D3B66] group-hover:text-[#EE964B] transition-colors">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{description}</p>
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      )}
-
-      {/* Profile Completion Modal removed */}
+      </main>
     </div>
   );
 };
-
-const cardClass =
-  "w-1/4 text-center p-10 rounded-2xl shadow-2xl font-medium text-2xl border border-gray-100 bg-gradient-to-b from-[#FAF0CA] to-white backdrop-blur-lg transition-all hover:shadow-2xl hover:scale-[1.03] text-gray-900";
 
 export default EmployerDashboard;

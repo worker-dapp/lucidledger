@@ -29,14 +29,12 @@ const EmployeeJobsPage = () => {
       try {
         // Try to get employee by email first (primary method)
         if (user.email) {
-          console.log('Fetching employee data by email:', user.email);
           const response = await apiService.getEmployeeByEmail(user.email);
           setEmployeeData(response.data);
           console.log('Employee data loaded:', response.data);
         } 
         // Fallback to wallet address if email is not available
         else if (primaryWallet?.address) {
-          console.log('Fetching employee data by wallet:', primaryWallet.address);
           const response = await apiService.getEmployeeByWallet(primaryWallet.address);
           setEmployeeData(response.data);
           console.log('Employee data loaded:', response.data);
