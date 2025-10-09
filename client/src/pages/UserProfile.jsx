@@ -15,10 +15,18 @@ const UserProfile = () => {
     phoneNumber: '',
     countryCode: '+1',
     streetAddress: '',
+    streetAddress2: '',
     country: '',
     zipCode: '',
     state: '',
-    city: ''
+    city: '',
+    // Company fields for employers
+    companyName: '',
+    companyDescription: '',
+    industry: '',
+    companySize: '',
+    website: '',
+    linkedin: ''
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -58,6 +66,18 @@ const UserProfile = () => {
     'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
   ];
 
+  const industrySuggestions = [
+    'Agriculture', 'Construction', 'Manufacturing', 'Healthcare', 'Technology', 
+    'Retail', 'Hospitality', 'Transportation', 'Energy', 'Finance', 'Education',
+    'Real Estate', 'Food & Beverage', 'Automotive', 'Pharmaceuticals', 'Media',
+    'Consulting', 'Legal', 'Government', 'Non-profit', 'Other'
+  ];
+
+  const companySizeOptions = [
+    '1-10 employees', '11-50 employees', '51-200 employees', 
+    '201-500 employees', '501-1000 employees', '1000+ employees'
+  ];
+
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
@@ -68,10 +88,17 @@ const UserProfile = () => {
         phoneNumber: user.phone_number || '',
         countryCode: user.country_code || '+1',
         streetAddress: user.street_address || '',
+        streetAddress2: user.street_address2 || '',
         country: user.country || '',
         zipCode: user.zip_code || '',
         state: user.state || '',
-        city: user.city || ''
+        city: user.city || '',
+        companyName: user.company_name || '',
+        companyDescription: user.company_description || '',
+        industry: user.industry || '',
+        companySize: user.company_size || '',
+        website: user.website || '',
+        linkedin: user.linkedin || ''
       }));
     }
   }, [user]);
@@ -83,6 +110,8 @@ const UserProfile = () => {
 
   const validateForm = () => {
     const newErrors = {};
+    const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
+    
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
@@ -94,6 +123,12 @@ const UserProfile = () => {
     if (formData.phoneNumber && !/^\d{10,15}$/.test(formData.phoneNumber.replace(/\D/g, ''))) {
       newErrors.phoneNumber = 'Please enter a valid phone number';
     }
+    
+    // Employer-specific validation
+    if (role === 'employer') {
+      if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,6 +138,8 @@ const UserProfile = () => {
     if (!validateForm()) return;
     setLoading(true);
     try {
+      const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
+      
       const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -110,6 +147,7 @@ const UserProfile = () => {
         phone_number: formData.phoneNumber,
         country_code: formData.countryCode,
         street_address: formData.streetAddress,
+        street_address2: formData.streetAddress2,
         country: formData.country,
         zip_code: formData.zipCode,
         state: formData.state,
@@ -117,7 +155,15 @@ const UserProfile = () => {
         wallet_address: walletAddress,
       };
 
-      const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
+      // Add employer-specific fields
+      if (role === 'employer') {
+        payload.company_name = formData.companyName;
+        payload.company_description = formData.companyDescription;
+        payload.industry = formData.industry;
+        payload.company_size = formData.companySize;
+        payload.website = formData.website;
+        payload.linkedin = formData.linkedin;
+      }
       
       // Submit profile data to API
       if (role === 'employer') {
@@ -222,7 +268,19 @@ const UserProfile = () => {
               value={formData.streetAddress}
               onChange={(e) => handleInputChange('streetAddress', e.target.value)}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
-              placeholder="Enter your street address"
+              placeholder="Street address, P.O. box, company name"
+            />
+          </div>
+
+          {/* Row 4b: Street Address 2 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Street Address 2 (Optional)</label>
+            <input
+              type="text"
+              value={formData.streetAddress2}
+              onChange={(e) => handleInputChange('streetAddress2', e.target.value)}
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+              placeholder="Apartment, suite, unit, building, floor, etc."
             />
           </div>
 
@@ -283,6 +341,93 @@ const UserProfile = () => {
               {errors.zipCode && <p className="text-red-500 text-sm mt-1">{errors.zipCode}</p>}
             </div>
           </div>
+
+          {/* Company Information - Only for Employers */}
+          {(localStorage.getItem('persistedUserRole') === 'employer' || localStorage.getItem('userRole') === 'employer' || localStorage.getItem('pendingRole') === 'employer') && (
+            <>
+              <div className="col-span-full">
+                <h2 className="text-xl font-semibold text-[#0D3B66] mt-6 mb-4 border-t pt-6">Company Information</h2>
+              </div>
+
+              {/* Company Name & Industry */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
+                  <input
+                    type="text"
+                    value={formData.companyName}
+                    onChange={(e) => handleInputChange('companyName', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.companyName ? 'border-red-500' : 'border-gray-300'}`}
+                    placeholder="Your company name"
+                  />
+                  {errors.companyName && <p className="text-red-500 text-sm mt-1">{errors.companyName}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                  <select
+                    value={formData.industry}
+                    onChange={(e) => handleInputChange('industry', e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                  >
+                    <option value="">Select Industry</option>
+                    {industrySuggestions.map((ind) => (
+                      <option key={ind} value={ind}>{ind}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Company Size & Website */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Size</label>
+                  <select
+                    value={formData.companySize}
+                    onChange={(e) => handleInputChange('companySize', e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                  >
+                    <option value="">Select Company Size</option>
+                    {companySizeOptions.map((size) => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => handleInputChange('website', e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                    placeholder="https://yourcompany.com"
+                  />
+                </div>
+              </div>
+
+              {/* LinkedIn */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn</label>
+                <input
+                  type="url"
+                  value={formData.linkedin}
+                  onChange={(e) => handleInputChange('linkedin', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                  placeholder="https://linkedin.com/company/yourcompany"
+                />
+              </div>
+
+              {/* Company Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Company Description</label>
+                <textarea
+                  value={formData.companyDescription}
+                  onChange={(e) => handleInputChange('companyDescription', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 min-h-[100px]"
+                  placeholder="Describe your company, its mission, and what makes it unique..."
+                />
+              </div>
+            </>
+          )}
 
           {errors.submit && (
             <p className="text-red-500 text-sm text-center">{errors.submit}</p>

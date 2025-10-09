@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.employee (
     email character varying(255) NOT NULL,
     wallet_address character varying(100) NULL,
     street_address character varying(255) NULL,
+    street_address2 character varying(255) NULL,
     country character varying(100) NULL,
     state character varying(100) NULL,
     zip_code character varying(20) NULL,
@@ -27,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.employer (
     email character varying(255) NOT NULL,
     wallet_address character varying(100) NULL,
     street_address character varying(255) NULL,
+    street_address2 character varying(255) NULL,
     country character varying(100) NULL,
     state character varying(100) NULL,
     zip_code character varying(20) NULL,
@@ -34,6 +36,12 @@ CREATE TABLE IF NOT EXISTS public.employer (
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     updated_at timestamp with time zone NOT NULL DEFAULT now(),
     country_code text NULL,
+    company_name character varying(255) NULL,
+    company_description text NULL,
+    industry character varying(100) NULL,
+    company_size character varying(50) NULL,
+    website character varying(255) NULL,
+    linkedin character varying(255) NULL,
     CONSTRAINT employer_pkey PRIMARY KEY (id),
     CONSTRAINT employer_email_key UNIQUE (email)
 ) TABLESPACE pg_default;
@@ -129,10 +137,18 @@ COMMENT ON TABLE public.saved_jobs IS 'Saved jobs bookmarked by employees';
 COMMENT ON COLUMN public.employee.id IS 'Primary key - auto-incrementing bigint';
 COMMENT ON COLUMN public.employee.email IS 'Email address from Dynamic.xyz - must be unique';
 COMMENT ON COLUMN public.employee.wallet_address IS 'Blockchain wallet address from Dynamic.xyz';
+COMMENT ON COLUMN public.employee.street_address2 IS 'Secondary address line (apartment, suite, unit, etc.)';
 
 COMMENT ON COLUMN public.employer.id IS 'Primary key - auto-incrementing bigint';
 COMMENT ON COLUMN public.employer.email IS 'Email address from Dynamic.xyz - must be unique';
 COMMENT ON COLUMN public.employer.wallet_address IS 'Blockchain wallet address from Dynamic.xyz';
+COMMENT ON COLUMN public.employer.street_address2 IS 'Secondary address line (apartment, suite, unit, etc.)';
+COMMENT ON COLUMN public.employer.company_name IS 'Name of the company';
+COMMENT ON COLUMN public.employer.company_description IS 'Description of the company, its mission, and what makes it unique';
+COMMENT ON COLUMN public.employer.industry IS 'Industry sector of the company';
+COMMENT ON COLUMN public.employer.company_size IS 'Size of the company (number of employees)';
+COMMENT ON COLUMN public.employer.website IS 'Company website URL';
+COMMENT ON COLUMN public.employer.linkedin IS 'Company LinkedIn profile URL';
 
 COMMENT ON COLUMN public.jobs.id IS 'Primary key - auto-incrementing bigint';
 COMMENT ON COLUMN public.jobs.status IS 'Job status: draft, active, paused, closed, filled';
