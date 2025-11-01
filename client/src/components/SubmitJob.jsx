@@ -1,8 +1,11 @@
 
 import apiService from '../services/api';
 
-export async function SubmitJob(formData) {
+export async function SubmitJob(formData, employerId) {
   try {
+    // Use employer_id directly from database (fetched from employer table)
+    // employerId should be passed in from the calling component
+
     const jobData = {
       title: formData.jobTitle,
       location_type: formData.jobLocationType,
@@ -25,7 +28,8 @@ export async function SubmitJob(formData) {
       skills: formData.skills,
       associated_skills: formData.associatedSkills,
       company_description: formData.companyDescription,
-      status: 'draft'
+      status: 'draft',
+      ...(employerId && { employer_id: employerId })
     };
 
     // Submit job to API

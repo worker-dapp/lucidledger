@@ -87,6 +87,15 @@ const Job = sequelize.define('Job', {
     type: DataTypes.TEXT,
     allowNull: false,
     defaultValue: 'draft'
+  },
+  employer_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'employer',
+      key: 'id'
+    },
+    onDelete: 'CASCADE'
   }
 }, {
   tableName: 'jobs',

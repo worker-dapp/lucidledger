@@ -6,15 +6,16 @@ import LandingPage from "./pages/LandingPage";
 import AboutPage from "./pages/NewAbout";
 import EmployeeDashboard from "./EmployeePages/EmployeeDashboard";
 import EmployerDashboard from "./EmployerPages/EmployerDashboard";
-import Dispute from "./pages/Dispute";
-import Payments from "./pages/Payments";
+import Dispute from "./EmployerPages/Dispute";
+import Payments from "./EmployerPages/Payments";
 import JobDetails from "./pages/JobDetails";
 import EmployerProfile from "./EmployerPages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
 import EmployerJobPortal from "./EmployerPages/EmployerJobPortal";
-import ViewOpenContracts from "./pages/ViewOpenContracts";
-import DAODashboard from "./pages/DAODashboard";
-import Job from "./pages/Job";
+import OpenContracts from "./EmployerPages/OpenContracts";
+import ReviewCompletedContracts from "./EmployerPages/ReviewCompletedContracts";
+import Job from "./EmployerPages/Job";
+import ReviewApplications from "./EmployerPages/ReviewApplications";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { useEffect, useState } from "react";
 import UserProfile from "./pages/UserProfile";
@@ -136,23 +137,30 @@ const App = () => {
     >
       <div>
           <Routes>
-            <Route path="*" element={<h1>404 - Not Found</h1>} />
+            {/* Common Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/about-us" element={<AboutPage />} />
-            <Route path="/employerDashboard" element={<EmployerDashboard />} />
+            <Route path="/user-profile" element={<UserProfile />} />
+            <Route path="/job-details/:id" element={<JobDetails />} />
+
+            {/* Employee Routes */}
             <Route path="/employeeDashboard" element={<EmployeeDashboard />} />
+            <Route path="/employee-profile" element={<EmployeeProfile />} />
+            <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
+
+            {/* Employer Routes */}
+            <Route path="/employerDashboard" element={<EmployerDashboard />} />
+            <Route path="/employer-profile" element={<EmployerProfile />} />
+            <Route path="/job" element={<Job />} />
+            <Route path="/view-employees" element={<EmployerJobPortal />} />
+            <Route path="/view-open-contracts" element={<OpenContracts />} />
+            <Route path="/review-applications" element={<ReviewApplications />} />
+            <Route path="/review-completed-contracts" element={<ReviewCompletedContracts />} />
             <Route path="/dispute" element={<Dispute />} />
             <Route path="/payments" element={<Payments />} />
-            <Route path="/job-details/:id" element={<JobDetails />} />
-            <Route path="/employer-profile" element={<EmployerProfile />} />
-            <Route path="/employee-profile" element={<EmployeeProfile />} />
-            <Route path="/view-employees" element={<EmployerJobPortal />} />
-            <Route path="/view-open-contracts" element={<ViewOpenContracts />} />
-            <Route path="/dao" element={<DAODashboard />} />
-            <Route path="/job" element={<Job />} />
-            <Route path="/new-job" element={<Job />} />
-            <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
-            <Route path="/user-profile" element={<UserProfile />} />
+
+            {/* 404 - Must be last */}
+            <Route path="*" element={<h1>404 - Not Found</h1>} />
           </Routes>
       </div>
     </DynamicContextProvider>
