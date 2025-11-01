@@ -4,7 +4,7 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import EmployerNavbar from "../components/EmployerNavbar";
 import apiService from '../services/api';
 
-const EmployerJobPortal = () => {
+const OpenContracts = () => {
   const { user } = useDynamicContext();
   
   // --------------------------------------------------------------------------
@@ -14,9 +14,8 @@ const EmployerJobPortal = () => {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal to view signers
-  const [openSignersModal, setOpenSignersModal] = useState(false);
-  // We will store the *entire* selected contract here
+  // Modal to view job details
+  const [openDetailsModal, setOpenDetailsModal] = useState(false);
   const [selectedContract, setSelectedContract] = useState(null);
 
   // --------------------------------------------------------------------------
@@ -82,9 +81,8 @@ const EmployerJobPortal = () => {
   // VIEW JOB DETAILS (Open Modal)
   // --------------------------------------------------------------------------
   const handleViewJobDetails = (job) => {
-    // Set the entire job in state so we know which one we're working with
     setSelectedContract(job);
-    setOpenSignersModal(true);
+    setOpenDetailsModal(true);
   };
 
   // --------------------------------------------------------------------------
@@ -99,7 +97,7 @@ const EmployerJobPortal = () => {
       setContracts((prev) =>
         prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j))
       );
-      setOpenSignersModal(false);
+      setOpenDetailsModal(false);
     } catch (err) {
       console.error("Unexpected error:", err);
       alert("Something went wrong!");
@@ -107,13 +105,12 @@ const EmployerJobPortal = () => {
   };
 
   // --------------------------------------------------------------------------
-  // SAVE JOB STATUS
+  // ACTIVATE JOB
   // --------------------------------------------------------------------------
-  const handleSave = async () => {
+  const handleActivateJob = async () => {
     if (!selectedContract) return;
 
     try {
-      // Update the job status to 'active'
       await handleJobStatusUpdate(selectedContract.id, 'active');
     } catch (err) {
       console.error("Unexpected error:", err);
@@ -125,13 +122,13 @@ const EmployerJobPortal = () => {
   // RENDER
   // --------------------------------------------------------------------------
   return (
-    <div className="relative min-h-screen p-6 bg-[#FFFFFF]">
+    <div className="relative min-h-screen bg-[#FFFFFF]">
       <EmployerNavbar />
+      
       {/* TOP BAR */}
       <div className="max-w-5xl mx-auto flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-[#0D3B66]">View Jobs</h1>
+        <h1 className="text-3xl font-bold text-[#0D3B66]">Open Contracts</h1>
 
-        {/* Button or Link to create new job */}
         <Link
           to="/job"
           className="bg-[#EE964B] text-white px-6 py-2 rounded-full shadow-md hover:bg-[#d97b33] transition">
@@ -142,11 +139,11 @@ const EmployerJobPortal = () => {
       {/* JOB LISTINGS */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-lg text-gray-600">Loading jobs...</p>
+          <p className="text-lg text-gray-600">Loading contracts...</p>
         </div>
       ) : contracts.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-lg text-gray-600">No jobs found. Create your first job!</p>
+          <p className="text-lg text-gray-600">No contracts found. Create your first job!</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-5xl mx-auto">
@@ -185,9 +182,9 @@ const EmployerJobPortal = () => {
       )}
 
       {/* VIEW JOB DETAILS MODAL */}
-      {openSignersModal && selectedContract && (
+      {openDetailsModal && selectedContract && (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96 relative">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-96 relative max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-orange-600 mb-4">Job Details</h2>
 
             <div className="space-y-3">
@@ -197,19 +194,21 @@ const EmployerJobPortal = () => {
               <p><strong>Job Type:</strong> {selectedContract.job_type}</p>
               <p><strong>Salary:</strong> {selectedContract.salary} {selectedContract.currency}</p>
               <p><strong>Status:</strong> {selectedContract.status}</p>
-              <p><strong>Description:</strong> {selectedContract.description}</p>
+              {selectedContract.description && (
+                <p><strong>Description:</strong> {selectedContract.description}</p>
+              )}
             </div>
 
             <div className="flex justify-end gap-4 mt-6">
               <button
                 className="border border-gray-300 px-4 py-2 rounded"
-                onClick={() => setOpenSignersModal(false)}>
+                onClick={() => setOpenDetailsModal(false)}>
                 Close
               </button>
               {selectedContract.status === 'draft' && (
                 <button
                   className="bg-orange-600 text-white px-4 py-2 rounded"
-                  onClick={handleSave}>
+                  onClick={handleActivateJob}>
                   Activate Job
                 </button>
               )}
@@ -221,4 +220,4 @@ const EmployerJobPortal = () => {
   );
 };
 
-export default EmployerJobPortal;
+export default OpenContracts;

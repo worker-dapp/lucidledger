@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Navbar from "../components/Navbar";
+import EmployerNavbar from "../components/EmployerNavbar";
 
 const disputes = [
   { id: "11111", issue: "It is a long established fact that a reader will." },
@@ -20,7 +20,7 @@ const Dispute = () => {
 
   return (
     <div className="min-h-screen bg-[#FFFFFF] pb-20">
-      <Navbar />
+      <EmployerNavbar />
       <div className="w-1/2 mx-auto pt-10">
         <input
           type="text"

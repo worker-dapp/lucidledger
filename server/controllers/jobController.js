@@ -225,6 +225,65 @@ class JobController {
     }
   }
 
+  // Get jobs by employer ID
+  static async getJobsByEmployer(req, res) {
+    try {
+      const { employer_id } = req.params;
+      const jobs = await Job.findAll({
+        where: { employer_id },
+        order: [['created_at', 'DESC']]
+      });
+      
+      res.status(200).json({
+        success: true,
+        data: jobs,
+        count: jobs.length
+      });
+    } catch (error) {
+      console.error('Error fetching jobs by employer:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching jobs by employer',
+        error: error.message
+      });
+    }
+  }
+
+  // Get jobs with applications by employer ID
+  static async getJobsWithApplicationsByEmployer(req, res) {
+    try {
+      const { employer_id } = req.params;
+      
+      const jobs = await sequelize.query(
+        `SELECT DISTINCT j.*, 
+                COUNT(ja.id) as application_count
+         FROM jobs j
+         INNER JOIN job_applications ja ON j.id = ja.job_id
+         WHERE j.employer_id = :employerId
+           AND ja.application_status IN ('applied', 'accepted', 'pending')
+         GROUP BY j.id
+         ORDER BY j.created_at DESC`,
+        {
+          replacements: { employerId: employer_id },
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      
+      res.status(200).json({
+        success: true,
+        data: jobs,
+        count: jobs.length
+      });
+    } catch (error) {
+      console.error('Error fetching jobs with applications by employer:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching jobs with applications by employer',
+        error: error.message
+      });
+    }
+  }
+
 }
 
 module.exports = JobController;
