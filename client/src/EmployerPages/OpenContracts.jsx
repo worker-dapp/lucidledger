@@ -151,15 +151,10 @@ const OpenContracts = () => {
     <div className="h-screen bg-gray-50 overflow-hidden">
       <EmployerNavbar />
       
-      <div className="pt-26 h-full">
+      <div className="h-full">
         {/* TOP BAR */}
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-between items-center border-b border-gray-200">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-center items-center border-b border-gray-200">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#0D3B66]">Open Contracts</h1>
-          <Link
-            to="/job"
-            className="bg-[#EE964B] text-white px-4 sm:px-6 py-2 rounded-full shadow-md hover:bg-[#d97b33] transition text-sm sm:text-base">
-            Create a new Job
-          </Link>
         </div>
 
         {/* Two-column layout */}
