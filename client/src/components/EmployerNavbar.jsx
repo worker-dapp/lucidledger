@@ -59,7 +59,7 @@ const EmployerNavbar = () => {
             Home
           </button>
           
-          <NavLink
+          {/* <NavLink
             to="/view-employees"
             className={({ isActive }) =>
               `transition-all font-medium flex items-center gap-2 px-3 py-2 rounded ${
@@ -68,7 +68,7 @@ const EmployerNavbar = () => {
             }>
             <span>👥</span>
             Manage Employees
-          </NavLink>
+          </NavLink> */}
 
           <NavLink
             to="/employer-profile"

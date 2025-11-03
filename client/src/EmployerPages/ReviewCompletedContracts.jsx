@@ -13,10 +13,6 @@ const ReviewCompletedContracts = () => {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal to view job details
-  const [openDetailsModal, setOpenDetailsModal] = useState(false);
-  const [selectedContract, setSelectedContract] = useState(null);
-
   // --------------------------------------------------------------------------
   // FETCH EMPLOYER ID FROM DATABASE
   // --------------------------------------------------------------------------
@@ -50,10 +46,10 @@ const ReviewCompletedContracts = () => {
   }, [user?.email]);
 
   // --------------------------------------------------------------------------
-  // FETCH COMPLETED JOBS USING EMPLOYER ID
+  // FETCH CLOSED JOBS USING EMPLOYER ID
   // --------------------------------------------------------------------------
   useEffect(() => {
-    const fetchCompletedJobs = async () => {
+    const fetchClosedJobs = async () => {
       if (!employerId) return;
 
       try {
@@ -63,115 +59,133 @@ const ReviewCompletedContracts = () => {
         const response = await apiService.getJobsByEmployer(employerId);
         const data = response.data || [];
         
-        // Filter only completed jobs
-        const completedJobs = data.filter(job => job.status === 'completed');
+        // Filter only closed jobs
+        const closedJobs = data.filter(job => job.status === 'closed');
         
-        setContracts(completedJobs);
+        setContracts(closedJobs);
       } catch (error) {
-        console.error("Error fetching completed jobs:", error);
+        console.error("Error fetching closed jobs:", error);
       } finally {
         setLoading(false);
       }
     };
     
     if (employerId) {
-      fetchCompletedJobs();
+      fetchClosedJobs();
     }
   }, [employerId]);
 
   // --------------------------------------------------------------------------
-  // VIEW JOB DETAILS (Open Modal)
+  // HANDLE SIGN CONTRACT
   // --------------------------------------------------------------------------
-  const handleViewJobDetails = (job) => {
-    setSelectedContract(job);
-    setOpenDetailsModal(true);
+  const handleSignContract = (job) => {
+    // TODO: Implement contract signing functionality
+    alert(`Contract signing functionality for "${job.title}" will be implemented here.`);
+  };
+
+  // --------------------------------------------------------------------------
+  // FORMAT DATE
+  // --------------------------------------------------------------------------
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   // --------------------------------------------------------------------------
   // RENDER
   // --------------------------------------------------------------------------
   return (
-    <div className="relative min-h-screen bg-[#FFFFFF]">
+    <div className="h-screen bg-gray-50 overflow-hidden">
       <EmployerNavbar />
       
-      {/* TOP BAR */}
-      <div className="max-w-5xl mx-auto flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-[#0D3B66]">Completed Contracts</h1>
+      <div className="h-full">
+        {/* TOP BAR */}
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-center items-center border-b border-gray-200">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#0D3B66]">Review Completed Contracts</h1>
+        </div>
+
+        {/* JOB LISTINGS */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto h-full">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
+              <p className="text-lg text-gray-600">Loading closed contracts...</p>
+            </div>
+          ) : contracts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-6xl mb-4">📋</div>
+              <p className="text-lg text-gray-600">No closed contracts found.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {contracts.map((job) => (
+                <div
+                  key={job.id}
+                  className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-all"
+                >
+                  {/* Job Basic Info */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <h2 className="text-xl font-bold text-[#0D3B66]">
+                        {job.title}
+                      </h2>
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        {job.status}
+                      </span>
+                    </div>
+                    
+                    <p className="text-lg text-[#EE964B] font-semibold mb-3">
+                      {job.company_name}
+                    </p>
+                    
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#0D3B66]">📍 Location:</span>
+                        <span>{job.location || 'Not specified'}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#0D3B66]">💰 Salary:</span>
+                        <span>{job.currency} {job.salary}{job.pay_frequency ? `/${job.pay_frequency}` : ''}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#0D3B66]">📅 Job Type:</span>
+                        <span>{job.job_type || 'Not specified'}</span>
+                      </div>
+                      
+                      {job.created_at && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-[#0D3B66]">📆 Posted:</span>
+                          <span>{formatDate(job.created_at)}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {job.description && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-600 line-clamp-3">{job.description}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sign Contract Button */}
+                  <button
+                    className="w-full bg-[#EE964B] text-white px-4 py-3 rounded-lg shadow-md hover:bg-[#d97b33] transition-all font-semibold"
+                    onClick={() => handleSignContract(job)}
+                  >
+                    ✍️ Sign the Contract
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* JOB LISTINGS */}
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-lg text-gray-600">Loading completed contracts...</p>
-        </div>
-      ) : contracts.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-lg text-gray-600">No completed contracts found.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-5xl mx-auto">
-        {contracts.map((job) => (
-          <div
-            key={job.id}
-            className="bg-white p-4 rounded-lg shadow-md border-l-4 border-[#F4D35E]">
-            <h2 className="text-lg font-bold text-[#EE964B] mb-2">
-              {job.title}
-            </h2>
-            <p className="text-sm text-[#0D3B66]">
-              <strong>Company:</strong> {job.company_name}
-            </p>
-            <p className="text-sm text-[#0D3B66]">
-              <strong>Location:</strong> {job.location}
-            </p>
-            <p className="text-sm text-[#0D3B66]">
-              <strong>Salary:</strong> {job.salary} {job.currency}
-            </p>
-            <p className="text-sm text-[#0D3B66]">
-              <strong>Status:</strong> {job.status}
-            </p>
-            <p className="text-sm text-[#0D3B66]">
-              <strong>Job Type:</strong> {job.job_type}
-            </p>
-
-            {/* Button to see job details */}
-            <button
-              className="mt-4 w-full bg-[#EE964B] text-white px-4 py-2 rounded-full shadow-md cursor-pointer"
-              onClick={() => handleViewJobDetails(job)}>
-              View Details
-            </button>
-          </div>
-        ))}
-        </div>
-      )}
-
-      {/* VIEW JOB DETAILS MODAL */}
-      {openDetailsModal && selectedContract && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96 relative max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-orange-600 mb-4">Job Details</h2>
-
-            <div className="space-y-3">
-              <p><strong>Title:</strong> {selectedContract.title}</p>
-              <p><strong>Company:</strong> {selectedContract.company_name}</p>
-              <p><strong>Location:</strong> {selectedContract.location}</p>
-              <p><strong>Job Type:</strong> {selectedContract.job_type}</p>
-              <p><strong>Salary:</strong> {selectedContract.salary} {selectedContract.currency}</p>
-              <p><strong>Status:</strong> {selectedContract.status}</p>
-              {selectedContract.description && (
-                <p><strong>Description:</strong> {selectedContract.description}</p>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-4 mt-6">
-              <button
-                className="border border-gray-300 px-4 py-2 rounded"
-                onClick={() => setOpenDetailsModal(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

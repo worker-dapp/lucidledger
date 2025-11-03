@@ -170,6 +170,13 @@ class ApiService {
     return this.request(`/job-applications/applied/${employeeId}`);
   }
 
+  async updateApplicationStatus(applicationId, status) {
+    return this.request(`/job-applications/${applicationId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
   // Health check
   async healthCheck() {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');
