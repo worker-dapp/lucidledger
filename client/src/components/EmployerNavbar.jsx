@@ -165,7 +165,7 @@ const EmployerNavbar = () => {
                 🏠 Home
               </button>
               
-              <NavLink
+              {/* <NavLink
                 to="/view-employees"
                 onClick={handleNavClick}
                 className={({ isActive }) =>
@@ -174,7 +174,7 @@ const EmployerNavbar = () => {
                   }`
                 }>
                 👥 Manage Employees
-              </NavLink>
+              </NavLink> */}
 
               <NavLink
                 to="/employer-profile"

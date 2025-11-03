@@ -32,6 +32,7 @@ class JobController {
       
       if (employee_id) {
         // If employee_id is provided, include application status and saved status
+        // Exclude closed jobs from employee view
         jobs = await sequelize.query(
           `SELECT j.*, 
                   CASE WHEN sj.id IS NOT NULL THEN true ELSE false END as is_saved,
@@ -41,6 +42,7 @@ class JobController {
            FROM jobs j
            LEFT JOIN job_applications ja ON j.id = ja.job_id AND ja.employee_id = :employeeId
            LEFT JOIN saved_jobs sj ON j.id = sj.job_id AND sj.employee_id = :employeeId
+           WHERE j.status != 'closed'
            ORDER BY j.created_at DESC`,
           {
             replacements: { employeeId: employee_id },
@@ -48,8 +50,13 @@ class JobController {
           }
         );
       } else {
-        // If no employee_id, just get all jobs
+        // If no employee_id, just get all jobs (excluding closed jobs for public view)
         jobs = await Job.findAll({
+          where: {
+            status: {
+              [Op.ne]: 'closed'
+            }
+          },
           order: [['created_at', 'DESC']]
         });
         
@@ -279,6 +286,53 @@ class JobController {
       res.status(500).json({
         success: false,
         message: 'Error fetching jobs with applications by employer',
+        error: error.message
+      });
+    }
+  }
+
+  // Get applications for a specific job with employee details
+  static async getJobApplications(req, res) {
+    try {
+      const { id } = req.params;
+      
+      const applications = await sequelize.query(
+        `SELECT ja.*,
+                e.id as employee_id,
+                e.first_name,
+                e.last_name,
+                e.email,
+                e.phone_number,
+                e.wallet_address,
+                e.street_address,
+                e.street_address2,
+                e.city,
+                e.state,
+                e.zip_code,
+                e.country,
+                e.country_code,
+                e.created_at as employee_created_at
+         FROM job_applications ja
+         INNER JOIN employee e ON ja.employee_id = e.id
+         WHERE ja.job_id = :jobId
+           AND ja.application_status IN ('applied', 'accepted')
+         ORDER BY ja.applied_at DESC`,
+        {
+          replacements: { jobId: id },
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      
+      res.status(200).json({
+        success: true,
+        data: applications,
+        count: applications.length
+      });
+    } catch (error) {
+      console.error('Error fetching job applications:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching job applications',
         error: error.message
       });
     }

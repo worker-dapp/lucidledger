@@ -100,6 +100,22 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
+    // Check if job is closed
+    const job = await Job.findByPk(job_id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    if (job.status === 'closed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Applications are closed for this job'
+      });
+    }
+
     // Check if application record already exists
     let application = await JobApplication.findOne({
       where: { employee_id, job_id }
