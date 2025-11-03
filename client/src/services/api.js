@@ -114,6 +114,10 @@ class ApiService {
     return this.request(`/jobs/employer/${employerId}/applications`);
   }
 
+  async getJobApplications(jobId) {
+    return this.request(`/jobs/${jobId}/applications`);
+  }
+
   async getJobsByStatus(status) {
     return this.request(`/jobs/status/${status}`);
   }

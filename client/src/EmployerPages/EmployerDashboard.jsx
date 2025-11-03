@@ -26,13 +26,6 @@ const EmployerDashboard = () => {
       to: "/job",
     },
     {
-      title: "Review Applications",
-      icon: Users,
-      description: "Review pending contract applications",
-      iconColor: "bg-blue-500",
-      to: "/review-applications",
-    },
-    {
       title: "View Open Contracts",
       icon: FolderOpen,
       description: "Browse all active contracts",
@@ -40,9 +33,16 @@ const EmployerDashboard = () => {
       to: "/view-open-contracts",
     },
     {
-      title: "Review Completed Contracts",
+      title: "Review Applications",
+      icon: Users,
+      description: "Review pending contract applications",
+      iconColor: "bg-blue-500",
+      to: "/review-applications",
+    },
+    {
+      title: "Active Contracts",
       icon: CheckCircle,
-      description: "View finalized contracts",
+      description: "Sign the contracts and start the work",
       iconColor: "bg-green-600",
       to: "/review-completed-contracts",
     },
