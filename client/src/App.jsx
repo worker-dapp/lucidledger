@@ -7,7 +7,6 @@ import AboutPage from "./pages/NewAbout";
 import EmployeeDashboard from "./EmployeePages/EmployeeDashboard";
 import EmployerDashboard from "./EmployerPages/EmployerDashboard";
 import Dispute from "./EmployerPages/Dispute";
-import Payments from "./EmployerPages/Payments";
 import JobDetails from "./pages/JobDetails";
 import EmployerProfile from "./EmployerPages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
@@ -19,6 +18,7 @@ import ReviewApplications from "./EmployerPages/ReviewApplications";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import { useEffect, useState } from "react";
 import UserProfile from "./pages/UserProfile";
+import ClosedContracts from "./EmployerPages/ClosedContracts";
 
 const enhancedEmployeeView = {
   type: SdkViewType.Login,
@@ -157,7 +157,7 @@ const App = () => {
             <Route path="/review-applications" element={<ReviewApplications />} />
             <Route path="/review-completed-contracts" element={<ReviewCompletedContracts />} />
             <Route path="/dispute" element={<Dispute />} />
-            <Route path="/payments" element={<Payments />} />
+            <Route path="/closed-contracts" element={<ClosedContracts />} />
 
             {/* 404 - Must be last */}
             <Route path="*" element={<h1>404 - Not Found</h1>} />

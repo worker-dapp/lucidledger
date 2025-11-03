@@ -14,4 +14,7 @@ router.get('/saved/:employeeId', jobApplicationController.getSavedJobs);
 router.get('/applied/:employeeId', jobApplicationController.getAppliedJobs);
 router.get('/employee/:employeeId', jobApplicationController.getEmployeeApplications);
 
+// Update application status
+router.patch('/:applicationId/status', jobApplicationController.updateApplicationStatus);
+
 module.exports = router;

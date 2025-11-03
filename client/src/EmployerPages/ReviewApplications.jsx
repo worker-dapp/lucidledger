@@ -16,6 +16,7 @@ const ReviewApplications = () => {
   const [applicants, setApplicants] = useState([]);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [processingJobId, setProcessingJobId] = useState(null);
+  const [processingApplicationId, setProcessingApplicationId] = useState(null);
 
   // --------------------------------------------------------------------------
   // FETCH EMPLOYER ID FROM DATABASE
@@ -96,6 +97,42 @@ const ReviewApplications = () => {
   };
 
   // --------------------------------------------------------------------------
+  // HANDLE ACCEPT/REJECT APPLICATION
+  // --------------------------------------------------------------------------
+  const handleApplicationStatusUpdate = async (applicationId, newStatus) => {
+    try {
+      setProcessingApplicationId(applicationId);
+      await apiService.updateApplicationStatus(applicationId, newStatus);
+      
+      // Update local state
+      setApplicants((prev) =>
+        prev.map((app) =>
+          app.id === applicationId ? { ...app, application_status: newStatus } : app
+        )
+      );
+      
+      alert(`Application ${newStatus === 'accepted' ? 'accepted' : 'rejected'} successfully.`);
+    } catch (err) {
+      console.error("Error updating application status:", err);
+      alert("Failed to update application status. Please try again.");
+    } finally {
+      setProcessingApplicationId(null);
+    }
+  };
+
+  const handleAcceptApplication = (applicationId) => {
+    if (window.confirm("Are you sure you want to accept this application?")) {
+      handleApplicationStatusUpdate(applicationId, 'accepted');
+    }
+  };
+
+  const handleDenyApplication = (applicationId) => {
+    if (window.confirm("Are you sure you want to reject this application?")) {
+      handleApplicationStatusUpdate(applicationId, 'rejected');
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // HANDLE CLOSE APPLICATIONS
   // --------------------------------------------------------------------------
   const handleCloseApplications = async () => {
@@ -149,7 +186,7 @@ const ReviewApplications = () => {
       
       <div className="h-full">
         {/* TOP BAR */}
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-between items-center border-b border-gray-200">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-center items-center border-b border-gray-200">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#0D3B66]">Review Applications</h1>
         </div>
 
@@ -157,8 +194,6 @@ const ReviewApplications = () => {
         <div className="grid grid-cols-12 h-full">
           {/* Left Side - Job List */}
           <div className="col-span-12 lg:col-span-4 bg-gray-100 p-3 sm:p-4 lg:p-6 overflow-y-auto">
-            <h2 className="text-lg sm:text-xl font-semibold text-[#0D3B66] mb-3 sm:mb-4">Jobs with Applications</h2>
-            
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
@@ -308,6 +343,8 @@ const ReviewApplications = () => {
                               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                 application.application_status === 'accepted' 
                                   ? 'bg-green-100 text-green-800' 
+                                  : application.application_status === 'rejected'
+                                  ? 'bg-red-100 text-red-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}>
                                 {application.application_status}
@@ -350,6 +387,26 @@ const ReviewApplications = () => {
                                   {[employee.street_address, employee.street_address2].filter(Boolean).join(', ')}
                                   {employee.zip_code && `, ${employee.zip_code}`}
                                 </span>
+                              </div>
+                            )}
+
+                            {/* Accept/Deny Buttons */}
+                            {application.application_status !== 'accepted' && application.application_status !== 'rejected' && (
+                              <div className="mt-4 flex gap-2 pt-3 border-t border-gray-200">
+                                <button
+                                  onClick={() => handleAcceptApplication(application.id)}
+                                  disabled={processingApplicationId === application.id}
+                                  className="flex-1 py-2 px-4 rounded-lg font-semibold transition-all text-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {processingApplicationId === application.id ? 'Processing...' : '✓ Accept'}
+                                </button>
+                                <button
+                                  onClick={() => handleDenyApplication(application.id)}
+                                  disabled={processingApplicationId === application.id}
+                                  className="flex-1 py-2 px-4 rounded-lg font-semibold transition-all text-sm bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {processingApplicationId === application.id ? 'Processing...' : '✗ Deny'}
+                                </button>
                               </div>
                             )}
                           </div>

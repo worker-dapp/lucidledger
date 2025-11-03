@@ -321,3 +321,43 @@ exports.getEmployeeApplications = async (req, res) => {
     });
   }
 };
+
+// Update application status
+exports.updateApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['applied', 'accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be one of: applied, accepted, rejected'
+      });
+    }
+
+    const application = await JobApplication.findByPk(applicationId);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found'
+      });
+    }
+
+    application.application_status = status;
+    await application.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Application status updated successfully',
+      data: application
+    });
+  } catch (error) {
+    console.error('Error updating application status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update application status',
+      error: error.message
+    });
+  }
+};
