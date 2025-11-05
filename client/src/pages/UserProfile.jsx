@@ -1,13 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, useUserUpdateRequest } from '@dynamic-labs/sdk-react-core';
 import Navbar from "../components/Navbar";
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/api';
 
 const UserProfile = () => {
   const { user, primaryWallet } = useDynamicContext();
+  const { updateUser } = useUserUpdateRequest();
   const navigate = useNavigate();
   const walletAddress = primaryWallet?.address || '';
+  
+  // Dynamic Labs verification states
+  const [needsPhoneVerification, setNeedsPhoneVerification] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [phoneVerifyOtpFunction, setPhoneVerifyOtpFunction] = useState(null);
+  const [emailVerifyOtpFunction, setEmailVerifyOtpFunction] = useState(null);
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -100,6 +112,19 @@ const UserProfile = () => {
         website: user.website || '',
         linkedin: user.linkedin || ''
       }));
+      
+      // Check if user needs to add phone or email
+      const hasEmail = user.email && user.email.trim() !== '';
+      const hasPhone = user.phone_number && user.phone_number.trim() !== '';
+      
+      // If user has email but no phone, they need to add phone
+      if (hasEmail && !hasPhone) {
+        // Phone will be added when they submit the form
+      }
+      // If user has phone but no email, they need to add email
+      if (hasPhone && !hasEmail) {
+        // Email will be added when they submit the form
+      }
     }
   }, [user]);
 
@@ -133,9 +158,170 @@ const UserProfile = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle adding phone number to Dynamic Labs
+  const handleAddPhone = async () => {
+    if (!formData.phoneNumber || !formData.countryCode) {
+      setErrors({ phoneNumber: 'Phone number is required' });
+      return;
+    }
+    
+    try {
+      setVerifyingPhone(true);
+      const fullPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
+      const { isPhoneVerificationRequired, verifyOtp } = await updateUser({ 
+        phoneNumber: fullPhoneNumber 
+      });
+      
+      if (isPhoneVerificationRequired && verifyOtp) {
+        setNeedsPhoneVerification(true);
+        setPhoneVerifyOtpFunction(verifyOtp);
+      } else {
+        // Phone added successfully without verification
+        setNeedsPhoneVerification(false);
+        alert('Phone number added successfully!');
+      }
+    } catch (error) {
+      console.error('Error adding phone number:', error);
+      setErrors({ phoneNumber: 'Failed to add phone number. Please try again.' });
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  // Handle verifying phone OTP
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneVerificationCode || !phoneVerifyOtpFunction) {
+      setErrors({ phoneVerification: 'Please enter the verification code' });
+      return;
+    }
+    
+    try {
+      setVerifyingPhone(true);
+      await phoneVerifyOtpFunction(phoneVerificationCode);
+      setNeedsPhoneVerification(false);
+      setPhoneVerificationCode('');
+      setPhoneVerifyOtpFunction(null);
+      alert('Phone number verified successfully!');
+    } catch (error) {
+      console.error('Error verifying phone OTP:', error);
+      setErrors({ phoneVerification: 'Invalid verification code. Please try again.' });
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  // Handle adding email to Dynamic Labs
+  const handleAddEmail = async () => {
+    if (!formData.email) {
+      setErrors({ email: 'Email is required' });
+      return;
+    }
+    
+    try {
+      setVerifyingEmail(true);
+      const { isEmailVerificationRequired, verifyOtp } = await updateUser({ 
+        email: formData.email 
+      });
+      
+      if (isEmailVerificationRequired && verifyOtp) {
+        setNeedsEmailVerification(true);
+        setEmailVerifyOtpFunction(verifyOtp);
+      } else {
+        // Email added successfully without verification
+        setNeedsEmailVerification(false);
+        alert('Email added successfully!');
+      }
+    } catch (error) {
+      console.error('Error adding email:', error);
+      setErrors({ email: 'Failed to add email. Please try again.' });
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  // Handle verifying email OTP
+  const handleVerifyEmailOtp = async () => {
+    if (!emailVerificationCode || !emailVerifyOtpFunction) {
+      setErrors({ emailVerification: 'Please enter the verification code' });
+      return;
+    }
+    
+    try {
+      setVerifyingEmail(true);
+      await emailVerifyOtpFunction(emailVerificationCode);
+      setNeedsEmailVerification(false);
+      setEmailVerificationCode('');
+      setEmailVerifyOtpFunction(null);
+      alert('Email verified successfully!');
+    } catch (error) {
+      console.error('Error verifying email OTP:', error);
+      setErrors({ emailVerification: 'Invalid verification code. Please try again.' });
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+    
+    // Check if we need to add phone or email to Dynamic Labs first
+    const userHasEmail = user?.email && user.email.trim() !== '';
+    const userHasPhone = user?.phone_number && user.phone_number.trim() !== '';
+    const formHasEmail = formData.email && formData.email.trim() !== '';
+    const formHasPhone = formData.phoneNumber && formData.phoneNumber.trim() !== '';
+    
+    // If user logged in with email but doesn't have phone, add phone to Dynamic
+    if (userHasEmail && !userHasPhone && formHasPhone) {
+      try {
+        setVerifyingPhone(true);
+        const fullPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
+        const { isPhoneVerificationRequired, verifyOtp } = await updateUser({ 
+          phoneNumber: fullPhoneNumber 
+        });
+        
+        if (isPhoneVerificationRequired && verifyOtp) {
+          setNeedsPhoneVerification(true);
+          setPhoneVerifyOtpFunction(verifyOtp);
+          setVerifyingPhone(false);
+          // Wait for verification before proceeding
+          return;
+        }
+      } catch (error) {
+        console.error('Error adding phone number:', error);
+        setErrors({ phoneNumber: 'Failed to add phone number. Please try again.' });
+        setVerifyingPhone(false);
+        return;
+      } finally {
+        setVerifyingPhone(false);
+      }
+    }
+    
+    // If user logged in with phone but doesn't have email, add email to Dynamic
+    if (userHasPhone && !userHasEmail && formHasEmail) {
+      try {
+        setVerifyingEmail(true);
+        const { isEmailVerificationRequired, verifyOtp } = await updateUser({ 
+          email: formData.email 
+        });
+        
+        if (isEmailVerificationRequired && verifyOtp) {
+          setNeedsEmailVerification(true);
+          setEmailVerifyOtpFunction(verifyOtp);
+          setVerifyingEmail(false);
+          // Wait for verification before proceeding
+          return;
+        }
+      } catch (error) {
+        console.error('Error adding email:', error);
+        setErrors({ email: 'Failed to add email. Please try again.' });
+        setVerifyingEmail(false);
+        return;
+      } finally {
+        setVerifyingEmail(false);
+      }
+    }
+    
     setLoading(true);
     try {
       const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
@@ -224,14 +410,62 @@ const UserProfile = () => {
           {/* Row 2: Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-              placeholder="Enter your email"
-            />
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled={!!user?.email || needsEmailVerification}
+                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'} ${(!!user?.email || needsEmailVerification) ? 'bg-gray-100' : ''}`}
+                placeholder="Enter your email"
+              />
+              {user?.phone_number && !user?.email && !needsEmailVerification && (
+                <button
+                  type="button"
+                  onClick={handleAddEmail}
+                  disabled={verifyingEmail || !formData.email}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {verifyingEmail ? 'Adding...' : 'Add to Dynamic'}
+                </button>
+              )}
+            </div>
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            
+            {/* Email Verification Code Input */}
+            {needsEmailVerification && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter verification code sent to {formData.email}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={emailVerificationCode}
+                    onChange={(e) => {
+                      setEmailVerificationCode(e.target.value);
+                      if (errors.emailVerification) {
+                        setErrors(prev => ({ ...prev, emailVerification: '' }));
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter verification code"
+                    maxLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyEmailOtp}
+                    disabled={verifyingEmail || !emailVerificationCode}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifyingEmail ? 'Verifying...' : 'Verify'}
+                  </button>
+                </div>
+                {errors.emailVerification && (
+                  <p className="text-red-500 text-sm mt-1">{errors.emailVerification}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Row 3: Phone */}
@@ -241,7 +475,8 @@ const UserProfile = () => {
               <select
                 value={formData.countryCode}
                 onChange={(e) => handleInputChange('countryCode', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!!user?.phone_number || needsPhoneVerification}
+                className={`px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${(!!user?.phone_number || needsPhoneVerification) ? 'bg-gray-100' : ''}`}
               >
                 {countryCodes.map(({ code, country }) => (
                   <option key={code} value={code}>
@@ -253,11 +488,57 @@ const UserProfile = () => {
                 type="tel"
                 value={formData.phoneNumber}
                 onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`}
+                disabled={!!user?.phone_number || needsPhoneVerification}
+                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'} ${(!!user?.phone_number || needsPhoneVerification) ? 'bg-gray-100' : ''}`}
                 placeholder="Enter phone number"
               />
+              {user?.email && !user?.phone_number && !needsPhoneVerification && (
+                <button
+                  type="button"
+                  onClick={handleAddPhone}
+                  disabled={verifyingPhone || !formData.phoneNumber}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {verifyingPhone ? 'Adding...' : 'Add to Dynamic'}
+                </button>
+              )}
             </div>
             {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
+            
+            {/* Phone Verification Code Input */}
+            {needsPhoneVerification && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter SMS verification code sent to {formData.countryCode}{formData.phoneNumber}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={phoneVerificationCode}
+                    onChange={(e) => {
+                      setPhoneVerificationCode(e.target.value.replace(/\D/g, ''));
+                      if (errors.phoneVerification) {
+                        setErrors(prev => ({ ...prev, phoneVerification: '' }));
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyPhoneOtp}
+                    disabled={verifyingPhone || !phoneVerificationCode}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifyingPhone ? 'Verifying...' : 'Verify'}
+                  </button>
+                </div>
+                {errors.phoneVerification && (
+                  <p className="text-red-500 text-sm mt-1">{errors.phoneVerification}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Row 4: Street Address */}
