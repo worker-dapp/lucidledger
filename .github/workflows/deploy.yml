@@ -149,6 +149,22 @@ jobs:
         echo "🧹 Cleaning up Docker..."
         docker system prune -af --volumes || true
         
+        # Install/ensure docker buildx is available for BuildKit cache mounts
+        echo "🔧 Setting up Docker Buildx..."
+        if ! docker buildx version &>/dev/null; then
+          echo "Installing docker buildx..."
+          mkdir -p ~/.docker/cli-plugins
+          ARCH=$(uname -m)
+          [ "$ARCH" = "x86_64" ] && ARCH="amd64"
+          [ "$ARCH" = "aarch64" ] && ARCH="arm64"
+          BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/v//')
+          curl -L "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${ARCH}" -o ~/.docker/cli-plugins/docker-buildx
+          chmod +x ~/.docker/cli-plugins/docker-buildx
+          docker buildx install || true
+        fi
+        # Create and use buildx builder instance
+        docker buildx create --use --name builder --driver docker-container 2>/dev/null || docker buildx use builder || true
+        
         # Rebuild and start services with environment variables
         echo "🔨 Rebuilding and starting services..."
         export VITE_API_BASE_URL="https://$DOMAIN/api"
