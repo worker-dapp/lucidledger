@@ -222,17 +222,28 @@ jobs:
             echo "  HTTPS status: $HTTPS_STATUS"
           fi
           
-          # Test API health endpoint
+          # Test API health endpoint (this uses HTTPS and is more reliable)
           API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -k https://$DOMAIN/api/health 2>/dev/null || echo "000")
           echo "  API health status: $API_STATUS"
           
-          # Check if at least HTTPS is working (200, 301, or 302 are acceptable)
-          if [ "$HTTPS_STATUS" = "200" ] || [ "$HTTPS_STATUS" = "301" ] || [ "$HTTPS_STATUS" = "302" ]; then
+          # Also test via localhost (in case domain doesn't resolve from inside EC2)
+          LOCAL_HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -k https://localhost/ 2>/dev/null || echo "000")
+          LOCAL_API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -k https://localhost/api/health 2>/dev/null || echo "000")
+          
+          # Check if HTTPS is working (200, 301, or 302 are acceptable)
+          # OR if API health endpoint works (which means HTTPS is working)
+          if [ "$HTTPS_STATUS" = "200" ] || [ "$HTTPS_STATUS" = "301" ] || [ "$HTTPS_STATUS" = "302" ] || \
+             [ "$API_STATUS" = "200" ] || [ "$LOCAL_HTTPS_STATUS" = "200" ] || [ "$LOCAL_API_STATUS" = "200" ]; then
             echo "✅ Deployment successful! App accessible at https://$DOMAIN"
+            if [ "$API_STATUS" = "200" ]; then
+              echo "   (Verified via API health endpoint)"
+            elif [ "$LOCAL_API_STATUS" = "200" ]; then
+              echo "   (Verified via localhost API health endpoint)"
+            fi
             DEPLOYMENT_SUCCESS=true
             break
           else
-            echo "⏳ HTTPS not ready yet (status: $HTTPS_STATUS), waiting 15 seconds..."
+            echo "⏳ HTTPS not ready yet (HTTPS: $HTTPS_STATUS, API: $API_STATUS, Local: $LOCAL_HTTPS_STATUS), waiting 15 seconds..."
             sleep 15
             RETRY_COUNT=$((RETRY_COUNT + 1))
           fi

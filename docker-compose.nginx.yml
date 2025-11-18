@@ -10,6 +10,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/sites-available/lucidledger
       - ./ssl:/etc/letsencrypt
+      - ./certbot-webroot:/var/www/html
       - nginx-logs:/var/log/nginx
     depends_on:
       - frontend
@@ -48,6 +49,17 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - ./certbot-webroot:/var/www/html
+    networks:
+      - app-network
+    # This service is only used for certificate renewal
+    # It doesn't need to run continuously
 
 volumes:
   nginx-logs:
