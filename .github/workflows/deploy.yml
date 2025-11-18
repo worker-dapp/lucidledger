@@ -162,8 +162,8 @@ jobs:
           chmod +x ~/.docker/cli-plugins/docker-buildx
           docker buildx install || true
         fi
-        # Create and use buildx builder instance
-        docker buildx create --use --name builder --driver docker-container 2>/dev/null || docker buildx use builder || true
+        # Use default builder with docker driver (works with docker-compose v1)
+        docker buildx use default || docker buildx create --use --name default --driver docker || true
         
         # Rebuild and start services with environment variables
         echo "🔨 Rebuilding and starting services..."
