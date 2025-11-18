@@ -38,42 +38,68 @@ jobs:
         #!/bin/bash
         set -e
         
-        echo "🔐 Starting SSL certificate renewal..."
+        DOMAIN="${DOMAIN:-lucidledger.co}"
         
-        # Navigate to project directory
-        cd /home/ec2-user/lucidledger || cd /home/ubuntu/lucidledger
+        echo "🔐 Starting SSL certificate renewal..."
+        echo "Domain: $DOMAIN"
+        
+        # Find project directory
+        PROJECT_DIR=""
+        if [ -d "/home/ec2-user/lucidledger" ]; then
+          PROJECT_DIR="/home/ec2-user/lucidledger"
+        elif [ -d "/home/ubuntu/lucidledger" ]; then
+          PROJECT_DIR="/home/ubuntu/lucidledger"
+        else
+          echo "❌ Project directory not found. Searching for lucidledger directory..."
+          PROJECT_DIR=$(find /home -type d -name "lucidledger" 2>/dev/null | head -1)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "❌ Could not find lucidledger directory"
+            exit 1
+          fi
+        fi
+        
+        echo "📁 Using project directory: $PROJECT_DIR"
+        cd "$PROJECT_DIR" || exit 1
         
         # Check if certificates need renewal
-        if [ -f "ssl/live/$DOMAIN/fullchain.pem" ]; then
+        CERT_PATH="ssl/live/$DOMAIN/fullchain.pem"
+        if [ -f "$CERT_PATH" ]; then
           echo "📅 Checking certificate expiration..."
           
           # Get expiration date
-          EXPIRY=$(openssl x509 -enddate -noout -in ssl/live/$DOMAIN/fullchain.pem | cut -d= -f2)
-          EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s)
+          EXPIRY=$(openssl x509 -enddate -noout -in "$CERT_PATH" | cut -d= -f2)
+          EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$EXPIRY" +%s 2>/dev/null || echo "0")
           CURRENT_EPOCH=$(date +%s)
-          DAYS_LEFT=$(( (EXPIRY_EPOCH - CURRENT_EPOCH) / 86400 ))
           
-          echo "Certificate expires in $DAYS_LEFT days"
-          
-          if [ $DAYS_LEFT -lt 30 ]; then
-            echo "⚠️  Certificate expires soon, renewing..."
+          if [ "$EXPIRY_EPOCH" != "0" ] && [ "$EXPIRY_EPOCH" -gt "$CURRENT_EPOCH" ]; then
+            DAYS_LEFT=$(( (EXPIRY_EPOCH - CURRENT_EPOCH) / 86400 ))
+            echo "Certificate expires in $DAYS_LEFT days"
             
-            # Renew certificates
-            docker-compose -f docker-compose.nginx.yml run --rm certbot renew
-            
-            # Reload Nginx
-            docker-compose -f docker-compose.nginx.yml restart nginx
-            
-            echo "✅ SSL certificates renewed successfully!"
+            if [ $DAYS_LEFT -lt 30 ]; then
+              echo "⚠️  Certificate expires soon, renewing..."
+              
+              # Renew certificates
+              docker-compose -f docker-compose.nginx.yml run --rm certbot renew
+              
+              # Reload Nginx
+              docker-compose -f docker-compose.nginx.yml restart nginx
+              
+              echo "✅ SSL certificates renewed successfully!"
+            else
+              echo "✅ Certificates are still valid for $DAYS_LEFT days"
+            fi
           else
-            echo "✅ Certificates are still valid for $DAYS_LEFT days"
+            echo "⚠️  Could not determine certificate expiration, attempting renewal..."
+            docker-compose -f docker-compose.nginx.yml run --rm certbot renew
+            docker-compose -f docker-compose.nginx.yml restart nginx
           fi
         else
-          echo "❌ No SSL certificates found"
+          echo "❌ No SSL certificates found at $CERT_PATH"
+          echo "💡 You may need to run initial certificate setup"
         fi
         
         echo "🔍 Testing HTTPS connection..."
-        if curl -f -s https://$DOMAIN > /dev/null; then
+        if curl -f -s "https://$DOMAIN" > /dev/null; then
           echo "✅ HTTPS is working correctly"
         else
           echo "❌ HTTPS test failed"
@@ -85,8 +111,8 @@ jobs:
         
         chmod +x renew-ssl.sh
         
-        # Execute SSL renewal script on EC2
-        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' < renew-ssl.sh
+        # Execute SSL renewal script on EC2 with DOMAIN environment variable
+        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "DOMAIN=${{ env.DOMAIN }} bash -s" < renew-ssl.sh
         
     - name: SSL Renewal Status
       run: |

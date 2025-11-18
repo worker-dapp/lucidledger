@@ -10,15 +10,12 @@ const UserProfile = () => {
   const navigate = useNavigate();
   const walletAddress = primaryWallet?.address || '';
   
-  // Dynamic Labs verification states
-  const [needsPhoneVerification, setNeedsPhoneVerification] = useState(false);
-  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
-  const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
-  const [emailVerificationCode, setEmailVerificationCode] = useState('');
-  const [verifyingPhone, setVerifyingPhone] = useState(false);
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
-  const [phoneVerifyOtpFunction, setPhoneVerifyOtpFunction] = useState(null);
-  const [emailVerifyOtpFunction, setEmailVerifyOtpFunction] = useState(null);
+  // Dynamic Labs verification states - unified
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationType, setVerificationType] = useState(null); // 'phone' or 'email'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyOtpFunction, setVerifyOtpFunction] = useState(null);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -112,19 +109,6 @@ const UserProfile = () => {
         website: user.website || '',
         linkedin: user.linkedin || ''
       }));
-      
-      // Check if user needs to add phone or email
-      const hasEmail = user.email && user.email.trim() !== '';
-      const hasPhone = user.phone_number && user.phone_number.trim() !== '';
-      
-      // If user has email but no phone, they need to add phone
-      if (hasEmail && !hasPhone) {
-        // Phone will be added when they submit the form
-      }
-      // If user has phone but no email, they need to add email
-      if (hasPhone && !hasEmail) {
-        // Email will be added when they submit the form
-      }
     }
   }, [user]);
 
@@ -165,48 +149,109 @@ const UserProfile = () => {
       return;
     }
     
+    // Show the verification field immediately while we're processing
+    setVerifying(true);
+    setNeedsVerification(true);
+    setVerificationType('phone');
+    setVerificationCode('');
+    
     try {
-      setVerifyingPhone(true);
       const fullPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
-      const { isPhoneVerificationRequired, verifyOtp } = await updateUser({ 
+      console.log('Adding phone number to Dynamic Labs:', fullPhoneNumber);
+      
+      // Call updateUser - it returns a promise that resolves with verification info
+      const result = await updateUser({ 
         phoneNumber: fullPhoneNumber 
       });
       
+      console.log('Update user result:', result);
+      console.log('Result type:', typeof result);
+      console.log('Result keys:', result ? Object.keys(result) : 'null');
+      
+      // Handle different possible response formats
+      let isPhoneVerificationRequired = false;
+      let verifyOtp = null;
+      
+      if (result) {
+        // Check if result has the expected properties
+        if (result.isPhoneVerificationRequired !== undefined) {
+          isPhoneVerificationRequired = result.isPhoneVerificationRequired;
+          verifyOtp = result.verifyOtp;
+        } else if (typeof result === 'object' && 'verifyOtp' in result) {
+          // If verifyOtp exists, assume verification is required
+          isPhoneVerificationRequired = true;
+          verifyOtp = result.verifyOtp;
+        } else if (typeof result === 'function') {
+          // If result is a function, it's likely verifyOtp
+          isPhoneVerificationRequired = true;
+          verifyOtp = result;
+        }
+      }
+      
+      console.log('isPhoneVerificationRequired:', isPhoneVerificationRequired);
+      console.log('verifyOtp:', typeof verifyOtp);
+      
       if (isPhoneVerificationRequired && verifyOtp) {
-        setNeedsPhoneVerification(true);
-        setPhoneVerifyOtpFunction(verifyOtp);
+        console.log('Phone verification required, storing verifyOtp function');
+        // Store the verifyOtp function
+        setVerifyOtpFunction(() => verifyOtp);
+        // Set verifying to false so user can click verify button
+        setVerifying(false);
       } else {
         // Phone added successfully without verification
-        setNeedsPhoneVerification(false);
+        console.log('Phone added without verification');
+        setNeedsVerification(false);
+        setVerifying(false);
+        setVerificationType(null);
+        setVerifyOtpFunction(null);
         alert('Phone number added successfully!');
       }
     } catch (error) {
       console.error('Error adding phone number:', error);
+      console.error('Error details:', error.message, error.stack);
       setErrors({ phoneNumber: 'Failed to add phone number. Please try again.' });
-    } finally {
-      setVerifyingPhone(false);
+      setNeedsVerification(false);
+      setVerifying(false);
+      setVerificationType(null);
+      setVerifyOtpFunction(null);
     }
   };
 
-  // Handle verifying phone OTP
-  const handleVerifyPhoneOtp = async () => {
-    if (!phoneVerificationCode || !phoneVerifyOtpFunction) {
-      setErrors({ phoneVerification: 'Please enter the verification code' });
+  // Handle verifying OTP (unified for phone and email)
+  const handleVerifyOtp = async () => {
+    if (!verificationCode) {
+      setErrors({ verification: 'Please enter the verification code' });
+      return;
+    }
+    
+    if (!verifyOtpFunction) {
+      setErrors({ verification: 'Verification function not available. Please try again.' });
       return;
     }
     
     try {
-      setVerifyingPhone(true);
-      await phoneVerifyOtpFunction(phoneVerificationCode);
-      setNeedsPhoneVerification(false);
-      setPhoneVerificationCode('');
-      setPhoneVerifyOtpFunction(null);
-      alert('Phone number verified successfully!');
+      setVerifying(true);
+      console.log('Verifying OTP:', verificationCode);
+      
+      // Call the verifyOtp function
+      const verifyFunction = typeof verifyOtpFunction === 'function' 
+        ? verifyOtpFunction 
+        : verifyOtpFunction;
+      
+      await verifyFunction(verificationCode);
+      
+      console.log('OTP verified successfully');
+      setNeedsVerification(false);
+      setVerificationCode('');
+      setVerifyOtpFunction(null);
+      setVerificationType(null);
+      setVerifying(false);
+      alert(`${verificationType === 'phone' ? 'Phone number' : 'Email'} verified successfully!`);
     } catch (error) {
-      console.error('Error verifying phone OTP:', error);
-      setErrors({ phoneVerification: 'Invalid verification code. Please try again.' });
-    } finally {
-      setVerifyingPhone(false);
+      console.error('Error verifying OTP:', error);
+      console.error('Error details:', error.message, error.stack);
+      setErrors({ verification: error.message || 'Invalid verification code. Please try again.' });
+      setVerifying(false);
     }
   };
 
@@ -217,49 +262,62 @@ const UserProfile = () => {
       return;
     }
     
+    // Show the verification field immediately while we're processing
+    setVerifying(true);
+    setNeedsVerification(true);
+    setVerificationType('email');
+    setVerificationCode('');
+    
     try {
-      setVerifyingEmail(true);
-      const { isEmailVerificationRequired, verifyOtp } = await updateUser({ 
+      console.log('Adding email to Dynamic Labs:', formData.email);
+      
+      const result = await updateUser({ 
         email: formData.email 
       });
       
+      console.log('Update user result for email:', result);
+      
+      // Handle different possible response formats
+      let isEmailVerificationRequired = false;
+      let verifyOtp = null;
+      
+      if (result) {
+        if (result.isEmailVerificationRequired !== undefined) {
+          isEmailVerificationRequired = result.isEmailVerificationRequired;
+          verifyOtp = result.verifyOtp;
+        } else if (typeof result === 'object' && 'verifyOtp' in result) {
+          isEmailVerificationRequired = true;
+          verifyOtp = result.verifyOtp;
+        } else if (typeof result === 'function') {
+          isEmailVerificationRequired = true;
+          verifyOtp = result;
+        }
+      }
+      
       if (isEmailVerificationRequired && verifyOtp) {
-        setNeedsEmailVerification(true);
-        setEmailVerifyOtpFunction(verifyOtp);
+        console.log('Email verification required, storing verifyOtp function');
+        setVerifyOtpFunction(() => verifyOtp);
+        // Set verifying to false so user can click verify button
+        setVerifying(false);
       } else {
         // Email added successfully without verification
-        setNeedsEmailVerification(false);
+        console.log('Email added without verification');
+        setNeedsVerification(false);
+        setVerifying(false);
+        setVerificationType(null);
+        setVerifyOtpFunction(null);
         alert('Email added successfully!');
       }
     } catch (error) {
       console.error('Error adding email:', error);
       setErrors({ email: 'Failed to add email. Please try again.' });
-    } finally {
-      setVerifyingEmail(false);
+      setNeedsVerification(false);
+      setVerifying(false);
+      setVerificationType(null);
+      setVerifyOtpFunction(null);
     }
   };
 
-  // Handle verifying email OTP
-  const handleVerifyEmailOtp = async () => {
-    if (!emailVerificationCode || !emailVerifyOtpFunction) {
-      setErrors({ emailVerification: 'Please enter the verification code' });
-      return;
-    }
-    
-    try {
-      setVerifyingEmail(true);
-      await emailVerifyOtpFunction(emailVerificationCode);
-      setNeedsEmailVerification(false);
-      setEmailVerificationCode('');
-      setEmailVerifyOtpFunction(null);
-      alert('Email verified successfully!');
-    } catch (error) {
-      console.error('Error verifying email OTP:', error);
-      setErrors({ emailVerification: 'Invalid verification code. Please try again.' });
-    } finally {
-      setVerifyingEmail(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -274,51 +332,99 @@ const UserProfile = () => {
     // If user logged in with email but doesn't have phone, add phone to Dynamic
     if (userHasEmail && !userHasPhone && formHasPhone) {
       try {
-        setVerifyingPhone(true);
+        setVerifying(true);
+        setNeedsVerification(true);
+        setVerificationType('phone');
+        setVerificationCode('');
         const fullPhoneNumber = `${formData.countryCode}${formData.phoneNumber}`;
-        const { isPhoneVerificationRequired, verifyOtp } = await updateUser({ 
+        const result = await updateUser({ 
           phoneNumber: fullPhoneNumber 
         });
         
+        let isPhoneVerificationRequired = false;
+        let verifyOtp = null;
+        
+        if (result) {
+          if (result.isPhoneVerificationRequired !== undefined) {
+            isPhoneVerificationRequired = result.isPhoneVerificationRequired;
+            verifyOtp = result.verifyOtp;
+          } else if (typeof result === 'object' && 'verifyOtp' in result) {
+            isPhoneVerificationRequired = true;
+            verifyOtp = result.verifyOtp;
+          } else if (typeof result === 'function') {
+            isPhoneVerificationRequired = true;
+            verifyOtp = result;
+          }
+        }
+        
         if (isPhoneVerificationRequired && verifyOtp) {
-          setNeedsPhoneVerification(true);
-          setPhoneVerifyOtpFunction(verifyOtp);
-          setVerifyingPhone(false);
+          setVerifyOtpFunction(() => verifyOtp);
+          setVerifying(false);
           // Wait for verification before proceeding
           return;
+        } else {
+          setNeedsVerification(false);
+          setVerifying(false);
+          setVerificationType(null);
+          setVerifyOtpFunction(null);
         }
       } catch (error) {
         console.error('Error adding phone number:', error);
         setErrors({ phoneNumber: 'Failed to add phone number. Please try again.' });
-        setVerifyingPhone(false);
+        setNeedsVerification(false);
+        setVerifying(false);
+        setVerificationType(null);
+        setVerifyOtpFunction(null);
         return;
-      } finally {
-        setVerifyingPhone(false);
       }
     }
     
     // If user logged in with phone but doesn't have email, add email to Dynamic
     if (userHasPhone && !userHasEmail && formHasEmail) {
       try {
-        setVerifyingEmail(true);
-        const { isEmailVerificationRequired, verifyOtp } = await updateUser({ 
+        setVerifying(true);
+        setNeedsVerification(true);
+        setVerificationType('email');
+        setVerificationCode('');
+        const result = await updateUser({ 
           email: formData.email 
         });
         
+        let isEmailVerificationRequired = false;
+        let verifyOtp = null;
+        
+        if (result) {
+          if (result.isEmailVerificationRequired !== undefined) {
+            isEmailVerificationRequired = result.isEmailVerificationRequired;
+            verifyOtp = result.verifyOtp;
+          } else if (typeof result === 'object' && 'verifyOtp' in result) {
+            isEmailVerificationRequired = true;
+            verifyOtp = result.verifyOtp;
+          } else if (typeof result === 'function') {
+            isEmailVerificationRequired = true;
+            verifyOtp = result;
+          }
+        }
+        
         if (isEmailVerificationRequired && verifyOtp) {
-          setNeedsEmailVerification(true);
-          setEmailVerifyOtpFunction(verifyOtp);
-          setVerifyingEmail(false);
+          setVerifyOtpFunction(() => verifyOtp);
+          setVerifying(false);
           // Wait for verification before proceeding
           return;
+        } else {
+          setNeedsVerification(false);
+          setVerifying(false);
+          setVerificationType(null);
+          setVerifyOtpFunction(null);
         }
       } catch (error) {
         console.error('Error adding email:', error);
         setErrors({ email: 'Failed to add email. Please try again.' });
-        setVerifyingEmail(false);
+        setNeedsVerification(false);
+        setVerifying(false);
+        setVerificationType(null);
+        setVerifyOtpFunction(null);
         return;
-      } finally {
-        setVerifyingEmail(false);
       }
     }
     
@@ -415,57 +521,22 @@ const UserProfile = () => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                disabled={!!user?.email || needsEmailVerification}
-                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'} ${(!!user?.email || needsEmailVerification) ? 'bg-gray-100' : ''}`}
+                disabled={!!user?.email || (needsVerification && verificationType === 'email')}
+                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'} ${(!!user?.email || (needsVerification && verificationType === 'email')) ? 'bg-gray-100' : ''}`}
                 placeholder="Enter your email"
               />
-              {user?.phone_number && !user?.email && !needsEmailVerification && (
+              {user?.phone_number && !user?.email && !(needsVerification && verificationType === 'email') && (
                 <button
                   type="button"
                   onClick={handleAddEmail}
-                  disabled={verifyingEmail || !formData.email}
+                  disabled={verifying || !formData.email}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {verifyingEmail ? 'Adding...' : 'Add to Dynamic'}
+                  {verifying ? 'Adding...' : 'Add to Dynamic'}
                 </button>
               )}
             </div>
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-            
-            {/* Email Verification Code Input */}
-            {needsEmailVerification && (
-              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter verification code sent to {formData.email}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={emailVerificationCode}
-                    onChange={(e) => {
-                      setEmailVerificationCode(e.target.value);
-                      if (errors.emailVerification) {
-                        setErrors(prev => ({ ...prev, emailVerification: '' }));
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter verification code"
-                    maxLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyEmailOtp}
-                    disabled={verifyingEmail || !emailVerificationCode}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {verifyingEmail ? 'Verifying...' : 'Verify'}
-                  </button>
-                </div>
-                {errors.emailVerification && (
-                  <p className="text-red-500 text-sm mt-1">{errors.emailVerification}</p>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Row 3: Phone */}
@@ -475,8 +546,8 @@ const UserProfile = () => {
               <select
                 value={formData.countryCode}
                 onChange={(e) => handleInputChange('countryCode', e.target.value)}
-                disabled={!!user?.phone_number || needsPhoneVerification}
-                className={`px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${(!!user?.phone_number || needsPhoneVerification) ? 'bg-gray-100' : ''}`}
+                disabled={needsVerification && verificationType === 'phone'}
+                className={`px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${(needsVerification && verificationType === 'phone') ? 'bg-gray-100' : ''}`}
               >
                 {countryCodes.map(({ code, country }) => (
                   <option key={code} value={code}>
@@ -488,58 +559,88 @@ const UserProfile = () => {
                 type="tel"
                 value={formData.phoneNumber}
                 onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                disabled={!!user?.phone_number || needsPhoneVerification}
-                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'} ${(!!user?.phone_number || needsPhoneVerification) ? 'bg-gray-100' : ''}`}
+                disabled={needsVerification && verificationType === 'phone'}
+                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'} ${(needsVerification && verificationType === 'phone') ? 'bg-gray-100' : ''}`}
                 placeholder="Enter phone number"
               />
-              {user?.email && !user?.phone_number && !needsPhoneVerification && (
+              {/* Show "Add to Dynamic" button if user logged in with email but doesn't have phone */}
+              {user?.email && !user?.phone && !user?.phoneNumber && !(needsVerification && verificationType === 'phone') && (
                 <button
                   type="button"
                   onClick={handleAddPhone}
-                  disabled={verifyingPhone || !formData.phoneNumber}
+                  disabled={verifying || !formData.phoneNumber}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
-                  {verifyingPhone ? 'Adding...' : 'Add to Dynamic'}
+                  {verifying ? 'Adding...' : 'Add to Dynamic'}
                 </button>
               )}
             </div>
             {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
-            
-            {/* Phone Verification Code Input */}
-            {needsPhoneVerification && (
-              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter SMS verification code sent to {formData.countryCode}{formData.phoneNumber}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={phoneVerificationCode}
-                    onChange={(e) => {
-                      setPhoneVerificationCode(e.target.value.replace(/\D/g, ''));
-                      if (errors.phoneVerification) {
-                        setErrors(prev => ({ ...prev, phoneVerification: '' }));
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter 6-digit code"
-                    maxLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyPhoneOtp}
-                    disabled={verifyingPhone || !phoneVerificationCode}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {verifyingPhone ? 'Verifying...' : 'Verify'}
-                  </button>
-                </div>
-                {errors.phoneVerification && (
-                  <p className="text-red-500 text-sm mt-1">{errors.phoneVerification}</p>
-                )}
-              </div>
-            )}
           </div>
+
+          {/* Unified OTP Verification Field */}
+          {needsVerification && (
+            <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg shadow-md">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl">{verificationType === 'phone' ? '📱' : '📧'}</span>
+                <label className="block text-base font-semibold text-gray-800">
+                  Verification Required
+                </label>
+              </div>
+              {verifyOtpFunction ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {verificationType === 'phone' ? (
+                      <>We sent a verification code via SMS to <strong>{formData.countryCode}{formData.phoneNumber}</strong></>
+                    ) : (
+                      <>We sent a verification code to <strong>{formData.email}</strong></>
+                    )}
+                  </p>
+                  <p className="text-xs text-blue-600 mb-3 font-medium">
+                    Please {verificationType === 'phone' ? 'check your phone' : 'check your email inbox'} and enter the 6-digit code below.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600 mb-3">
+                  Sending verification code{verificationType === 'phone' ? ` to ${formData.countryCode}${formData.phoneNumber}` : ` to ${formData.email}`}...
+                </p>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => {
+                    const value = verificationType === 'phone' 
+                      ? e.target.value.replace(/\D/g, '') 
+                      : e.target.value;
+                    setVerificationCode(value);
+                    if (errors.verification) {
+                      setErrors(prev => ({ ...prev, verification: '' }));
+                    }
+                  }}
+                  disabled={!verifyOtpFunction}
+                  className="flex-1 px-4 py-3 border-2 border-yellow-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg text-center font-semibold tracking-widest disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  placeholder="000000"
+                  maxLength={6}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  disabled={!verifyOtpFunction || verifying || !verificationCode || verificationCode.length !== 6}
+                  className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                >
+                  {verifying ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
+              {errors.verification && (
+                <p className="text-red-600 text-sm mt-2 font-medium">{errors.verification}</p>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Didn't receive the code? {verificationType === 'phone' ? 'Check your phone number and try again.' : 'Check your email inbox and spam folder.'}
+              </p>
+            </div>
+          )}
 
           {/* Row 4: Street Address */}
           <div>
