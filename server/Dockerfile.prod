@@ -1,42 +1,25 @@
-FROM node:20.18-alpine as build
+FROM node:20.18-alpine
 
 WORKDIR /app
 
 # Suppress npm update notices
 RUN npm config set update-notifier false
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies)
-RUN npm install --no-audit --no-fund && npm cache clean --force
+# Install only production dependencies with BuildKit cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production --no-audit --no-fund --prefer-offline || \
+    npm install --only=production --no-audit --no-fund --prefer-offline
 
-# Copy the rest of the application code
-COPY . .
+# Create non-root user before copying code
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
-# Production stage
-FROM node:20.18-alpine as production
+# Copy application code with correct ownership
+COPY --chown=nodejs:nodejs . .
 
-WORKDIR /app
-
-# Suppress npm update notices
-RUN npm config set update-notifier false
-
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies (fallback to npm install if lock file is out of sync)
-RUN npm ci --only=production --no-audit --no-fund && npm cache clean --force || npm install --only=production --no-audit --no-fund && npm cache clean --force
-
-# Copy built application from build stage
-COPY --from=build /app .
-
-# Create a non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
 USER nodejs
 
 EXPOSE 5001

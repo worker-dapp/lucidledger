@@ -1,15 +1,16 @@
-FROM node:20.18-alpine as build
+FROM node:20.18-alpine
 
 WORKDIR /app
 
 # Suppress npm update notices
 RUN npm config set update-notifier false
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies (tolerate lockfile drift inside container)
-RUN npm install --no-audit --no-fund && npm cache clean --force
+# Install dependencies with BuildKit cache mount (much faster on rebuilds)
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --no-audit --no-fund --prefer-offline
 
 # Copy the rest of the application code
 COPY . .

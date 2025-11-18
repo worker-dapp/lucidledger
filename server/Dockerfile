@@ -2,24 +2,23 @@ FROM node:20.18-alpine
 
 WORKDIR /app
 
-# Suppress npm update notices
+# Suppress npm update notices and set npm config in one layer
 RUN npm config set update-notifier false
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies (tolerate lockfile drift inside container)
-RUN npm install --no-audit --no-fund && npm cache clean --force
+# Install dependencies with BuildKit cache mount (much faster on rebuilds)
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --no-audit --no-fund --prefer-offline
+
+# Create non-root user before copying code (better caching)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
 # Copy the rest of the application code
-COPY . .
+COPY --chown=nodejs:nodejs . .
 
-# Create a non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
 USER nodejs
 
 EXPOSE 5001

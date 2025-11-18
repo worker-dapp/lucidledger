@@ -171,13 +171,31 @@ jobs:
         echo "🧪 Testing deployment..."
         MAX_RETRIES=5
         RETRY_COUNT=0
+        DEPLOYMENT_SUCCESS=false
         
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES..."
           
-          if curl -f -s --max-time 30 https://$DOMAIN > /dev/null; then
+          # Test HTTP redirect first (should return 301)
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://$DOMAIN 2>/dev/null || echo "000")
+          echo "  HTTP status: $HTTP_STATUS"
+          
+          # Test HTTPS connection
+          HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://$DOMAIN 2>/dev/null || echo "000")
+          echo "  HTTPS status: $HTTPS_STATUS"
+          
+          # Test API health endpoint
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://$DOMAIN/api/health 2>/dev/null || echo "000")
+          echo "  API health status: $API_STATUS"
+          
+          # Check if at least HTTPS is working (200, 301, or 302 are acceptable)
+          if [ "$HTTPS_STATUS" = "200" ] || [ "$HTTPS_STATUS" = "301" ] || [ "$HTTPS_STATUS" = "302" ]; then
             echo "✅ Deployment successful! App accessible at https://$DOMAIN"
+            DEPLOYMENT_SUCCESS=true
             break
+          elif [ "$HTTP_STATUS" = "301" ] || [ "$HTTP_STATUS" = "302" ]; then
+            echo "✅ HTTP redirect working, HTTPS might need a moment..."
+            sleep 10
           else
             echo "⏳ App not ready yet, waiting 30 seconds..."
             sleep 30
@@ -185,10 +203,15 @@ jobs:
           fi
         done
         
-        if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+        if [ "$DEPLOYMENT_SUCCESS" = "false" ]; then
           echo "❌ Deployment test failed after $MAX_RETRIES attempts"
+          echo "📊 Checking service status..."
+          docker-compose -f docker-compose.nginx.yml ps
           echo "📊 Checking service logs..."
-          docker-compose -f docker-compose.nginx.yml logs --tail=50
+          docker-compose -f docker-compose.nginx.yml logs --tail=100
+          echo "🔍 Testing connectivity from container..."
+          docker exec nginx-proxy curl -s -o /dev/null -w "nginx->frontend: %{http_code}\n" http://frontend:80 || echo "Cannot reach frontend from nginx"
+          docker exec nginx-proxy curl -s -o /dev/null -w "nginx->backend: %{http_code}\n" http://backend:5001/api/health || echo "Cannot reach backend from nginx"
           exit 1
         fi
         
