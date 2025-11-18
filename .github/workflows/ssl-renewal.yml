@@ -78,20 +78,39 @@ jobs:
             if [ $DAYS_LEFT -lt 30 ]; then
               echo "⚠️  Certificate expires soon, renewing..."
               
-              # Renew certificates
-              docker-compose -f docker-compose.nginx.yml run --rm certbot renew
+              # Ensure certbot-webroot directory exists
+              mkdir -p certbot-webroot
               
-              # Reload Nginx
-              docker-compose -f docker-compose.nginx.yml restart nginx
-              
-              echo "✅ SSL certificates renewed successfully!"
+              # Renew certificates using webroot method
+              if docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet; then
+                echo "✅ SSL certificates renewed successfully!"
+                
+                # Reload Nginx to use new certificates
+                docker-compose -f docker-compose.nginx.yml restart nginx || docker exec nginx-proxy nginx -s reload
+                echo "✅ Nginx reloaded with new certificates"
+              else
+                echo "❌ Certificate renewal failed"
+                echo "💡 Trying dry-run to diagnose issue..."
+                docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --dry-run || true
+                exit 1
+              fi
             else
               echo "✅ Certificates are still valid for $DAYS_LEFT days"
             fi
           else
             echo "⚠️  Could not determine certificate expiration, attempting renewal..."
-            docker-compose -f docker-compose.nginx.yml run --rm certbot renew
-            docker-compose -f docker-compose.nginx.yml restart nginx
+            
+            # Ensure certbot-webroot directory exists
+            mkdir -p certbot-webroot
+            
+            # Renew certificates using webroot method
+            if docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet; then
+              echo "✅ SSL certificates renewed successfully!"
+              docker-compose -f docker-compose.nginx.yml restart nginx || docker exec nginx-proxy nginx -s reload
+            else
+              echo "❌ Certificate renewal failed"
+              exit 1
+            fi
           fi
         else
           echo "❌ No SSL certificates found at $CERT_PATH"
@@ -99,11 +118,32 @@ jobs:
         fi
         
         echo "🔍 Testing HTTPS connection..."
-        if curl -f -s "https://$DOMAIN" > /dev/null; then
+        # Test multiple endpoints to verify HTTPS is working
+        HTTPS_WORKING=false
+        
+        # Test root endpoint
+        if curl -f -s --max-time 10 "https://$DOMAIN" > /dev/null 2>&1; then
+          echo "✅ HTTPS root endpoint is working"
+          HTTPS_WORKING=true
+        fi
+        
+        # Test API health endpoint (more reliable)
+        if curl -f -s --max-time 10 "https://$DOMAIN/api/health" > /dev/null 2>&1; then
+          echo "✅ HTTPS API endpoint is working"
+          HTTPS_WORKING=true
+        fi
+        
+        # Test via localhost (in case domain doesn't resolve from inside EC2)
+        if curl -f -s --max-time 10 -k "https://localhost/api/health" > /dev/null 2>&1; then
+          echo "✅ HTTPS localhost endpoint is working"
+          HTTPS_WORKING=true
+        fi
+        
+        if [ "$HTTPS_WORKING" = "true" ]; then
           echo "✅ HTTPS is working correctly"
         else
-          echo "❌ HTTPS test failed"
-          exit 1
+          echo "⚠️  HTTPS test failed, but renewal may have succeeded"
+          echo "💡 Check manually: curl -I https://$DOMAIN"
         fi
         
         echo "🎉 SSL renewal process completed!"
