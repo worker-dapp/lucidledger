@@ -188,9 +188,18 @@ jobs:
         
         # Test deployment with retries
         echo "🧪 Testing deployment..."
-        MAX_RETRIES=5
+        MAX_RETRIES=10
         RETRY_COUNT=0
         DEPLOYMENT_SUCCESS=false
+        
+        # Check SSL certificate status
+        echo "🔍 Checking SSL certificates..."
+        if [ -f "ssl/live/$DOMAIN/fullchain.pem" ]; then
+          echo "✅ SSL certificate found"
+          openssl x509 -in ssl/live/$DOMAIN/fullchain.pem -noout -subject -dates 2>/dev/null || echo "⚠️  Could not read certificate details"
+        else
+          echo "⚠️  SSL certificate not found at ssl/live/$DOMAIN/fullchain.pem"
+        fi
         
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           echo "Attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES..."
@@ -201,10 +210,20 @@ jobs:
           
           # Test HTTPS connection
           HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://$DOMAIN 2>/dev/null || echo "000")
-          echo "  HTTPS status: $HTTPS_STATUS"
+          if [ "$HTTPS_STATUS" = "000" ]; then
+            # Try with -k to see if it's a certificate issue
+            HTTPS_STATUS_INSECURE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -k https://$DOMAIN 2>/dev/null || echo "000")
+            if [ "$HTTPS_STATUS_INSECURE" != "000" ]; then
+              echo "  HTTPS status: $HTTPS_STATUS (connection works with -k, likely SSL cert issue)"
+            else
+              echo "  HTTPS status: $HTTPS_STATUS (connection failed)"
+            fi
+          else
+            echo "  HTTPS status: $HTTPS_STATUS"
+          fi
           
           # Test API health endpoint
-          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://$DOMAIN/api/health 2>/dev/null || echo "000")
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -k https://$DOMAIN/api/health 2>/dev/null || echo "000")
           echo "  API health status: $API_STATUS"
           
           # Check if at least HTTPS is working (200, 301, or 302 are acceptable)
@@ -212,12 +231,9 @@ jobs:
             echo "✅ Deployment successful! App accessible at https://$DOMAIN"
             DEPLOYMENT_SUCCESS=true
             break
-          elif [ "$HTTP_STATUS" = "301" ] || [ "$HTTP_STATUS" = "302" ]; then
-            echo "✅ HTTP redirect working, HTTPS might need a moment..."
-            sleep 10
           else
-            echo "⏳ App not ready yet, waiting 30 seconds..."
-            sleep 30
+            echo "⏳ HTTPS not ready yet (status: $HTTPS_STATUS), waiting 15 seconds..."
+            sleep 15
             RETRY_COUNT=$((RETRY_COUNT + 1))
           fi
         done
@@ -226,11 +242,17 @@ jobs:
           echo "❌ Deployment test failed after $MAX_RETRIES attempts"
           echo "📊 Checking service status..."
           docker-compose -f docker-compose.nginx.yml ps
+          echo "📊 Checking nginx configuration..."
+          docker exec nginx-proxy nginx -t 2>&1 || echo "Nginx config test failed"
+          echo "📊 Checking SSL certificate mount..."
+          docker exec nginx-proxy ls -la /etc/letsencrypt/live/$DOMAIN/ 2>&1 || echo "SSL directory not found"
           echo "📊 Checking service logs..."
-          docker-compose -f docker-compose.nginx.yml logs --tail=100
+          docker-compose -f docker-compose.nginx.yml logs --tail=100 nginx
           echo "🔍 Testing connectivity from container..."
           docker exec nginx-proxy curl -s -o /dev/null -w "nginx->frontend: %{http_code}\n" http://frontend:80 || echo "Cannot reach frontend from nginx"
           docker exec nginx-proxy curl -s -o /dev/null -w "nginx->backend: %{http_code}\n" http://backend:5001/api/health || echo "Cannot reach backend from nginx"
+          echo "🔍 Testing HTTPS from inside nginx container..."
+          docker exec nginx-proxy curl -s -o /dev/null -w "Local HTTPS: %{http_code}\n" https://localhost/ 2>&1 || echo "HTTPS test from container failed"
           exit 1
         fi
         
