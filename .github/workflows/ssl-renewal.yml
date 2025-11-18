@@ -71,44 +71,54 @@ jobs:
           EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$EXPIRY" +%s 2>/dev/null || echo "0")
           CURRENT_EPOCH=$(date +%s)
           
-          if [ "$EXPIRY_EPOCH" != "0" ] && [ "$EXPIRY_EPOCH" -gt "$CURRENT_EPOCH" ]; then
-            DAYS_LEFT=$(( (EXPIRY_EPOCH - CURRENT_EPOCH) / 86400 ))
-            echo "Certificate expires in $DAYS_LEFT days"
-            
-            if [ $DAYS_LEFT -lt 30 ]; then
-              echo "⚠️  Certificate expires soon, renewing..."
+          # Ensure certbot-webroot directory exists
+          mkdir -p certbot-webroot
+          
+          if [ "$EXPIRY_EPOCH" != "0" ]; then
+            if [ "$EXPIRY_EPOCH" -gt "$CURRENT_EPOCH" ]; then
+              # Certificate is still valid
+              DAYS_LEFT=$(( (EXPIRY_EPOCH - CURRENT_EPOCH) / 86400 ))
+              echo "Certificate expires in $DAYS_LEFT days"
               
-              # Ensure certbot-webroot directory exists
-              mkdir -p certbot-webroot
-              
-              # Renew certificates using webroot method
-              if docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet; then
-                echo "✅ SSL certificates renewed successfully!"
-                
-                # Reload Nginx to use new certificates
-                docker-compose -f docker-compose.nginx.yml restart nginx || docker exec nginx-proxy nginx -s reload
-                echo "✅ Nginx reloaded with new certificates"
+              if [ $DAYS_LEFT -lt 30 ]; then
+                echo "⚠️  Certificate expires soon, renewing..."
+                RENEW_NEEDED=true
               else
-                echo "❌ Certificate renewal failed"
-                echo "💡 Trying dry-run to diagnose issue..."
-                docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --dry-run || true
-                exit 1
+                echo "✅ Certificates are still valid for $DAYS_LEFT days"
+                RENEW_NEEDED=false
               fi
             else
-              echo "✅ Certificates are still valid for $DAYS_LEFT days"
+              # Certificate has expired
+              DAYS_EXPIRED=$(( (CURRENT_EPOCH - EXPIRY_EPOCH) / 86400 ))
+              echo "❌ Certificate expired $DAYS_EXPIRED days ago - URGENT RENEWAL NEEDED!"
+              RENEW_NEEDED=true
             fi
           else
+            # Could not determine expiration - attempt renewal to be safe
             echo "⚠️  Could not determine certificate expiration, attempting renewal..."
-            
-            # Ensure certbot-webroot directory exists
-            mkdir -p certbot-webroot
-            
+            RENEW_NEEDED=true
+          fi
+          
+          if [ "$RENEW_NEEDED" = "true" ]; then
             # Renew certificates using webroot method
-            if docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet; then
+            # Use --force-renewal if certificate is expired
+            if [ "$EXPIRY_EPOCH" != "0" ] && [ "$EXPIRY_EPOCH" -le "$CURRENT_EPOCH" ]; then
+              echo "🔄 Forcing certificate renewal (certificate expired)..."
+              RENEW_CMD="docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --force-renewal"
+            else
+              RENEW_CMD="docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet"
+            fi
+            
+            if eval "$RENEW_CMD"; then
               echo "✅ SSL certificates renewed successfully!"
+              
+              # Reload Nginx to use new certificates
               docker-compose -f docker-compose.nginx.yml restart nginx || docker exec nginx-proxy nginx -s reload
+              echo "✅ Nginx reloaded with new certificates"
             else
               echo "❌ Certificate renewal failed"
+              echo "💡 Trying dry-run to diagnose issue..."
+              docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --dry-run || true
               exit 1
             fi
           fi
