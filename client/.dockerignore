@@ -4,8 +4,25 @@ dist
 .git
 .gitignore
 npm-debug.log*
-Dockerfile
-Dockerfile.prod
+Dockerfile*
+.dockerignore
 **/*.local.*
 .env*
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.cache
+test
+tests
+__tests__
+*.test.js
+*.test.jsx
+*.spec.js
+*.spec.jsx
+.gitattributes
+.gitmodules
+coverage
+.nyc_output
 
