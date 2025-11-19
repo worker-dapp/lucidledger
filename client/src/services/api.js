@@ -1,12 +1,18 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { getAuthToken } from "@dynamic-labs/sdk-react-core";
 
 class ApiService {
   // Generic request method
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    // Get the Dynamic JWT token
+    const token = getAuthToken();
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
       ...options,

@@ -38,6 +38,8 @@ const enhancedEmployerView = {
   ]
 };
 
+import ProtectedRoute from "./components/ProtectedRoute";
+
 const App = () => {
   const [selectedRole, setSelectedRole] = useState(
     localStorage.getItem('userRole') ||
@@ -75,7 +77,7 @@ const App = () => {
 
   // Check if Dynamic Labs environment ID is configured
   const dynamicEnvId = import.meta.env.VITE_DYNAMIC_ENV_ID;
-  
+
   if (!dynamicEnvId) {
     console.error('VITE_DYNAMIC_ENV_ID is not configured. Please set this environment variable.');
     return (
@@ -136,32 +138,90 @@ const App = () => {
       }}
     >
       <div>
-          <Routes>
-            {/* Common Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/about-us" element={<AboutPage />} />
-            <Route path="/user-profile" element={<UserProfile />} />
-            <Route path="/job-details/:id" element={<JobDetails />} />
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/about-us" element={<AboutPage />} />
 
-            {/* Employee Routes */}
-            <Route path="/employeeDashboard" element={<EmployeeDashboard />} />
-            <Route path="/employee-profile" element={<EmployeeProfile />} />
-            <Route path="/employee-jobs" element={<EmployeeJobsPage />} />
+          {/* Protected Routes */}
+          <Route path="/user-profile" element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/job-details/:id" element={
+            <ProtectedRoute>
+              <JobDetails />
+            </ProtectedRoute>
+          } />
 
-            {/* Employer Routes */}
-            <Route path="/employerDashboard" element={<EmployerDashboard />} />
-            <Route path="/employer-profile" element={<EmployerProfile />} />
-            <Route path="/job" element={<Job />} />
-            <Route path="/view-employees" element={<EmployerJobPortal />} />
-            <Route path="/view-open-contracts" element={<OpenContracts />} />
-            <Route path="/review-applications" element={<ReviewApplications />} />
-            <Route path="/review-completed-contracts" element={<ReviewCompletedContracts />} />
-            <Route path="/dispute" element={<Dispute />} />
-            <Route path="/closed-contracts" element={<ClosedContracts />} />
+          {/* Employee Routes */}
+          <Route path="/employeeDashboard" element={
+            <ProtectedRoute>
+              <EmployeeDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/employee-profile" element={
+            <ProtectedRoute>
+              <EmployeeProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/employee-jobs" element={
+            <ProtectedRoute>
+              <EmployeeJobsPage />
+            </ProtectedRoute>
+          } />
 
-            {/* 404 - Must be last */}
-            <Route path="*" element={<h1>404 - Not Found</h1>} />
-          </Routes>
+          {/* Employer Routes */}
+          <Route path="/employerDashboard" element={
+            <ProtectedRoute>
+              <EmployerDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/employer-profile" element={
+            <ProtectedRoute>
+              <EmployerProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/job" element={
+            <ProtectedRoute>
+              <Job />
+            </ProtectedRoute>
+          } />
+          <Route path="/view-employees" element={
+            <ProtectedRoute>
+              <EmployerJobPortal />
+            </ProtectedRoute>
+          } />
+          <Route path="/view-open-contracts" element={
+            <ProtectedRoute>
+              <OpenContracts />
+            </ProtectedRoute>
+          } />
+          <Route path="/review-applications" element={
+            <ProtectedRoute>
+              <ReviewApplications />
+            </ProtectedRoute>
+          } />
+          <Route path="/review-completed-contracts" element={
+            <ProtectedRoute>
+              <ReviewCompletedContracts />
+            </ProtectedRoute>
+          } />
+          <Route path="/dispute" element={
+            <ProtectedRoute>
+              <Dispute />
+            </ProtectedRoute>
+          } />
+          <Route path="/closed-contracts" element={
+            <ProtectedRoute>
+              <ClosedContracts />
+            </ProtectedRoute>
+          } />
+
+          {/* 404 - Must be last */}
+          <Route path="*" element={<h1>404 - Not Found</h1>} />
+        </Routes>
       </div>
     </DynamicContextProvider>
   );
