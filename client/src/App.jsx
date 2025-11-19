@@ -1,5 +1,5 @@
-import { Routes, Route } from "react-router-dom";
-import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { DynamicContextProvider, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
@@ -39,6 +39,49 @@ const enhancedEmployerView = {
 };
 
 import ProtectedRoute from "./components/ProtectedRoute";
+
+// Inner component to handle redirects based on auth state
+const AppContent = () => {
+  const { user, isAuthenticated, isLoading } = useDynamicContext();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [hasRedirected, setHasRedirected] = useState(false);
+
+  useEffect(() => {
+    // Wait for loading to complete and user to be available
+    if (!isLoading && isAuthenticated && user && location.pathname === '/' && !hasRedirected) {
+      const isNew = user.newUser === true;
+      const userRole = 
+        user?.metadata?.role || 
+        localStorage.getItem('persistedUserRole') ||
+        localStorage.getItem('userRole') ||
+        localStorage.getItem('pendingRole');
+      
+      console.log('AppContent: User authenticated, role:', userRole, 'isNew:', isNew, 'user:', user);
+      
+      setHasRedirected(true);
+      
+      // Add a small delay to ensure user state is fully set
+      setTimeout(() => {
+        if (isNew) {
+          console.log('Redirecting new user to /user-profile');
+          navigate('/user-profile', { replace: true });
+        } else if (userRole === 'employee') {
+          console.log('Redirecting employee to /employeeDashboard');
+          navigate('/employeeDashboard', { replace: true });
+        } else if (userRole === 'employer') {
+          console.log('Redirecting employer to /employerDashboard');
+          navigate('/employerDashboard', { replace: true });
+        } else {
+          console.warn('No role found, redirecting to /user-profile');
+          navigate('/user-profile', { replace: true });
+        }
+      }, 300);
+    }
+  }, [isLoading, isAuthenticated, user, location.pathname, navigate, hasRedirected]);
+
+  return null;
+};
 
 const App = () => {
   const [selectedRole, setSelectedRole] = useState(
@@ -121,22 +164,42 @@ const App = () => {
         },
         events: {
           onAuthSuccess: (args) => {
+            console.log('Auth success event fired:', args);
             const isNew = args?.user?.newUser === true;
-            if (isNew) {
-              window.location.href = '/user-profile';
-              return;
-            }
+            
+            // Get role from multiple sources
+            const userRole = 
+              args?.user?.metadata?.role || 
+              localStorage.getItem('persistedUserRole') ||
+              localStorage.getItem('userRole') ||
+              localStorage.getItem('pendingRole');
+            
+            console.log('User role detected:', userRole, 'isNew:', isNew);
+            
+            // Use a longer delay to ensure user state is fully loaded before redirect
+            setTimeout(() => {
+              if (isNew) {
+                console.log('Redirecting new user to /user-profile');
+                window.location.href = '/user-profile';
+                return;
+              }
 
-            const userRole = args?.user?.metadata?.role || localStorage.getItem('persistedUserRole');
-            if (userRole === 'employee') {
-              window.location.href = '/employeeDashboard';
-            } else if (userRole === 'employer') {
-              window.location.href = '/employerDashboard';
-            }
+              if (userRole === 'employee') {
+                console.log('Redirecting employee to /employeeDashboard');
+                window.location.href = '/employeeDashboard';
+              } else if (userRole === 'employer') {
+                console.log('Redirecting employer to /employerDashboard');
+                window.location.href = '/employerDashboard';
+              } else {
+                console.warn('No role found, redirecting to /user-profile');
+                window.location.href = '/user-profile';
+              }
+            }, 500);
           },
         },
       }}
     >
+      <AppContent />
       <div>
         <Routes>
           {/* Public Routes */}
