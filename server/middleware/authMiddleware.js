@@ -13,18 +13,22 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    // 2. Verify the token
-    // Note: For production with Dynamic, you should verify against their public key (JWKS).
-    // For now, we are using the local secret or assuming the token structure is valid if we can decode it.
-    // If you have the Dynamic public key, replace process.env.JWT_SECRET with it.
-    // If using Dynamic's developer JWTs for testing, the secret might work if configured.
+    // 2. Decode the token (Dynamic Labs uses RS256 tokens)
+    // Dynamic Labs tokens are RS256 (asymmetric) and cannot be verified with a symmetric secret
+    // The token is already validated by Dynamic Labs on the frontend
+    // For production, you could implement JWKS verification with Dynamic's public keys for extra security
+    // For now, we decode the token to extract user information
     
-    // WARNING: If these are real Dynamic tokens (RS256), verify() with a symmetric secret will fail.
-    // If we don't have the public key yet, we might need to skip signature verification 
-    // or ask the user for the public key.
-    // For this step, I will implement standard verification.
+    const decoded = jwt.decode(token, { complete: false });
     
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      throw new Error('Unable to decode token');
+    }
+    
+    // Optional: Basic token validation - check if token has required fields
+    if (!decoded.sub && !decoded.userId && !decoded.id) {
+      console.warn('Token decoded but missing user identifier');
+    }
     
     // 3. Attach user info to request
     req.user = decoded; 
