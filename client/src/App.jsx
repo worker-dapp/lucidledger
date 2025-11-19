@@ -16,9 +16,10 @@ import ReviewCompletedContracts from "./EmployerPages/ReviewCompletedContracts";
 import Job from "./EmployerPages/Job";
 import ReviewApplications from "./EmployerPages/ReviewApplications";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import UserProfile from "./pages/UserProfile";
 import ClosedContracts from "./EmployerPages/ClosedContracts";
+import apiService from "./services/api";
 
 const enhancedEmployeeView = {
   type: SdkViewType.Login,
@@ -42,43 +43,162 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 // Inner component to handle redirects based on auth state
 const AppContent = () => {
-  const { user, isAuthenticated, isLoading } = useDynamicContext();
+  const { user, isAuthenticated, isLoading, primaryWallet } = useDynamicContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [hasRedirected, setHasRedirected] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(false);
+  
+  // Track previous user ID to detect new logins
+  const prevUserIdRef = useRef(user?.id);
+  
+  useEffect(() => {
+    // Reset redirect flags only when user ID actually changes (new login)
+    if (user?.id && user.id !== prevUserIdRef.current) {
+      setHasRedirected(false);
+      setCheckingProfile(false);
+      prevUserIdRef.current = user.id;
+      console.log('New user login detected, reset redirect flags:', user.id);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     // Wait for loading to complete and user to be available
-    if (!isLoading && isAuthenticated && user && location.pathname === '/' && !hasRedirected) {
-      const isNew = user.newUser === true;
+    // Redirect authenticated users from landing page or any public page
+    const isPublicPage = location.pathname === '/' || location.pathname === '/about-us';
+    // If user exists, consider authenticated (user object is the source of truth)
+    // isLoading can be undefined initially, so treat undefined as "not loading"
+    const loadingComplete = isLoading !== true;
+    const authenticated = user !== null && user !== undefined; // User object exists = authenticated
+    const shouldCheck = loadingComplete && authenticated && user && isPublicPage && !hasRedirected && !checkingProfile;
+    
+    console.log('AppContent effect check:', {
+      isLoading,
+      isAuthenticated,
+      hasUser: !!user,
+      isPublicPage,
+      hasRedirected,
+      checkingProfile,
+      loadingComplete,
+      authenticated,
+      shouldCheck
+    });
+    
+    if (shouldCheck) {
       const userRole = 
         user?.metadata?.role || 
         localStorage.getItem('persistedUserRole') ||
         localStorage.getItem('userRole') ||
         localStorage.getItem('pendingRole');
       
-      console.log('AppContent: User authenticated, role:', userRole, 'isNew:', isNew, 'user:', user);
+      console.log('AppContent: User authenticated, role:', userRole, 'user:', user, 'primaryWallet:', primaryWallet?.address, 'location:', location.pathname);
       
       setHasRedirected(true);
+      setCheckingProfile(true);
       
-      // Add a small delay to ensure user state is fully set
-      setTimeout(() => {
-        if (isNew) {
-          console.log('Redirecting new user to /user-profile');
-          navigate('/user-profile', { replace: true });
-        } else if (userRole === 'employee') {
-          console.log('Redirecting employee to /employeeDashboard');
-          navigate('/employeeDashboard', { replace: true });
-        } else if (userRole === 'employer') {
-          console.log('Redirecting employer to /employerDashboard');
-          navigate('/employerDashboard', { replace: true });
-        } else {
-          console.warn('No role found, redirecting to /user-profile');
-          navigate('/user-profile', { replace: true });
+      // Check if user already has a profile in backend (works for both email and phone login)
+      const checkProfileAndRedirect = async () => {
+        try {
+          // First check Dynamic Labs newUser flag - if new, skip DB check and redirect to profile
+          const isNew = user.newUser === true;
+          
+          if (isNew) {
+            console.log('New user detected by Dynamic Labs, redirecting to /user-profile (skipping DB check)');
+            window.location.href = '/user-profile';
+            return;
+          }
+          
+          // User is not new according to Dynamic Labs - check database for existing profile
+          let profileExists = false;
+          let detectedRole = userRole;
+          const walletAddress = primaryWallet?.address;
+          
+          console.log('Existing user, checking profile in database with wallet:', walletAddress);
+          
+          // If we have a wallet address, check if profile exists in backend
+          if (walletAddress) {
+            try {
+              // Check employee profile
+              const empResponse = await apiService.getEmployeeByWallet(walletAddress);
+              if (empResponse?.data) {
+                profileExists = true;
+                detectedRole = 'employee';
+                localStorage.setItem('persistedUserRole', 'employee');
+                console.log('Found existing employee profile in backend');
+              }
+            } catch (empError) {
+              // Not an employee, check employer
+              try {
+                const empResponse = await apiService.getEmployerByWallet(walletAddress);
+                if (empResponse?.data) {
+                  profileExists = true;
+                  detectedRole = 'employer';
+                  localStorage.setItem('persistedUserRole', 'employer');
+                  console.log('Found existing employer profile in backend');
+                }
+              } catch (empError2) {
+                // No profile found
+                console.log('No existing profile found in backend');
+              }
+            }
+          } else {
+            console.log('No wallet address available, using role-based redirect');
+          }
+          
+          // If profile exists, redirect to dashboard (same flow as email login)
+          if (profileExists) {
+            if (detectedRole === 'employee') {
+              console.log('Profile exists, redirecting employee to /employeeDashboard');
+              window.location.href = '/employeeDashboard';
+            } else if (detectedRole === 'employer') {
+              console.log('Profile exists, redirecting employer to /employerDashboard');
+              window.location.href = '/employerDashboard';
+            } else {
+              console.log('Profile exists but no role, redirecting to /user-profile');
+              window.location.href = '/user-profile';
+            }
+            return;
+          }
+          
+          // No profile found in DB but user is not new - redirect based on role
+          console.log('No profile found in DB, but user is not new. userRole:', userRole);
+          
+          if (userRole === 'employee') {
+            console.log('Redirecting employee to /employeeDashboard');
+            window.location.href = '/employeeDashboard';
+          } else if (userRole === 'employer') {
+            console.log('Redirecting employer to /employerDashboard');
+            window.location.href = '/employerDashboard';
+          } else {
+            console.warn('No role found, redirecting to /user-profile');
+            window.location.href = '/user-profile';
+          }
+        } catch (error) {
+          console.error('Error checking profile:', error);
+          // On error, fall back to original logic (same as email login)
+          const isNew = user.newUser === true;
+          if (isNew) {
+            console.log('Error occurred, redirecting new user to /user-profile');
+            navigate('/user-profile', { replace: true });
+          } else if (userRole === 'employee') {
+            console.log('Error occurred, redirecting employee to /employeeDashboard');
+            navigate('/employeeDashboard', { replace: true });
+          } else if (userRole === 'employer') {
+            console.log('Error occurred, redirecting employer to /employerDashboard');
+            navigate('/employerDashboard', { replace: true });
+          } else {
+            console.log('Error occurred, redirecting to /user-profile');
+            navigate('/user-profile', { replace: true });
+          }
+        } finally {
+          setCheckingProfile(false);
         }
-      }, 300);
+      };
+      
+      // Add a small delay to ensure user state is fully set, then check profile
+      setTimeout(checkProfileAndRedirect, 300);
     }
-  }, [isLoading, isAuthenticated, user, location.pathname, navigate, hasRedirected]);
+  }, [isLoading, isAuthenticated, user, primaryWallet, location.pathname, navigate, hasRedirected, checkingProfile]);
 
   return null;
 };
@@ -165,7 +285,6 @@ const App = () => {
         events: {
           onAuthSuccess: (args) => {
             console.log('Auth success event fired:', args);
-            const isNew = args?.user?.newUser === true;
             
             // Get role from multiple sources
             const userRole = 
@@ -174,27 +293,15 @@ const App = () => {
               localStorage.getItem('userRole') ||
               localStorage.getItem('pendingRole');
             
-            console.log('User role detected:', userRole, 'isNew:', isNew);
+            console.log('User role detected:', userRole);
             
-            // Use a longer delay to ensure user state is fully loaded before redirect
+            // Trigger a small delay to let AppContent detect the auth state change
+            // AppContent will handle the actual redirect with profile checking
             setTimeout(() => {
-              if (isNew) {
-                console.log('Redirecting new user to /user-profile');
-                window.location.href = '/user-profile';
-                return;
-              }
-
-              if (userRole === 'employee') {
-                console.log('Redirecting employee to /employeeDashboard');
-                window.location.href = '/employeeDashboard';
-              } else if (userRole === 'employer') {
-                console.log('Redirecting employer to /employerDashboard');
-                window.location.href = '/employerDashboard';
-              } else {
-                console.warn('No role found, redirecting to /user-profile');
-                window.location.href = '/user-profile';
-              }
-            }, 500);
+              // Force a re-render by updating a state that AppContent depends on
+              // The AppContent useEffect will run again and detect the authenticated state
+              console.log('onAuthSuccess: Waiting for AppContent to handle redirect...');
+            }, 100);
           },
         },
       }}
