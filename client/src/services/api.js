@@ -4,7 +4,14 @@ import { getAuthToken } from "@dynamic-labs/sdk-react-core";
 class ApiService {
   // Generic request method
   async request(endpoint, options = {}) {
+    // Check if API_BASE_URL is configured
+    if (!API_BASE_URL) {
+      console.error('VITE_API_BASE_URL is not configured!');
+      throw new Error('API base URL is not configured. Please set VITE_API_BASE_URL in your environment variables.');
+    }
+    
     const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making API request to: ${url}`);
     
     // Get the Dynamic JWT token
     const token = getAuthToken();
@@ -20,15 +27,36 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
-
+      
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
-
+      
+      const data = await response.json();
       return data;
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
+      console.error('Request URL:', url);
+      console.error('Request config:', { 
+        method: config.method || 'GET',
+        headers: config.headers,
+        hasBody: !!config.body 
+      });
+      
+      // Provide more helpful error messages
+      if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+        throw new Error(`Unable to connect to the server. Please check if the backend is running and accessible at ${API_BASE_URL}`);
+      }
+      
       throw error;
     }
   }
