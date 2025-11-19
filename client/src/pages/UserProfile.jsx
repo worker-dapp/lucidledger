@@ -90,30 +90,34 @@ const UserProfile = () => {
     '201-500 employees', '501-1000 employees', '1000+ employees'
   ];
 
+  const [formDataInitialized, setFormDataInitialized] = useState(false);
+
   useEffect(() => {
-    if (user) {
+    if (user && !formDataInitialized) {
+      // Only initialize formData once when user first loads
       setFormData(prev => ({
         ...prev,
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
-        email: user.email || '',
-        phoneNumber: user.phone_number || '',
-        countryCode: user.country_code || '+1',
-        streetAddress: user.street_address || '',
-        streetAddress2: user.street_address2 || '',
-        country: user.country || '',
-        zipCode: user.zip_code || '',
-        state: user.state || '',
-        city: user.city || '',
-        companyName: user.company_name || '',
-        companyDescription: user.company_description || '',
-        industry: user.industry || '',
-        companySize: user.company_size || '',
-        website: user.website || '',
-        linkedin: user.linkedin || ''
+        firstName: user.first_name || prev.firstName || '',
+        lastName: user.last_name || prev.lastName || '',
+        email: user.email || prev.email || '',
+        phoneNumber: user.phone_number || prev.phoneNumber || '',
+        countryCode: user.country_code || prev.countryCode || '+1',
+        streetAddress: user.street_address || prev.streetAddress || '',
+        streetAddress2: user.street_address2 || prev.streetAddress2 || '',
+        country: user.country || prev.country || '',
+        zipCode: user.zip_code || prev.zipCode || '',
+        state: user.state || prev.state || '',
+        city: user.city || prev.city || '',
+        companyName: user.company_name || prev.companyName || '',
+        companyDescription: user.company_description || prev.companyDescription || '',
+        industry: user.industry || prev.industry || '',
+        companySize: user.company_size || prev.companySize || '',
+        website: user.website || prev.website || '',
+        linkedin: user.linkedin || prev.linkedin || ''
       }));
+      setFormDataInitialized(true);
     }
-  }, [user]);
+  }, [user, formDataInitialized]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -277,14 +281,15 @@ const UserProfile = () => {
         setPhoneVerified(true);
       }
       
-      // Hide OTP input box after showing success, but keep fields enabled
+      // Hide OTP input box after showing success, but keep the green tick visible
       // Verification states will be cleared only on form submit
       setTimeout(() => {
         setNeedsVerification(false);
         setVerificationCode('');
         setVerifyOtpFunction(null);
         setVerificationType(null);
-        setVerificationSuccess(false);
+        // Keep verificationSuccess true so the green tick stays visible
+        // setVerificationSuccess(false); // Don't clear this - keep tick visible
         // Note: emailVerified and phoneVerified remain true to track verification status
       }, 2000);
       setVerifying(false);
@@ -636,29 +641,32 @@ const UserProfile = () => {
                 </button>
               )}
               {/* Small OTP input box for email verification */}
-              {needsVerification && verificationType === 'email' && verifyOtpFunction && !emailVerified && (
+              {(needsVerification && verificationType === 'email' && (verifyOtpFunction || verificationSuccess)) || emailVerified ? (
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                      setVerificationCode(value);
-                      if (errors.verification) {
-                        setErrors(prev => ({ ...prev, verification: '' }));
-                      }
-                    }}
-                    disabled={verifying || verificationSuccess}
-                    className={`w-24 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold tracking-widest ${verificationSuccess ? 'border-green-500 bg-green-50' : errors.verification ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="000000"
-                    maxLength={6}
-                    autoFocus
-                  />
-                  {verificationSuccess ? (
+                  {needsVerification && verificationType === 'email' && verifyOtpFunction && !emailVerified && (
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setVerificationCode(value);
+                        if (errors.verification) {
+                          setErrors(prev => ({ ...prev, verification: '' }));
+                        }
+                      }}
+                      disabled={verifying || verificationSuccess || emailVerified}
+                      className={`w-24 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold tracking-widest ${verificationSuccess ? 'border-green-500 bg-green-50' : errors.verification ? 'border-red-500' : 'border-gray-300'}`}
+                      placeholder="000000"
+                      maxLength={6}
+                      autoFocus
+                    />
+                  )}
+                  {(verificationSuccess || emailVerified) && (
                     <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                  ) : (
+                  )}
+                  {!verificationSuccess && !emailVerified && verifyOtpFunction && (
                     <button
                       type="button"
                       onClick={handleVerifyOtp}
@@ -669,7 +677,7 @@ const UserProfile = () => {
                     </button>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             {errors.verification && verificationType === 'email' && (
@@ -713,29 +721,32 @@ const UserProfile = () => {
                 </button>
               )}
               {/* Small OTP input box for phone verification */}
-              {needsVerification && verificationType === 'phone' && verifyOtpFunction && !phoneVerified && (
+              {(needsVerification && verificationType === 'phone' && (verifyOtpFunction || verificationSuccess)) || phoneVerified ? (
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                      setVerificationCode(value);
-                      if (errors.verification) {
-                        setErrors(prev => ({ ...prev, verification: '' }));
-                      }
-                    }}
-                    disabled={verifying || verificationSuccess}
-                    className={`w-24 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold tracking-widest ${verificationSuccess ? 'border-green-500 bg-green-50' : errors.verification ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="000000"
-                    maxLength={6}
-                    autoFocus
-                  />
-                  {verificationSuccess ? (
+                  {needsVerification && verificationType === 'phone' && verifyOtpFunction && !phoneVerified && (
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setVerificationCode(value);
+                        if (errors.verification) {
+                          setErrors(prev => ({ ...prev, verification: '' }));
+                        }
+                      }}
+                      disabled={verifying || verificationSuccess || phoneVerified}
+                      className={`w-24 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold tracking-widest ${verificationSuccess ? 'border-green-500 bg-green-50' : errors.verification ? 'border-red-500' : 'border-gray-300'}`}
+                      placeholder="000000"
+                      maxLength={6}
+                      autoFocus
+                    />
+                  )}
+                  {(verificationSuccess || phoneVerified) && (
                     <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                  ) : (
+                  )}
+                  {!verificationSuccess && !phoneVerified && verifyOtpFunction && (
                     <button
                       type="button"
                       onClick={handleVerifyOtp}
@@ -746,7 +757,7 @@ const UserProfile = () => {
                     </button>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
             {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
             {errors.verification && verificationType === 'phone' && (
