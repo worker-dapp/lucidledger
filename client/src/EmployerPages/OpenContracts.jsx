@@ -153,7 +153,7 @@ const OpenContracts = () => {
   // RENDER
   // --------------------------------------------------------------------------
   return (
-    <div className="h-screen bg-gray-50 overflow-hidden">
+    <div className="min-h-screen bg-gray-50">
       <EmployerNavbar />
       
       <div className="h-full">
@@ -218,7 +218,7 @@ const OpenContracts = () => {
           </div>
 
           {/* Right Side - Job Details */}
-          <div className="hidden lg:block col-span-12 lg:col-span-8 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto">
+          <div className="hidden lg:flex flex-col col-span-12 lg:col-span-8 bg-white p-3 sm:p-4 lg:p-6 overflow-y-auto max-h-[calc(100vh-112px)]">
             {selectedJob ? (
               <div className="space-y-6">
                 {/* Header */}
