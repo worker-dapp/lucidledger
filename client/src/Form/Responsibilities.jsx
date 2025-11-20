@@ -34,11 +34,14 @@ export default function Responsibilities({ formData, handleChange }) {
 
       {/* Responsibilities */}
       <div>
-        <label className="block text-lg font-medium mb-2">Responsibilities</label>
+        <label className="block text-lg font-medium mb-2">
+          Responsibilities <span className="text-red-500">*</span>
+        </label>
         <textarea
           name="responsiblities"
           value={formData.responsiblities || ""}
           onChange={handleChange}
+          required
           className="w-full border p-3 rounded min-h-[100px]"
           placeholder={`• Follow safety protocols\n• Maintain workspace\n• Collaborate with team members`}
         />
@@ -46,11 +49,14 @@ export default function Responsibilities({ formData, handleChange }) {
 
       {/* Qualifications and Skills */}
       <div>
-        <label className="block text-lg font-medium mb-2">Qualification and Skills</label>
+        <label className="block text-lg font-medium mb-2">
+          Qualification and Skills <span className="text-red-500">*</span>
+        </label>
         <textarea
           name="skills"
           value={formData.skills}
           onChange={handleChange}
+          required
           className="w-full border p-3 rounded min-h-[100px]"
           placeholder="List required qualifications and skills..."
         />
@@ -86,12 +92,13 @@ export default function Responsibilities({ formData, handleChange }) {
       {/* Company Description */}
       <div>
         <label className="block text-lg font-medium mb-2">
-          Company Description (Describe your Company)
+          Company Description (Describe your Company) <span className="text-red-500">*</span>
         </label>
         <textarea
           name="companyDescription"
           value={formData.companyDescription}
           onChange={handleChange}
+          required
           className="w-full border p-3 rounded min-h-[100px]"
           placeholder="Tell candidates about your company culture, mission, or values..."
         />

@@ -1,21 +1,25 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import StepIndicator from "../components/StepIndicator";
 import JobBasics from "../Form/JobBasics";
 import EmploymentType from "../Form/EmploymentType";
 import Responsibilities from "../Form/Responsibilities";
-import TheJob from "../Form/TheJob"
+import TheJob from "../Form/TheJob";
 import ContractFactory from "../Form/ContractFactory";
 import EmployerNavbar from "../components/EmployerNavbar";
 import Oracles from "../Form/Oracles";
 import { SubmitJob } from "../components/SubmitJob";
-import apiService from '../services/api';
+import apiService from "../services/api";
 
 export default function Job() {
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
+  const navigate = useNavigate();
   const [employerId, setEmployerId] = useState(null);
   const [step, setStep] = useState(1);
   const totalSteps = 6;
+  const [hasPrefilledData, setHasPrefilledData] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     jobTitle: "",
@@ -23,7 +27,6 @@ export default function Job() {
     jobLocation: "",
     companyName: "",
     notificationEmail: "",
-    referenceCode: "",
     JobType: "",
     jobPay: "",
     currency: "",
@@ -91,26 +94,50 @@ export default function Job() {
     }
   };
 
-  // Fetch employer ID from database
+  // Fetch employer info once and prefill the form with existing data
   useEffect(() => {
-    const fetchEmployerId = async () => {
-      if (!user?.email) return;
+    const fetchEmployerData = async () => {
+      if (hasPrefilledData) return;
 
       try {
-        // Directly fetch employer ID from employer table
-        const employerResponse = await apiService.getEmployerByEmail(user.email);
-        if (employerResponse.data && employerResponse.data.id) {
-          setEmployerId(employerResponse.data.id);
+        let employerResponse = null;
+
+        if (primaryWallet?.address) {
+          employerResponse = await apiService.getEmployerByWallet(primaryWallet.address);
+        }
+
+        if ((!employerResponse || !employerResponse.data) && user?.email) {
+          employerResponse = await apiService.getEmployerByEmail(user.email);
+        }
+
+        if (employerResponse?.data) {
+          const employer = employerResponse.data;
+
+          if (employer.id) {
+            setEmployerId(employer.id);
+          }
+
+          setFormData((prev) => ({
+            ...prev,
+            companyName: prev.companyName || employer.company_name || "",
+            jobLocation:
+              prev.jobLocation ||
+              [employer.city, employer.state, employer.country].filter(Boolean).join(", "),
+            notificationEmail: prev.notificationEmail || employer.email || "",
+            companyDescription: prev.companyDescription || employer.company_description || "",
+          }));
+
+          setHasPrefilledData(true);
         }
       } catch (error) {
-        console.error("Error fetching employer ID:", error);
+        console.error("Error fetching employer information:", error);
       }
     };
 
-    if (user?.email) {
-      fetchEmployerId();
+    if (primaryWallet?.address || user?.email) {
+      fetchEmployerData();
     }
-  }, [user?.email]);
+  }, [primaryWallet?.address, user?.email, hasPrefilledData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,12 +147,20 @@ export default function Job() {
       return;
     }
 
+    setIsSubmitting(true);
+
     // Use employer_id directly from database
     const result = await SubmitJob(formData, employerId);
-    if(result.success){
-      alert("Contract Created")
-    }else {
-      alert("Failed to save Contract")
+
+    // Show loading state for 1 second before redirect
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsSubmitting(false);
+
+    if (result.success) {
+      alert("Contract Created");
+      navigate("/view-open-contracts");
+    } else {
+      alert("Failed to save Contract");
     }
   };
 
@@ -189,9 +224,14 @@ export default function Job() {
             <button
               type="button"
               onClick={handleSubmit}
-              className="ml-auto px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              className={`ml-auto px-4 py-2 rounded text-white ${
+                isSubmitting
+                  ? "bg-green-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700"
+              }`}
+              disabled={isSubmitting}
             >
-              Submit
+              {isSubmitting ? "Submitting..." : "Submit"}
             </button>
           )}
         </div>

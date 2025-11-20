@@ -3,17 +3,42 @@ import { useNavigate } from "react-router-dom";
 import { FileText, Users, FolderOpen, CheckCircle, AlertTriangle, Archive } from "lucide-react";
 import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import apiService from "../services/api";
 
 const EmployerDashboard = () => {
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState("User");
   const navigate = useNavigate();
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
 
   useEffect(() => {
-    if (user) {
-      setUserName(user.first_name || (user.email ? user.email.split("@")[0] : user.phone || 'User'));
-    }
-  }, [user]);
+    const fetchEmployerName = async () => {
+      const walletAddress = primaryWallet?.address;
+
+      if (!walletAddress && !user?.first_name) {
+        setUserName("User");
+        return;
+      }
+
+      try {
+        if (walletAddress) {
+          const response = await apiService.getEmployerByWallet(walletAddress);
+          const firstName = response?.data?.first_name;
+
+          if (firstName && firstName.trim()) {
+            setUserName(firstName.trim());
+            return;
+          }
+        }
+      } catch (error) {
+        // Optional: handle error silently and fall back to Dynamic Labs data
+      }
+
+      const fallbackName = (user?.first_name || "").trim();
+      setUserName(fallbackName || "User");
+    };
+
+    fetchEmployerName();
+  }, [primaryWallet?.address, user?.first_name]);
 
   
 

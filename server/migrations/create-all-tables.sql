@@ -58,7 +58,6 @@ CREATE TABLE IF NOT EXISTS public.jobs (
     pay_frequency text NULL,
     job_type text NULL,
     notification_email text NULL,
-    reference_code text NULL,
     selected_oracles text NULL,
     verification_notes text NULL,
     description text NULL,

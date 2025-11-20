@@ -63,7 +63,9 @@ export default function OracleConfiguration({ formData, handleChange }) {
 
       {/* Oracle Selection */}
       <div>
-        <label className="block text-lg font-medium mb-3">Verification Methods</label>
+        <label className="block text-lg font-medium mb-3">
+          Verification Methods <span className="text-red-500">*</span>
+        </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(oracleOptions).map(([key, oracle]) => {
             const isSelected = selectedOracles.includes(key);

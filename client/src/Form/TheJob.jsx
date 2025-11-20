@@ -5,7 +5,8 @@ export default function TheJob({ formData, handleChange }) {
     <div className="space-y-6">
       <div>
         <label className="block text-lg font-medium mb-2">
-          Summary <span className="text-sm text-gray-500">(Min. 100 characters)</span>
+          Summary <span className="text-red-500">*</span>{" "}
+          <span className="text-sm text-gray-500">(Min. 100 characters)</span>
         </label>
         <textarea
           name="summary"
@@ -13,6 +14,8 @@ export default function TheJob({ formData, handleChange }) {
           onChange={handleChange}
           className="w-full border p-3 rounded min-h-[100px]"
           placeholder="Write a brief job summary..."
+          required
+          minLength={100}
         />
         {formData.summary.length > 0 && formData.summary.length < 100 && (
           <p className="text-red-500 text-sm mt-1">

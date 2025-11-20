@@ -5,7 +5,7 @@ const JobBasics = ({ formData, handleChange }) => {
     <div className="space-y-4">
       <div>
         <label className="block mb-2 font-semibold">
-          Industry Standard Job Title
+          Industry Standard Job Title <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
@@ -19,7 +19,7 @@ const JobBasics = ({ formData, handleChange }) => {
 
       <div>
         <label className="block mb-2 font-semibold">
-          Where will this job be performed?
+          Where will this job be performed? <span className="text-red-500">*</span>
         </label>
         <div className="flex space-x-4">
           <label>
@@ -29,6 +29,7 @@ const JobBasics = ({ formData, handleChange }) => {
               value="on site"
               checked={formData.jobLocationType === 'on site'}
               onChange={handleChange}
+              required
             />
             <span className="ml-2">On site</span>
           </label>
@@ -39,6 +40,7 @@ const JobBasics = ({ formData, handleChange }) => {
               value="on the road"
               checked={formData.jobLocationType === 'on the road'}
               onChange={handleChange}
+              required
             />
             <span className="ml-2">On the road</span>
           </label>
@@ -46,55 +48,48 @@ const JobBasics = ({ formData, handleChange }) => {
       </div>
 
       <div>
-        <label className="block mb-2 font-semibold">Job Location</label>
+        <label className="block mb-2 font-semibold">
+          Job Location <span className="text-red-500">*</span>
+        </label>
         <input
           type="text"
           name="jobLocation"
           value={formData.jobLocation}
           onChange={handleChange}
+          required
           className="w-full border rounded p-2"
         />
       </div>
 
       <div>
         <label className="block mb-2 font-semibold">
-          Company Name on Job Listing
+          Company Name on Job Listing <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           name="companyName"
           value={formData.companyName}
           onChange={handleChange}
+          required
           className="w-full border rounded p-2"
         />
       </div>
 
       <div>
         <label className="block mb-2 font-semibold">
-          Job notifications will be sent to:
+          Job notifications will be sent to: <span className="text-red-500">*</span>
         </label>
         <input
           type="email"
           name="notificationEmail"
           placeholder="Enter company’s email"
           value={formData.notificationEmail}
+          onChange={handleChange}
+          required
           className="w-full border rounded p-2"
         />
       </div>
 
-      <div>
-        <label className="block mb-2 font-semibold">
-          Reference code (optional)
-        </label>
-        <input
-          type="text"
-          name="referenceCode"
-          value={formData.referenceCode}
-          onChange={handleChange}
-          placeholder="Your company’s internal code"
-          className="w-full border rounded p-2"
-        />
-      </div>
     </div>
   );
 };

@@ -50,7 +50,9 @@ export default function EmploymentType({ formData, handleChange }) {
     <div className="space-y-6">
       {/* Job Type Buttons */}
       <div>
-        <label className="block text-lg font-medium mb-2">Job Type</label>
+        <label className="block text-lg font-medium mb-2">
+          Job Type <span className="text-red-500">*</span>
+        </label>
         <div className="flex flex-wrap gap-2">
           {jobTypes.map((type) => (
             <button
@@ -74,13 +76,14 @@ export default function EmploymentType({ formData, handleChange }) {
       {/* Pay Amount */}
       <div>
         <label className="block text-lg font-medium mb-2">
-          What does this job pay?
+          What does this job pay? <span className="text-red-500">*</span>
         </label>
         <input
           type="number"
           name="jobPay"
           value={formData.jobPay}
           onChange={handleChange}
+          required
           className="w-full border p-2 rounded"
           placeholder="Enter pay amount"
         />
@@ -89,11 +92,14 @@ export default function EmploymentType({ formData, handleChange }) {
       {/* Currency & Pay Frequency */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block font-medium mb-1">Currency</label>
+          <label className="block font-medium mb-1">
+            Currency <span className="text-red-500">*</span>
+          </label>
           <select
             name="currency"
             value={formData.currency || ""}
             onChange={handleChange}
+            required
             className="w-full border p-2 rounded"
           >
             <option value="">Select Currency</option>
@@ -106,12 +112,15 @@ export default function EmploymentType({ formData, handleChange }) {
         </div>
 
         <div>
-          <label className="block font-medium mb-1">Pay Frequency</label>
+          <label className="block font-medium mb-1">
+            Pay Frequency <span className="text-red-500">*</span>
+          </label>
           <select
             name="payFrequency"
             value={formData.payFrequency || ""}
             onChange={handleChange}
-            className="w-full border rounded"
+            required
+            className="w-full border p-2 rounded"
           >
             <option value="">Select Frequency</option>
             {payFrequencies.map((freq) => (
