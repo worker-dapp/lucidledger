@@ -43,10 +43,6 @@ const Job = sequelize.define('Job', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  reference_code: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
   selected_oracles: {
     type: DataTypes.TEXT,
     allowNull: true

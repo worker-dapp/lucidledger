@@ -12,7 +12,6 @@ export async function SubmitJob(formData, employerId) {
       location: formData.jobLocation,
       company_name: formData.companyName,
       notification_email: formData.notificationEmail,
-      reference_code: formData.referenceCode,
       job_type: formData.JobType,
       salary: formData.jobPay,
       currency: formData.currency,

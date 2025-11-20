@@ -106,11 +106,6 @@ const JobDetails = () => {
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-[#EE964B]">Reference Code</h3>
-                  <p className="text-gray-700">{job.reference_code || "N/A"}</p>
-                </div>
-
-                <div>
                   <h3 className="font-semibold text-[#EE964B]">Additional Compensation</h3>
                   <p className="text-gray-700">{job.additional_compensation || "N/A"}</p>
                 </div>
