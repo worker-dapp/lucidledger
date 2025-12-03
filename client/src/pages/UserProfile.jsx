@@ -209,15 +209,27 @@ const UserProfile = () => {
     
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    if (formData.email && !/^\S+@\S+\.\S+$/.test(formData.email)) newErrors.email = 'Enter a valid email';
+    
+    // Email is required only if user didn't log in with phone (phoneVerified means they logged in with phone)
+    if (!phoneVerified && !formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    }
+    if (formData.email && !/^\S+@\S+\.\S+$/.test(formData.email)) {
+      newErrors.email = 'Enter a valid email';
+    }
+    
+    // Phone is required only if user didn't log in with email (emailVerified means they logged in with email)
+    if (!emailVerified && !formData.phoneNumber.trim()) {
+      newErrors.phoneNumber = 'Phone number is required';
+    }
+    if (formData.phoneNumber && !/^\d{10,15}$/.test(formData.phoneNumber.replace(/\D/g, ''))) {
+      newErrors.phoneNumber = 'Please enter a valid phone number';
+    }
+    
     if (!formData.country.trim()) newErrors.country = 'Country is required';
     if (!formData.zipCode.trim()) newErrors.zipCode = 'Zip code is required';
     if (!formData.state.trim()) newErrors.state = 'State/Province is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
-    if (formData.phoneNumber && !/^\d{10,15}$/.test(formData.phoneNumber.replace(/\D/g, ''))) {
-      newErrors.phoneNumber = 'Please enter a valid phone number';
-    }
     
     // Employer-specific validation
     if (role === 'employer') {
@@ -673,7 +685,9 @@ const UserProfile = () => {
 
           {/* Row 2: Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email {!phoneVerified && <span className="text-red-500">*</span>}
+            </label>
             <div className="flex gap-2 items-center">
               <input
                 type="email"
@@ -742,7 +756,9 @@ const UserProfile = () => {
 
           {/* Row 3: Phone */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Phone Number {!emailVerified && <span className="text-red-500">*</span>}
+            </label>
             <div className="flex gap-2 items-center">
               <select
                 value={formData.countryCode}
