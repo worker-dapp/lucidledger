@@ -85,6 +85,10 @@ class ApiService {
     return this.request(`/employees/wallet/${walletAddress}`);
   }
 
+  async getEmployeeByPhone(phoneNumber) {
+    return this.request(`/employees/phone/${phoneNumber}`);
+  }
+
   async updateEmployee(id, employeeData) {
     return this.request(`/employees/${id}`, {
       method: 'PUT',
@@ -114,6 +118,10 @@ class ApiService {
 
   async getEmployerByWallet(walletAddress) {
     return this.request(`/employers/wallet/${walletAddress}`);
+  }
+
+  async getEmployerByPhone(phoneNumber) {
+    return this.request(`/employers/phone/${phoneNumber}`);
   }
 
   async updateEmployer(id, employerData) {

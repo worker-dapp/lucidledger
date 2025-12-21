@@ -126,6 +126,35 @@ class EmployeeController {
     }
   }
 
+  // Get employee by phone number
+  static async getEmployeeByPhone(req, res) {
+    try {
+      const { phone_number } = req.params;
+      const employee = await Employee.findOne({
+        where: { phone_number }
+      });
+      
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employee not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: employee
+      });
+    } catch (error) {
+      console.error('Error fetching employee:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching employee',
+        error: error.message
+      });
+    }
+  }
+
   // Update employee
   static async updateEmployee(req, res) {
     try {
