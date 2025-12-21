@@ -99,13 +99,13 @@ const AppContent = () => {
       // Check if user already has a profile in backend (works for both email and phone login)
       const checkProfileAndRedirect = async () => {
         try {
-          // First check Dynamic Labs newUser flag - if new, skip DB check and redirect to profile
+          // Note: We check the database first even if newUser flag is set,
+          // because Dynamic Labs might incorrectly mark returning users as new
+          // (e.g., if they logged in with a different method than before)
           const isNew = user.newUser === true;
           
           if (isNew) {
-            console.log('New user detected by Dynamic Labs, redirecting to /user-profile (skipping DB check)');
-            window.location.href = '/user-profile';
-            return;
+            console.log('newUser flag is true, but checking database anyway to be safe');
           }
           
           // User is not new according to Dynamic Labs - check database for existing profile
@@ -143,12 +143,19 @@ const AppContent = () => {
             }
           }
           
-          // Normalize phone number (remove non-digits, keep country code if present)
+          // Normalize phone number - database stores phone_number without country code
+          // Country code is stored separately in country_code field
           if (phoneValue) {
-            // If phone includes country code (starts with +), use as is
-            // Otherwise, format it
+            // Extract just the phone number digits (without country code)
+            // Database stores phone_number as just the number, not with country code
             if (phoneValue.startsWith('+')) {
-              phoneNumber = phoneValue.replace(/\s/g, '');
+              // Remove country code - keep only the number part
+              const match = phoneValue.match(/^\+\d{1,3}(.+)$/);
+              if (match) {
+                phoneNumber = match[1].replace(/\D/g, ''); // Just the number part
+              } else {
+                phoneNumber = phoneValue.replace(/\D/g, '');
+              }
             } else {
               phoneNumber = phoneValue.replace(/\D/g, '');
             }
@@ -213,20 +220,29 @@ const AppContent = () => {
           }
           
           // If profile not found by wallet or email, check by phone number (if available)
-          // Try multiple phone number formats since database might store it differently
+          // Database might store phone_number in different formats:
+          // 1. Just digits (e.g., "1234567890")
+          // 2. With country code (e.g., "+11234567890" or "11234567890")
           if (!profileExists && phoneNumber) {
-            // Try different phone number formats
+            // Try multiple formats to handle different storage patterns
+            const phoneDigits = phoneNumber.replace(/\D/g, ''); // All digits
+            const phoneWithPlus = phoneValue.startsWith('+') ? phoneValue.replace(/\s/g, '') : `+${phoneDigits}`;
+            const phoneWithoutPlus = phoneDigits;
+            
+            // Try formats: digits only, with +, original format
             const phoneFormats = [
-              phoneNumber, // Original format (with or without +)
-              phoneNumber.replace(/^\+/, ''), // Without leading +
-              phoneNumber.replace(/\D/g, ''), // Digits only
+              phoneWithoutPlus, // Most common: just digits
+              phoneWithPlus,    // With country code and +
+              phoneDigits       // Same as phoneWithoutPlus but explicit
             ];
             
             // Remove duplicates
-            const uniqueFormats = [...new Set(phoneFormats)];
+            const uniqueFormats = [...new Set(phoneFormats.filter(f => f))];
+            
+            console.log('Trying phone number formats:', uniqueFormats);
             
             for (const phoneFormat of uniqueFormats) {
-              if (profileExists) break; // Stop if profile found
+              if (profileExists) break;
               
               try {
                 // Check employee profile by phone
@@ -279,17 +295,25 @@ const AppContent = () => {
             return;
           }
           
-          // No profile found in DB but user is not new - redirect based on role
-          console.log('No profile found in DB, but user is not new. userRole:', userRole);
+          // No profile found in DB - check if user is new or has role
+          console.log('No profile found in DB. newUser flag:', isNew, 'userRole:', userRole);
           
+          // If user is marked as new, redirect to profile page
+          if (isNew) {
+            console.log('User is new (newUser=true), redirecting to /user-profile');
+            window.location.href = '/user-profile';
+            return;
+          }
+          
+          // User is not new but no profile found - redirect based on role
           if (userRole === 'employee') {
-            console.log('Redirecting employee to /employeeDashboard');
+            console.log('No profile found, redirecting employee to /employeeDashboard');
             window.location.href = '/employeeDashboard';
           } else if (userRole === 'employer') {
-            console.log('Redirecting employer to /employerDashboard');
+            console.log('No profile found, redirecting employer to /employerDashboard');
             window.location.href = '/employerDashboard';
           } else {
-            console.warn('No role found, redirecting to /user-profile');
+            console.warn('No profile found and no role, redirecting to /user-profile');
             window.location.href = '/user-profile';
           }
         } catch (error) {
