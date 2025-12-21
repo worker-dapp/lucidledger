@@ -126,6 +126,35 @@ class EmployerController {
     }
   }
 
+  // Get employer by phone number
+  static async getEmployerByPhone(req, res) {
+    try {
+      const { phone_number } = req.params;
+      const employer = await Employer.findOne({
+        where: { phone_number }
+      });
+      
+      if (!employer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employer not found'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: employer
+      });
+    } catch (error) {
+      console.error('Error fetching employer:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching employer',
+        error: error.message
+      });
+    }
+  }
+
   // Update employer
   static async updateEmployer(req, res) {
     try {

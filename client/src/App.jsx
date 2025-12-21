@@ -112,10 +112,51 @@ const AppContent = () => {
           let profileExists = false;
           let detectedRole = userRole;
           const walletAddress = primaryWallet?.address;
+          const userEmail = user?.email;
           
-          console.log('Existing user, checking profile in database with wallet:', walletAddress);
+          // Extract phone number from Dynamic Labs user object (similar to UserProfile.jsx)
+          let phoneNumber = '';
+          let phoneValue = user?.phone_number || user?.phone || '';
           
-          // If we have a wallet address, check if profile exists in backend
+          // Check verifiedCredentials array for phone
+          if (!phoneValue && user?.verifiedCredentials && Array.isArray(user.verifiedCredentials)) {
+            const phoneCredential = user.verifiedCredentials.find(
+              cred => 
+                cred.type === 'phone' || 
+                cred.credentialType === 'phone' || 
+                cred.credential === 'phone' ||
+                cred.credentialType === 'PHONE' ||
+                (cred.address && /^\+?\d+$/.test(cred.address.replace(/\s/g, '')))
+            );
+            if (phoneCredential) {
+              phoneValue = phoneCredential.value || phoneCredential.phone || phoneCredential.address || phoneCredential.id || '';
+            } else {
+              // Search through all credentials for phone-like values
+              user.verifiedCredentials.forEach((c) => {
+                Object.keys(c).forEach(key => {
+                  const val = c[key];
+                  if (val && typeof val === 'string' && /^\+?\d{10,}$/.test(val.replace(/\s/g, ''))) {
+                    phoneValue = val;
+                  }
+                });
+              });
+            }
+          }
+          
+          // Normalize phone number (remove non-digits, keep country code if present)
+          if (phoneValue) {
+            // If phone includes country code (starts with +), use as is
+            // Otherwise, format it
+            if (phoneValue.startsWith('+')) {
+              phoneNumber = phoneValue.replace(/\s/g, '');
+            } else {
+              phoneNumber = phoneValue.replace(/\D/g, '');
+            }
+          }
+          
+          console.log('Existing user, checking profile in database with wallet:', walletAddress, 'email:', userEmail, 'phone:', phoneNumber);
+          
+          // Check profile by wallet address first (if available)
           if (walletAddress) {
             try {
               // Check employee profile
@@ -124,7 +165,7 @@ const AppContent = () => {
                 profileExists = true;
                 detectedRole = 'employee';
                 localStorage.setItem('persistedUserRole', 'employee');
-                console.log('Found existing employee profile in backend');
+                console.log('Found existing employee profile in backend by wallet');
               }
             } catch (empError) {
               // Not an employee, check employer
@@ -134,15 +175,93 @@ const AppContent = () => {
                   profileExists = true;
                   detectedRole = 'employer';
                   localStorage.setItem('persistedUserRole', 'employer');
-                  console.log('Found existing employer profile in backend');
+                  console.log('Found existing employer profile in backend by wallet');
                 }
               } catch (empError2) {
-                // No profile found
-                console.log('No existing profile found in backend');
+                // No profile found by wallet, will check by email/phone below
+                console.log('No existing profile found in backend by wallet');
               }
             }
-          } else {
-            console.log('No wallet address available, using role-based redirect');
+          }
+          
+          // If profile not found by wallet, check by email (if available)
+          if (!profileExists && userEmail) {
+            try {
+              // Check employee profile by email
+              const empResponse = await apiService.getEmployeeByEmail(userEmail);
+              if (empResponse?.data) {
+                profileExists = true;
+                detectedRole = 'employee';
+                localStorage.setItem('persistedUserRole', 'employee');
+                console.log('Found existing employee profile in backend by email');
+              }
+            } catch (empError) {
+              // Not an employee, check employer
+              try {
+                const empResponse = await apiService.getEmployerByEmail(userEmail);
+                if (empResponse?.data) {
+                  profileExists = true;
+                  detectedRole = 'employer';
+                  localStorage.setItem('persistedUserRole', 'employer');
+                  console.log('Found existing employer profile in backend by email');
+                }
+              } catch (empError2) {
+                // No profile found by email, will check by phone below
+                console.log('No existing profile found in backend by email');
+              }
+            }
+          }
+          
+          // If profile not found by wallet or email, check by phone number (if available)
+          // Try multiple phone number formats since database might store it differently
+          if (!profileExists && phoneNumber) {
+            // Try different phone number formats
+            const phoneFormats = [
+              phoneNumber, // Original format (with or without +)
+              phoneNumber.replace(/^\+/, ''), // Without leading +
+              phoneNumber.replace(/\D/g, ''), // Digits only
+            ];
+            
+            // Remove duplicates
+            const uniqueFormats = [...new Set(phoneFormats)];
+            
+            for (const phoneFormat of uniqueFormats) {
+              if (profileExists) break; // Stop if profile found
+              
+              try {
+                // Check employee profile by phone
+                const empResponse = await apiService.getEmployeeByPhone(phoneFormat);
+                if (empResponse?.data) {
+                  profileExists = true;
+                  detectedRole = 'employee';
+                  localStorage.setItem('persistedUserRole', 'employee');
+                  console.log('Found existing employee profile in backend by phone:', phoneFormat);
+                  break;
+                }
+              } catch (empError) {
+                // Not an employee, check employer
+                try {
+                  const empResponse = await apiService.getEmployerByPhone(phoneFormat);
+                  if (empResponse?.data) {
+                    profileExists = true;
+                    detectedRole = 'employer';
+                    localStorage.setItem('persistedUserRole', 'employer');
+                    console.log('Found existing employer profile in backend by phone:', phoneFormat);
+                    break;
+                  }
+                } catch (empError2) {
+                  // Continue to next format
+                }
+              }
+            }
+            
+            if (!profileExists) {
+              console.log('No existing profile found in backend by phone (tried formats:', uniqueFormats.join(', '), ')');
+            }
+          }
+          
+          if (!walletAddress && !userEmail && !phoneNumber) {
+            console.log('No wallet address, email, or phone available, using role-based redirect');
           }
           
           // If profile exists, redirect to dashboard (same flow as email login)

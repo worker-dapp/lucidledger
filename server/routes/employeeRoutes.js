@@ -10,6 +10,7 @@ router.get('/', verifyToken, EmployeeController.getAllEmployees);
 router.get('/:id', verifyToken, EmployeeController.getEmployeeById);
 router.get('/email/:email', verifyToken, EmployeeController.getEmployeeByEmail);
 router.get('/wallet/:wallet_address', verifyToken, EmployeeController.getEmployeeByWallet);
+router.get('/phone/:phone_number', verifyToken, EmployeeController.getEmployeeByPhone);
 router.put('/:id', verifyToken, EmployeeController.updateEmployee);
 
 module.exports = router;

@@ -107,12 +107,12 @@ const EmployeeJobsPage = () => {
           application_status: app.application_status
         }));
       } else if (activeFilter === 'results' && employeeId) {
-        // Get accepted and denied jobs for this employee
+        // Get accepted and rejected jobs for this employee
         const response = await apiService.getAppliedJobs(employeeId);
         data = response.data || [];
-        // Filter for accepted or denied status
+        // Filter for accepted or rejected status
         data = data
-          .filter(app => app.application_status === 'accepted' || app.application_status === 'denied')
+          .filter(app => app.application_status === 'accepted' || app.application_status === 'rejected')
           .map(app => ({
             ...app.job,
             is_saved: app.is_saved,
@@ -220,7 +220,7 @@ const EmployeeJobsPage = () => {
     }
 
     // Check if already applied
-    if (job.application_status === 'applied' || job.application_status === 'accepted') {
+    if (job.application_status === 'applied' || job.application_status === 'accepted' || job.application_status === 'rejected') {
       alert('You have already applied to this job');
       return;
     }
@@ -253,6 +253,10 @@ const EmployeeJobsPage = () => {
     } finally {
       setProcessingJobId(null);
     }
+  };
+
+  const handleSignContract = () => {
+    alert('Contract signed successfully!');
   };
 
   // Jobs are already filtered by the API, so we can use them directly
@@ -398,12 +402,12 @@ const EmployeeJobsPage = () => {
                         {job.application_status && (
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             job.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
-                            job.application_status === 'denied' ? 'bg-red-100 text-red-800' :
+                            job.application_status === 'rejected' ? 'bg-red-100 text-red-800' :
                             job.application_status === 'applied' ? 'bg-blue-100 text-blue-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {job.application_status === 'accepted' ? 'Accepted' :
-                             job.application_status === 'denied' ? 'Denied' :
+                             job.application_status === 'rejected' ? 'Rejected' :
                              job.application_status === 'applied' ? 'Applied' :
                              job.application_status}
                           </span>
@@ -532,44 +536,53 @@ const EmployeeJobsPage = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
-                  <button 
-                    onClick={() => handleApplyToJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
-                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
-                    }`}
-                  >
-                    {processingJobId === selectedJob.id 
-                      ? 'Processing...' 
-                      : selectedJob.application_status === 'applied' 
-                        ? 'Applied ✓' 
-                        : selectedJob.application_status === 'accepted'
-                          ? 'Accepted ✓'
-                          : selectedJob.application_status === 'denied'
-                            ? 'Denied'
-                            : 'Apply Now'
-                    }
-                  </button>
-                  <button 
-                    onClick={() => handleSaveJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
-                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : selectedJob.is_saved
-                          ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
-                          : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
-                    }`}
-                  >
-                    {processingJobId === selectedJob.id 
-                      ? 'Processing...' 
-                      : selectedJob.is_saved 
-                        ? 'Saved ✓' 
-                        : 'Save Job'
-                    }
-                  </button>
+                  {selectedJob.application_status === 'accepted' ? (
+                    <button 
+                      onClick={handleSignContract}
+                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
+                    >
+                      Sign Contract
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => handleApplyToJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
+                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
+                        }`}
+                      >
+                        {processingJobId === selectedJob.id 
+                          ? 'Processing...' 
+                          : selectedJob.application_status === 'applied' 
+                            ? 'Applied ✓' 
+                            : selectedJob.application_status === 'rejected'
+                              ? 'Rejected'
+                              : 'Apply Now'
+                        }
+                      </button>
+                      <button 
+                        onClick={() => handleSaveJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
+                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : selectedJob.is_saved
+                              ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
+                              : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
+                        }`}
+                      >
+                        {processingJobId === selectedJob.id 
+                          ? 'Processing...' 
+                          : selectedJob.is_saved 
+                            ? 'Saved ✓' 
+                            : 'Save Job'
+                        }
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Posted Date */}
@@ -618,15 +631,15 @@ const EmployeeJobsPage = () => {
                       {selectedJob.status}
                     </span>
                   </div>
-                  {selectedJob.application_status && (selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied') && (
+                  {selectedJob.application_status && (selectedJob.application_status === 'accepted' || selectedJob.application_status === 'rejected') && (
                     <div className="mb-2">
                       <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
                         selectedJob.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
-                        selectedJob.application_status === 'denied' ? 'bg-red-100 text-red-800' :
+                        selectedJob.application_status === 'rejected' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {selectedJob.application_status === 'accepted' ? '✓ Accepted' :
-                         selectedJob.application_status === 'denied' ? '✗ Denied' :
+                         selectedJob.application_status === 'rejected' ? '✗ Rejected' :
                          selectedJob.application_status}
                       </span>
                     </div>
@@ -710,44 +723,53 @@ const EmployeeJobsPage = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
-                  <button 
-                    onClick={() => handleApplyToJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
-                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
-                    }`}
-                  >
-                    {processingJobId === selectedJob.id 
-                      ? 'Processing...' 
-                      : selectedJob.application_status === 'applied' 
-                        ? 'Applied ✓' 
-                        : selectedJob.application_status === 'accepted'
-                          ? 'Accepted ✓'
-                          : selectedJob.application_status === 'denied'
-                            ? 'Denied'
-                            : 'Apply Now'
-                    }
-                  </button>
-                  <button 
-                    onClick={() => handleSaveJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
-                    className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : selectedJob.is_saved
-                          ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
-                          : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
-                    }`}
-                  >
-                    {processingJobId === selectedJob.id 
-                      ? 'Processing...' 
-                      : selectedJob.is_saved 
-                        ? 'Saved ✓' 
-                        : 'Save Job'
-                    }
-                  </button>
+                  {selectedJob.application_status === 'accepted' ? (
+                    <button 
+                      onClick={handleSignContract}
+                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
+                    >
+                      Sign Contract
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => handleApplyToJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
+                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
+                        }`}
+                      >
+                        {processingJobId === selectedJob.id 
+                          ? 'Processing...' 
+                          : selectedJob.application_status === 'applied' 
+                            ? 'Applied ✓' 
+                            : selectedJob.application_status === 'rejected'
+                              ? 'Rejected'
+                              : 'Apply Now'
+                        }
+                      </button>
+                      <button 
+                        onClick={() => handleSaveJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
+                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : selectedJob.is_saved
+                              ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
+                              : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
+                        }`}
+                      >
+                        {processingJobId === selectedJob.id 
+                          ? 'Processing...' 
+                          : selectedJob.is_saved 
+                            ? 'Saved ✓' 
+                            : 'Save Job'
+                        }
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* Posted Date */}
