@@ -13,7 +13,7 @@ const EmployeeJobsPage = () => {
   const [error, setError] = useState(null);
   const [searchParams] = useSearchParams();
   const [showJobModal, setShowJobModal] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'accepted'
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'results'
   const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
   const [employeeData, setEmployeeData] = useState(null); // Store employee data from API
 
@@ -106,13 +106,13 @@ const EmployeeJobsPage = () => {
           is_saved: app.is_saved,
           application_status: app.application_status
         }));
-      } else if (activeFilter === 'accepted' && employeeId) {
-        // Get only accepted jobs for this employee
+      } else if (activeFilter === 'results' && employeeId) {
+        // Get accepted and denied jobs for this employee
         const response = await apiService.getAppliedJobs(employeeId);
         data = response.data || [];
-        // Filter for accepted status
+        // Filter for accepted or denied status
         data = data
-          .filter(app => app.application_status === 'accepted')
+          .filter(app => app.application_status === 'accepted' || app.application_status === 'denied')
           .map(app => ({
             ...app.job,
             is_saved: app.is_saved,
@@ -233,8 +233,8 @@ const EmployeeJobsPage = () => {
       if (activeFilter === 'saved') {
         await fetchJobs(employeeId);
       }
-      // If on applied or accepted filter, refetch to update the list
-      else if (activeFilter === 'applied' || activeFilter === 'accepted') {
+      // If on applied or results filter, refetch to update the list
+      else if (activeFilter === 'applied' || activeFilter === 'results') {
         await fetchJobs(employeeId);
       } else {
         // Update local state - mark as applied and unsaved
@@ -353,18 +353,18 @@ const EmployeeJobsPage = () => {
               <button
                 onClick={() => {
                   if (!user) {
-                    alert('Please log in to view accepted jobs');
+                    alert('Please log in to view job results');
                     return;
                   }
-                  setActiveFilter('accepted');
+                  setActiveFilter('results');
                 }}
                 className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  activeFilter === 'accepted'
+                  activeFilter === 'results'
                     ? 'bg-[#EE964B] text-white shadow-sm'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                Accepted
+                Results
               </button>
             </div>
             
@@ -394,13 +394,28 @@ const EmployeeJobsPage = () => {
                       <h3 className="font-semibold text-[#0D3B66] text-base sm:text-lg">
                         {job.title}
                       </h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        job.status === 'active' ? 'bg-green-100 text-green-800' :
-                        job.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {job.status}
-                      </span>
+                      <div className="flex gap-2 items-center">
+                        {job.application_status && (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            job.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
+                            job.application_status === 'denied' ? 'bg-red-100 text-red-800' :
+                            job.application_status === 'applied' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {job.application_status === 'accepted' ? 'Accepted' :
+                             job.application_status === 'denied' ? 'Denied' :
+                             job.application_status === 'applied' ? 'Applied' :
+                             job.application_status}
+                          </span>
+                        )}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          job.status === 'active' ? 'bg-green-100 text-green-800' :
+                          job.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {job.status}
+                        </span>
+                      </div>
                     </div>
                     
                     <p className="text-gray-600 mb-2 text-sm sm:text-base">{job.company_name}</p>
@@ -519,9 +534,9 @@ const EmployeeJobsPage = () => {
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => handleApplyToJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
                     className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
                         ? 'bg-gray-400 text-white cursor-not-allowed'
                         : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
                     }`}
@@ -532,14 +547,16 @@ const EmployeeJobsPage = () => {
                         ? 'Applied ✓' 
                         : selectedJob.application_status === 'accepted'
                           ? 'Accepted ✓'
-                          : 'Apply Now'
+                          : selectedJob.application_status === 'denied'
+                            ? 'Denied'
+                            : 'Apply Now'
                     }
                   </button>
                   <button 
                     onClick={() => handleSaveJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
                     className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
                         ? 'bg-gray-400 text-white cursor-not-allowed'
                         : selectedJob.is_saved
                           ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
@@ -601,6 +618,19 @@ const EmployeeJobsPage = () => {
                       {selectedJob.status}
                     </span>
                   </div>
+                  {selectedJob.application_status && (selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied') && (
+                    <div className="mb-2">
+                      <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                        selectedJob.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
+                        selectedJob.application_status === 'denied' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedJob.application_status === 'accepted' ? '✓ Accepted' :
+                         selectedJob.application_status === 'denied' ? '✗ Denied' :
+                         selectedJob.application_status}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-lg sm:text-xl text-[#EE964B] font-semibold">
                     {selectedJob.companyName}
                   </p>
@@ -682,9 +712,9 @@ const EmployeeJobsPage = () => {
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                   <button 
                     onClick={() => handleApplyToJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
                     className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
                         ? 'bg-gray-400 text-white cursor-not-allowed'
                         : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
                     }`}
@@ -695,14 +725,16 @@ const EmployeeJobsPage = () => {
                         ? 'Applied ✓' 
                         : selectedJob.application_status === 'accepted'
                           ? 'Accepted ✓'
-                          : 'Apply Now'
+                          : selectedJob.application_status === 'denied'
+                            ? 'Denied'
+                            : 'Apply Now'
                     }
                   </button>
                   <button 
                     onClick={() => handleSaveJob(selectedJob)}
-                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'}
+                    disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'}
                     className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted'
+                      selectedJob.application_status === 'applied' || selectedJob.application_status === 'accepted' || selectedJob.application_status === 'denied'
                         ? 'bg-gray-400 text-white cursor-not-allowed'
                         : selectedJob.is_saved
                           ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
