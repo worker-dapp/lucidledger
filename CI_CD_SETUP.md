@@ -4,12 +4,11 @@ This guide explains how to set up and use the automated CI/CD pipeline for deplo
 
 ## 🏗️ **Pipeline Overview**
 
-The CI/CD pipeline consists of several workflows:
+The CI/CD pipeline consists of several workflows located in `.github/workflows/`:
 
 1. **CI/CD Pipeline** (`ci.yml`) - Comprehensive testing, building, and security scanning
-2. **Production Deployment** (`deploy.yml`) - Deploys full-stack to production on main branch
-3. **Staging Deployment** (`staging.yml`) - Deploys to staging environment on develop branch
-4. **SSL Renewal** (`ssl-renewal.yml`) - Automatically renews SSL certificates
+2. **Production Deployment** (`deploy.yml`) - Deploys full-stack to production on main branch (also supports manual staging deployment)
+3. **SSL Renewal** (`ssl-renewal.yml`) - Automatically renews SSL certificates
 
 ## 🔧 **Setup Requirements**
 
@@ -37,19 +36,15 @@ DB_PASSWORD       - Database password
 VITE_DYNAMIC_ENV_ID - Dynamic Labs environment ID
 ```
 
-#### **Optional Secrets (for staging):**
+#### **Optional Secrets (for staging deployments):**
 ```
-# Staging EC2 Access
+# Staging EC2 Access (only needed if you have a separate staging server)
 STAGING_HOST      - Staging EC2 instance IP/domain
 STAGING_USER      - Staging SSH username
 STAGING_SSH_KEY   - Staging SSH private key
 
-# Staging Database (if different from production)
-STAGING_DB_HOST   - Staging database endpoint
-STAGING_DB_PORT   - Staging database port
-STAGING_DB_NAME   - Staging database name
-STAGING_DB_USER   - Staging database username
-STAGING_DB_PASSWORD - Staging database password
+# Note: Staging database configuration is handled via server/.env on the staging server
+# The deployment script uses the same database connection as configured on the server
 ```
 
 ### **2. SSH Key Setup**
@@ -112,27 +107,33 @@ Ensure your EC2 instance has:
 
 ### **Production Deployment (`deploy.yml`):**
 
-1. **Pre-Deploy Tests:**
-   - Frontend build test
-   - Backend build test
-   - Docker build validation
+1. **Automatic Trigger:** Push to `main` branch
+   - **Manual Trigger:** Can also be triggered manually with environment selection (prod/staging)
 
 2. **Deploy Phase:**
-   - SSH to EC2
-   - Pull latest code
-   - Create environment files
+   - SSH to EC2 (production or staging based on selection)
+   - Pull latest code from selected branch
    - Stop existing services
-   - Rebuild and start full-stack services
+   - **Build Docker images on EC2** (using `docker-compose.nginx.yml`)
+   - Set environment variables (VITE_API_BASE_URL, VITE_DYNAMIC_ENV_ID)
+   - Start full-stack services (nginx, frontend, backend, certbot)
    - Health checks (backend & frontend)
    - API endpoint testing
+   - Verify HTTPS connectivity
 
-### **Staging Deployment (`staging.yml`):**
+**Note:** Docker images are built on the EC2 server, not in GitHub Actions. This keeps the setup simple but means builds happen during deployment.
 
-1. **Trigger:** Push to `develop` branch
-2. **Quick Build Test:** Validate builds
-3. **Deploy to Staging:**
-   - Use staging environment variables
-   - Deploy to staging server
+### **Staging Deployment (via `deploy.yml`):**
+
+Staging deployments are handled by the same `deploy.yml` workflow using manual workflow dispatch:
+
+1. **Trigger:** Manual workflow dispatch from GitHub Actions
+2. **Select Environment:** Choose `staging` when triggering
+3. **Select Branch:** Choose `develop` (or any branch)
+4. **Deploy to Staging:**
+   - Uses staging environment variables (`STAGING_HOST`, `STAGING_USER`, `STAGING_SSH_KEY`)
+   - Deploys to staging server
+   - Uses `staging.lucidledger.co` domain
    - Health checks
    - Ready for testing
 
@@ -145,12 +146,11 @@ Ensure your EC2 instance has:
 
 ## 📋 **Workflow Triggers**
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `ci.yml` | Push/PR + Weekly | Comprehensive testing & security |
-| `deploy.yml` | Push to `main` | Production full-stack deployment |
-| `staging.yml` | Push to `develop` | Staging deployment |
-| `ssl-renewal.yml` | Weekly + Manual | SSL certificate renewal |
+| Workflow | Location | Trigger | Purpose |
+|----------|---------|---------|---------|
+| `ci.yml` | `.github/workflows/ci.yml` | Push/PR + Weekly | Comprehensive testing & security |
+| `deploy.yml` | `.github/workflows/deploy.yml` | Push to `main` (auto) or Manual | Production/staging full-stack deployment |
+| `ssl-renewal.yml` | `.github/workflows/ssl-renewal.yml` | Weekly + Manual | SSL certificate renewal |
 
 ## 🔄 **Deployment Process**
 
@@ -164,9 +164,14 @@ Ensure your EC2 instance has:
 
 ### **Manual Deployment:**
 1. Go to **Actions** tab in GitHub
-2. Select **Deploy to EC2** workflow
+2. Select **Deploy** workflow
 3. Click **Run workflow**
-4. Choose branch and click **Run workflow**
+4. Choose:
+   - **Environment:** `prod` (production) or `staging` (staging)
+   - **Branch:** `main` (production) or `develop` (staging) or any branch
+5. Click **Run workflow**
+
+**Note:** Manual deployments allow you to deploy any branch to either environment, giving you flexibility for testing or hotfixes.
 
 ## 🧪 **Testing the Pipeline**
 
@@ -191,8 +196,11 @@ git push origin main
 # Check if changes are live
 curl https://lucidledger.co
 
-# Check service status on EC2
+# Check service status on EC2 (SSH into server first)
 docker-compose -f docker-compose.nginx.yml ps
+
+# View deployment logs
+docker-compose -f docker-compose.nginx.yml logs -f
 ```
 
 ## 🚨 **Troubleshooting**
@@ -249,8 +257,18 @@ curl -I https://lucidledger.co
 1. **Set up GitHub secrets** as described above
 2. **Test the pipeline** with a small change
 3. **Monitor deployments** and adjust as needed
-4. **Set up staging environment** if desired
+4. **Set up staging environment** (optional) - Configure `STAGING_HOST`, `STAGING_USER`, and `STAGING_SSH_KEY` secrets
 5. **Configure notifications** for your team
+
+## 📁 **Workflow Files Location**
+
+All CI/CD workflow files are located in:
+```
+.github/workflows/
+├── ci.yml              # Testing and security scanning
+├── deploy.yml          # Production and staging deployments
+└── ssl-renewal.yml     # SSL certificate renewal
+```
 
 ## 📚 **Additional Resources**
 
