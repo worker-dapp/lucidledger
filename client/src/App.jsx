@@ -94,19 +94,7 @@ const AppContent = () => {
         localStorage.getItem('pendingRole');
       
       console.log('AppContent: User authenticated, role:', userRole, 'user:', user, 'primaryWallet:', primaryWallet?.address, 'location:', location.pathname);
-      
-      // DEV BYPASS: Skip profile check and go directly to dashboard
-      if (import.meta.env.VITE_DEV_BYPASS === 'true') {
-        console.log('DEV BYPASS: Skipping profile check, redirecting to dashboard');
-        setHasRedirected(true);
-        if (userRole === 'employer') {
-          window.location.href = '/employerDashboard';
-        } else {
-          window.location.href = '/employee-dashboard';
-        }
-        return;
-      }
-      
+
       setHasRedirected(true);
       setCheckingProfile(true);
       
@@ -309,27 +297,15 @@ const AppContent = () => {
             return;
           }
           
-          // No profile found in DB - check if user is new or has role
+          // No profile found in DB - redirect to profile creation
+          // CRITICAL: Database is the source of truth, not Dynamic Labs' newUser flag or localStorage
+          // If no profile exists in database, user MUST complete onboarding regardless of:
+          // - Dynamic Labs newUser flag (may be false if they logged in before with dev bypass)
+          // - localStorage cached role (may exist from previous session)
+          // Without a DB profile, dashboards will break (no employee_id/employer_id for API calls)
           console.log('No profile found in DB. newUser flag:', isNew, 'userRole:', userRole);
-          
-          // If user is marked as new, redirect to profile page
-          if (isNew) {
-            console.log('User is new (newUser=true), redirecting to /user-profile');
-            window.location.href = '/user-profile';
-            return;
-          }
-          
-          // User is not new but no profile found - redirect based on role
-          if (userRole === 'employee') {
-            console.log('No profile found, redirecting employee to /employee-dashboard');
-            window.location.href = '/employee-dashboard';
-          } else if (userRole === 'employer') {
-            console.log('No profile found, redirecting employer to /employerDashboard');
-            window.location.href = '/employerDashboard';
-          } else {
-            console.warn('No profile found and no role, redirecting to /user-profile');
-            window.location.href = '/user-profile';
-          }
+          console.log('Redirecting to /user-profile to create profile (DB is source of truth)');
+          window.location.href = '/user-profile';
         } catch (error) {
           console.error('Error checking profile:', error);
           // On error, fall back to original logic (same as email login)
