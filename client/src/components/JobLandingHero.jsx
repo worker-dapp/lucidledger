@@ -20,13 +20,13 @@ const JobLandingHero = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/my-jobs?search=${encodeURIComponent(searchQuery)}`);
+      navigate(`/job-search?search=${encodeURIComponent(searchQuery)}`);
     }
   };
 
   const handlePopularSearch = (search) => {
     setSearchQuery(search);
-    navigate(`/my-jobs?search=${encodeURIComponent(search)}`);
+    navigate(`/job-search?search=${encodeURIComponent(search)}`);
   };
 
   return (

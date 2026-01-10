@@ -635,7 +635,7 @@ const UserProfile = () => {
       setPhoneVerified(false);
 
       setSubmitted(true);
-      navigate(role === 'employer' ? '/employerDashboard' : '/employeeDashboard', { replace: true });
+      navigate(role === 'employer' ? '/employerDashboard' : '/employee-dashboard', { replace: true });
     } catch (error) {
       console.error('Error updating profile:', error);
       setErrors({ submit: 'Failed to update profile. Please try again.' });
