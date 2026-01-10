@@ -16,6 +16,8 @@ import ReviewCompletedContracts from "./EmployerPages/ReviewCompletedContracts";
 import Job from "./EmployerPages/Job";
 import ReviewApplications from "./EmployerPages/ReviewApplications";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
+import JobTracker from "./EmployeePages/JobTracker";
+import SupportCenter from "./EmployeePages/SupportCenter";
 import { useEffect, useState, useRef } from "react";
 import UserProfile from "./pages/UserProfile";
 import ClosedContracts from "./EmployerPages/ClosedContracts";
@@ -92,6 +94,18 @@ const AppContent = () => {
         localStorage.getItem('pendingRole');
       
       console.log('AppContent: User authenticated, role:', userRole, 'user:', user, 'primaryWallet:', primaryWallet?.address, 'location:', location.pathname);
+      
+      // DEV BYPASS: Skip profile check and go directly to dashboard
+      if (import.meta.env.VITE_DEV_BYPASS === 'true') {
+        console.log('DEV BYPASS: Skipping profile check, redirecting to dashboard');
+        setHasRedirected(true);
+        if (userRole === 'employer') {
+          window.location.href = '/employerDashboard';
+        } else {
+          window.location.href = '/employee-dashboard';
+        }
+        return;
+      }
       
       setHasRedirected(true);
       setCheckingProfile(true);
@@ -283,8 +297,8 @@ const AppContent = () => {
           // If profile exists, redirect to dashboard (same flow as email login)
           if (profileExists) {
             if (detectedRole === 'employee') {
-              console.log('Profile exists, redirecting employee to /employeeDashboard');
-              window.location.href = '/employeeDashboard';
+              console.log('Profile exists, redirecting employee to /employee-dashboard');
+              window.location.href = '/employee-dashboard';
             } else if (detectedRole === 'employer') {
               console.log('Profile exists, redirecting employer to /employerDashboard');
               window.location.href = '/employerDashboard';
@@ -307,8 +321,8 @@ const AppContent = () => {
           
           // User is not new but no profile found - redirect based on role
           if (userRole === 'employee') {
-            console.log('No profile found, redirecting employee to /employeeDashboard');
-            window.location.href = '/employeeDashboard';
+            console.log('No profile found, redirecting employee to /employee-dashboard');
+            window.location.href = '/employee-dashboard';
           } else if (userRole === 'employer') {
             console.log('No profile found, redirecting employer to /employerDashboard');
             window.location.href = '/employerDashboard';
@@ -324,8 +338,8 @@ const AppContent = () => {
             console.log('Error occurred, redirecting new user to /user-profile');
             navigate('/user-profile', { replace: true });
           } else if (userRole === 'employee') {
-            console.log('Error occurred, redirecting employee to /employeeDashboard');
-            navigate('/employeeDashboard', { replace: true });
+            console.log('Error occurred, redirecting employee to /employee-dashboard');
+            navigate('/employee-dashboard', { replace: true });
           } else if (userRole === 'employer') {
             console.log('Error occurred, redirecting employer to /employerDashboard');
             navigate('/employerDashboard', { replace: true });
@@ -468,20 +482,30 @@ const App = () => {
             </ProtectedRoute>
           } />
 
-          {/* Employee Routes */}
-          <Route path="/employeeDashboard" element={
+          {/* Employee Routes - New Routes */}
+          <Route path="/employee-dashboard" element={
             <ProtectedRoute>
               <EmployeeDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/job-search" element={
+            <ProtectedRoute>
+              <EmployeeJobsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/job-tracker" element={
+            <ProtectedRoute>
+              <JobTracker />
+            </ProtectedRoute>
+          } />
+          <Route path="/support-center" element={
+            <ProtectedRoute>
+              <SupportCenter />
             </ProtectedRoute>
           } />
           <Route path="/employee-profile" element={
             <ProtectedRoute>
               <EmployeeProfile />
-            </ProtectedRoute>
-          } />
-          <Route path="/employee-jobs" element={
-            <ProtectedRoute>
-              <EmployeeJobsPage />
             </ProtectedRoute>
           } />
 

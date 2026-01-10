@@ -1,19 +1,37 @@
 import React, { useState, useRef } from "react";
 import { NavLink, Link } from "react-router-dom";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef(null);
-
-  const handleHomeClick = () => {
-    setIsMobileMenuOpen(false);
-  };
+  const { setShowAuthFlow } = useDynamicContext();
 
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const handleEmployeeLogin = () => {
+    localStorage.setItem('pendingRole', 'employee');
+    localStorage.setItem('userRole', 'employee');
+    window.dispatchEvent(new Event('roleSelected'));
+    setShowAuthFlow(true);
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleEmployerLogin = () => {
+    localStorage.setItem('pendingRole', 'employer');
+    localStorage.setItem('userRole', 'employer');
+    window.dispatchEvent(new Event('roleSelected'));
+    setShowAuthFlow(true);
+    setIsMobileMenuOpen(false);
+  };
+
+  // Nav links that require login - clicking triggers auth flow
+  const handleProtectedNavClick = () => {
+    handleEmployeeLogin();
+  };
 
   return (
     <div className="w-full z-50 bg-[#0D3B66] shadow-md">
@@ -35,15 +53,9 @@ const Navbar = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-12 text-md">
-          <button
-            onClick={handleHomeClick}
-            className="transition-all font-medium text-white hover:text-[#F4D35E]"
-          >
-            Home
-          </button>
+        <div className="hidden lg:flex items-center gap-6 text-md">
           <NavLink
-            to="/about-us"
+            to="/"
             className={({ isActive }) =>
               `transition-all font-medium ${
                 isActive ? "text-[#EE964B] font-semibold" : "text-white"
@@ -51,8 +63,64 @@ const Navbar = () => {
             }
             onClick={handleNavClick}
           >
-            About Us
+            Home
           </NavLink>
+          
+          <button
+            onClick={handleProtectedNavClick}
+            className="transition-all font-medium text-white hover:text-[#F4D35E]"
+          >
+            Job Search
+          </button>
+          
+          <button
+            onClick={handleProtectedNavClick}
+            className="transition-all font-medium text-white hover:text-[#F4D35E]"
+          >
+            Job Tracker
+          </button>
+          
+          <button
+            onClick={handleProtectedNavClick}
+            className="transition-all font-medium text-white hover:text-[#F4D35E]"
+          >
+            My Profile
+          </button>
+          
+          <button
+            onClick={handleProtectedNavClick}
+            className="transition-all font-medium text-white hover:text-[#F4D35E]"
+          >
+            Support Center
+          </button>
+          
+          {/* Employer Link */}
+          <button
+            onClick={handleEmployerLogin}
+            className="text-[#F4D35E] hover:text-white font-medium transition-all flex items-center gap-1 ml-2"
+          >
+            Employers
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Auth Buttons */}
+          <div className="flex items-center gap-3 ml-2">
+            <button
+              onClick={handleEmployeeLogin}
+              className="px-4 py-2 text-white border border-white rounded-lg hover:bg-white hover:text-[#0D3B66] transition-all font-medium"
+            >
+              Log In
+            </button>
+            <button
+              onClick={handleEmployeeLogin}
+              className="px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
+            >
+              Sign Up
+            </button>
+          </div>
+        </div>
 
         {/* Mobile Menu Button */}
         <div className="lg:hidden">
@@ -82,15 +150,8 @@ const Navbar = () => {
       {isMobileMenuOpen && (
         <div ref={mobileMenuRef} className="lg:hidden bg-[#0D3B66] border-t border-[#1a4a7a] shadow-lg">
           <div className="px-4 py-4 space-y-3">
-            <button
-              onClick={handleHomeClick}
-              className="w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
-            >
-              Home
-            </button>
-
             <NavLink
-              to="/about-us"
+              to="/"
               onClick={handleNavClick}
               className={({ isActive }) =>
                 `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
@@ -98,12 +159,63 @@ const Navbar = () => {
                 }`
               }
             >
-              About Us
+              Home
             </NavLink>
+
+            <button
+              onClick={handleProtectedNavClick}
+              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
+            >
+              Job Search
+            </button>
+            
+            <button
+              onClick={handleProtectedNavClick}
+              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
+            >
+              Job Tracker
+            </button>
+            
+            <button
+              onClick={handleProtectedNavClick}
+              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
+            >
+              My Profile
+            </button>
+            
+            <button
+              onClick={handleProtectedNavClick}
+              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
+            >
+              Support Center
+            </button>
+            
+            {/* Employer Link */}
+            <button
+              onClick={handleEmployerLogin}
+              className="block w-full text-left text-[#F4D35E] hover:text-white font-medium py-2 px-3 rounded hover:bg-[#1a4a7a] transition-all"
+            >
+              Employers →
+            </button>
+            
+            {/* Auth Buttons */}
+            <div className="pt-4 border-t border-[#1a4a7a] space-y-2">
+              <button
+                onClick={handleEmployeeLogin}
+                className="block w-full text-center px-4 py-2 text-white border border-white rounded-lg hover:bg-white hover:text-[#0D3B66] transition-all font-medium"
+              >
+                Log In
+              </button>
+              <button
+                onClick={handleEmployeeLogin}
+                className="block w-full text-center px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
+              >
+                Sign Up
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
     </div>
   );
 };

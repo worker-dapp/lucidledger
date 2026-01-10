@@ -20,6 +20,13 @@ const EmployeeJobsPage = () => {
   // Fetch employee data on component mount
   useEffect(() => {
     const fetchEmployeeData = async () => {
+      // DEV BYPASS: Use mock employee data
+      if (import.meta.env.VITE_DEV_BYPASS === 'true') {
+        console.log('DEV BYPASS: Using mock employee data');
+        setEmployeeData({ id: 1, name: 'Test Employee', email: 'test@example.com' });
+        return;
+      }
+
       if (!user) {
         console.log('No user logged in');
         return;
@@ -74,12 +81,96 @@ const EmployeeJobsPage = () => {
     }
   }, [searchParams, jobs]);
 
+  // Mock data for dev bypass mode
+  const mockJobs = [
+    {
+      id: 1,
+      title: "Longshore Fisherman",
+      company_name: "Teitelbaum Industries",
+      location: "Germantown, Maryland, United States",
+      pay_rate: "20.00",
+      pay_currency: "JPY",
+      pay_frequency: "per day",
+      employment_type: "Full Time",
+      work_location_type: "on the road",
+      job_summary: "here is a brief summary of the job................................................................................",
+      responsibilities: "- know how to use a fishing rod\n- not get too seasick",
+      required_skills: "Good sealegs",
+      about_company: "This is a great new fishing company looking to get into many industries.",
+      created_at: "2026-01-06",
+      status: "active",
+      application_status: "accepted",
+      is_saved: false
+    },
+    {
+      id: 2,
+      title: "Loan Recovery Agent",
+      company_name: "H J Limited",
+      location: "Washington, District of Columbia, United States",
+      pay_rate: "23.00",
+      pay_currency: "USD",
+      pay_frequency: "hourly",
+      employment_type: "Full Time",
+      work_location_type: "remote",
+      job_summary: "Help recover outstanding loans through professional communication and negotiation.",
+      responsibilities: "- Contact clients regarding overdue payments\n- Negotiate payment plans\n- Maintain accurate records",
+      required_skills: "Strong communication, negotiation skills, attention to detail",
+      about_company: "Leading financial services company with over 20 years of experience.",
+      created_at: "2025-12-21",
+      status: "active",
+      is_saved: true
+    },
+    {
+      id: 3,
+      title: "Warehouse Associate",
+      company_name: "Global Logistics Inc",
+      location: "Chicago, Illinois, United States",
+      pay_rate: "18.50",
+      pay_currency: "USD",
+      pay_frequency: "hourly",
+      employment_type: "Part Time",
+      work_location_type: "on-site",
+      job_summary: "Join our warehouse team to help manage inventory and fulfill orders.",
+      responsibilities: "- Pick and pack orders\n- Operate forklift equipment\n- Maintain clean work area",
+      required_skills: "Physical fitness, forklift certification preferred",
+      about_company: "One of the fastest growing logistics companies in the midwest.",
+      created_at: "2026-01-03",
+      status: "active",
+      is_saved: false
+    }
+  ];
+
   const fetchJobs = async (employeeId = null) => {
     try {
       setLoading(true);
       setError(null);
       
       let data = [];
+      
+      // DEV BYPASS: Use mock data instead of API calls
+      if (import.meta.env.VITE_DEV_BYPASS === 'true') {
+        console.log('DEV BYPASS: Using mock job data');
+        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate loading
+        
+        if (activeFilter === 'all') {
+          data = mockJobs;
+        } else if (activeFilter === 'saved') {
+          data = mockJobs.filter(job => job.is_saved);
+        } else if (activeFilter === 'applied') {
+          data = mockJobs.filter(job => job.application_status);
+        } else if (activeFilter === 'results') {
+          data = mockJobs.filter(job => job.application_status === 'accepted' || job.application_status === 'rejected');
+        }
+        
+        setJobs(data);
+        if (data && data.length > 0) {
+          setSelectedJob(data[0]);
+        } else {
+          setSelectedJob(null);
+        }
+        setLoading(false);
+        return;
+      }
       
       // Fetch based on active filter
       if (activeFilter === 'all') {
