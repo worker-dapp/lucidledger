@@ -267,12 +267,17 @@ The site supports a **Demo Mode** toggle to control whether demo warnings and ba
 
 **How to switch to production mode:**
 1. Update `client/.env`: Change `VITE_DEMO_MODE=true` to `VITE_DEMO_MODE=false`
-2. Rebuild the frontend: `cd client && npm run build`
-3. Redeploy (or let CI/CD handle it)
+2. Remove noindex meta tag from `client/index.html` (line 12): `<meta name="robots" content="noindex, nofollow" />`
+3. Rebuild the frontend: `cd client && npm run build`
+4. Redeploy (or let CI/CD handle it)
 
 **Components affected by demo mode:**
 - `BetaBanner.jsx` - Top banner on authenticated pages
 - `LandingPage.jsx` - Hero section beta notice
+
+**Important:** The noindex meta tag in `client/index.html` is NOT conditional on demo mode. It must be manually removed when deploying to production to enable search engine indexing.
+
+**For complete production deployment instructions, see:** [docs/PRODUCTION_CHECKLIST.md](./docs/PRODUCTION_CHECKLIST.md)
 
 ## Key Implementation Patterns
 
