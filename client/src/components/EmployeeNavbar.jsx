@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
+import BetaBanner from "./BetaBanner";
 
 const EmployeeNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,7 +27,7 @@ const EmployeeNavbar = () => {
   }, []);
 
   const handleHomeClick = () => {
-    navigate('/employee-dashboard');
+    navigate('/');
     setIsMobileMenuOpen(false);
   };
 
@@ -35,11 +36,13 @@ const EmployeeNavbar = () => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 w-full z-50 bg-[#0D3B66] shadow-md">
-      <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
+    <div className="fixed top-0 left-0 right-0 w-full z-50">
+      <BetaBanner />
+      <div className="bg-[#0D3B66] shadow-md">
+        <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
         {/* Enhanced Brand Name */}
         <Link
-          to="/employee-dashboard"
+          to="/"
           className="flex items-center gap-1 text-2xl sm:text-3xl font-bold tracking-wide">
           <img
             src={logo}
@@ -244,6 +247,7 @@ const EmployeeNavbar = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

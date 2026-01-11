@@ -5,6 +5,7 @@ import logo from "../assets/Android.png";
 import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
 
 import LogoutButton from "./LogoutButton";
+import BetaBanner from "./BetaBanner";
 
 const EmployerNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -36,8 +37,10 @@ const EmployerNavbar = () => {
   };
 
   return (
-    <div className="w-full z-50 bg-[#0D3B66] shadow-md">
-      <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
+    <div className="w-full z-50">
+      <BetaBanner />
+      <div className="bg-[#0D3B66] shadow-md">
+        <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
         {/* Enhanced Brand Name */}
         <Link
           to="/employerDashboard"
@@ -227,6 +230,7 @@ const EmployerNavbar = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import Navbar from "../components/Navbar";
+import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import img1 from "../assets/feature1.png";
 import img2 from "../assets/feature2.png";
@@ -10,26 +11,23 @@ import img4 from "../assets/feature4.png";
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { setShowAuthFlow } = useDynamicContext();
+  const { user } = useDynamicContext();
   const [searchQuery, setSearchQuery] = useState("");
-  const [location, setLocation] = useState("");
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
   const handleSearch = (e) => {
     e.preventDefault();
-    // Set role as employee and trigger login
-    localStorage.setItem('pendingRole', 'employee');
-    localStorage.setItem('userRole', 'employee');
-    localStorage.setItem('searchQuery', searchQuery);
-    localStorage.setItem('searchLocation', location);
-    window.dispatchEvent(new Event('roleSelected'));
-    setShowAuthFlow(true);
+    // Navigate to job search page with query params (no auth required)
+    if (searchQuery.trim()) {
+      navigate(`/job-search?search=${encodeURIComponent(searchQuery)}`);
+    } else {
+      navigate('/job-search');
+    }
   };
 
   const handleGetStarted = () => {
-    localStorage.setItem('pendingRole', 'employee');
-    localStorage.setItem('userRole', 'employee');
-    window.dispatchEvent(new Event('roleSelected'));
-    setShowAuthFlow(true);
+    // Navigate to job search for anonymous browsing
+    navigate('/job-search');
   };
 
   const features = [
@@ -65,7 +63,8 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-white">
-      <Navbar />
+      {user ? <EmployeeNavbar /> : <Navbar />}
+      {user && <div className="h-20" />} {/* Spacer for fixed navbar */}
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
@@ -75,9 +74,55 @@ const LandingPage = () => {
                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230D3B66' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
              }}
         />
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
           <div className="text-center">
+            {/* Beta Notice - Only show in demo mode */}
+            {isDemoMode && (
+            <div className="mb-8 max-w-4xl mx-auto">
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-2xl p-6 shadow-lg">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="w-8 h-8 text-amber-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h3 className="text-lg font-bold text-amber-900 mb-2">
+                      Private Beta - Demonstration Environment
+                    </h3>
+                    <p className="text-amber-800 leading-relaxed">
+                      LucidLedger is currently in private beta. This is a <strong>demonstration environment</strong> to showcase our platform to potential funders and partners.{" "}
+                      <strong className="text-amber-900">Do not apply for jobs or post real job listings.</strong> All data on this site is for testing purposes only.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <a
+                        href="mailto:admin@lucidledger.co"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Request Early Access
+                      </a>
+                      <button
+                        onClick={() => navigate('/about-us')}
+                        className="inline-flex items-center gap-2 px-4 py-2 border-2 border-amber-600 text-amber-900 hover:bg-amber-100 text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Learn More About Our Mission
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            )}
+
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-[#0D3B66] leading-tight mb-6">
               Find Work.{" "}
@@ -103,30 +148,13 @@ const LandingPage = () => {
                     </span>
                     <input
                       type="text"
-                      placeholder="Job title, keywords, or company"
+                      placeholder="Search jobs by title, keywords, or company"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 focus:border-[#EE964B] focus:ring-2 focus:ring-[#EE964B]/20 outline-none transition-all text-gray-800 placeholder-gray-400"
                     />
                   </div>
-                  
-                  {/* Location Input */}
-                  <div className="flex-1 relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="City, state, or zip code"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 focus:border-[#EE964B] focus:ring-2 focus:ring-[#EE964B]/20 outline-none transition-all text-gray-800 placeholder-gray-400"
-                    />
-                  </div>
-                  
+
                   {/* Search Button */}
                   <button
                     type="submit"
