@@ -12,10 +12,6 @@ This folder contains detailed implementation plans, technical documentation, and
 - **[NGINX_SETUP.md](./NGINX_SETUP.md)** - Nginx reverse proxy configuration with SSL/HTTPS support
 - **[ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)** - Environment variable configuration for development and production
 
-### Feature Implementation Plans
-
-- **[beta-access-gate-implementation-plan.md](./beta-access-gate-implementation-plan.md)** - Comprehensive plan for implementing beta access code system to gate login while keeping job browsing public (not yet implemented)
-
 ### Project Governance & Community
 
 - **[GOVERNANCE.md](./GOVERNANCE.md)** - Development governance, leadership structure, and workflow policies
@@ -38,9 +34,6 @@ This folder contains detailed implementation plans, technical documentation, and
 1. [Production Checklist](./PRODUCTION_CHECKLIST.md) - Deploy to production
 2. [CI/CD Setup](./CI_CD_SETUP.md) - Configure automated deployments
 3. [Nginx Setup](./NGINX_SETUP.md) - Set up reverse proxy and SSL
-
-**Feature Development:**
-1. [Beta Access Gate Plan](./beta-access-gate-implementation-plan.md) - Future access control implementation
 
 ## Contributing
 
