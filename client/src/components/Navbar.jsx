@@ -6,7 +6,7 @@ import logo from "../assets/Android.png";
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef(null);
-  const { setShowAuthFlow } = useDynamicContext();
+  const { setShowAuthFlow, openModal } = useDynamicContext();
 
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);
@@ -17,6 +17,7 @@ const Navbar = () => {
     localStorage.setItem('userRole', 'employee');
     window.dispatchEvent(new Event('roleSelected'));
     setShowAuthFlow(true);
+    openModal?.();
     setIsMobileMenuOpen(false);
   };
 
@@ -25,6 +26,7 @@ const Navbar = () => {
     localStorage.setItem('userRole', 'employer');
     window.dispatchEvent(new Event('roleSelected'));
     setShowAuthFlow(true);
+    openModal?.();
     setIsMobileMenuOpen(false);
   };
 
@@ -36,90 +38,90 @@ const Navbar = () => {
   return (
     <div className="w-full z-50 bg-[#0D3B66] shadow-md">
       <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
-        {/* Brand */}
-        <Link
-          to="/"
-          className="flex items-center gap-1 text-2xl sm:text-3xl font-bold tracking-wide"
-          onClick={handleNavClick}
-        >
-          <img
-            src={logo}
-            alt="Lucid Ledger Logo"
-            className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
-          />
-          <span className="text-[#FFFFFF] hover:[#EE964B] transition-all">
-            LUCID LEDGER
-          </span>
-        </Link>
-
-        {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-6 text-md">
-          <NavLink
+        {/* Left Side: Brand + Content Navigation */}
+        <div className="flex items-center gap-8">
+          {/* Brand */}
+          <Link
             to="/"
-            className={({ isActive }) =>
-              `transition-all font-medium ${
-                isActive ? "text-[#EE964B] font-semibold" : "text-white"
-              } hover:text-[#F4D35E]`
-            }
+            className="flex items-center gap-1 text-2xl sm:text-3xl font-bold tracking-wide"
             onClick={handleNavClick}
           >
-            Home
-          </NavLink>
-          
+            <img
+              src={logo}
+              alt="Lucid Ledger Logo"
+              className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+            />
+            <span className="text-[#FFFFFF] hover:[#EE964B] transition-all">
+              LUCID LEDGER
+            </span>
+          </Link>
+
+          {/* Content Navigation */}
+          <div className="hidden lg:flex items-center gap-6 text-md">
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                `transition-all font-medium ${
+                  isActive ? "text-[#EE964B] font-semibold" : "text-white"
+                } hover:text-[#F4D35E]`
+              }
+              onClick={handleNavClick}
+            >
+              Home
+            </NavLink>
+
+            <NavLink
+              to="/job-search"
+              className={({ isActive }) =>
+                `transition-all font-medium ${
+                  isActive ? "text-[#EE964B] font-semibold" : "text-white"
+                } hover:text-[#F4D35E]`
+              }
+              onClick={handleNavClick}
+            >
+              Browse Jobs
+            </NavLink>
+
+            <NavLink
+              to="/about-us"
+              className={({ isActive }) =>
+                `transition-all font-medium ${
+                  isActive ? "text-[#EE964B] font-semibold" : "text-white"
+                } hover:text-[#F4D35E]`
+              }
+              onClick={handleNavClick}
+            >
+              About
+            </NavLink>
+          </div>
+        </div>
+
+        {/* Right Side: Auth + Employer Link */}
+        <div className="hidden lg:flex items-center gap-3">
+          {/* Auth Buttons */}
           <button
-            onClick={handleProtectedNavClick}
-            className="transition-all font-medium text-white hover:text-[#F4D35E]"
+            onClick={handleEmployeeLogin}
+            className="px-4 py-2 text-white border border-white rounded-lg hover:bg-white hover:text-[#0D3B66] transition-all font-medium"
           >
-            Job Search
+            Log In
           </button>
-          
           <button
-            onClick={handleProtectedNavClick}
-            className="transition-all font-medium text-white hover:text-[#F4D35E]"
+            onClick={handleEmployeeLogin}
+            className="px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
           >
-            Job Tracker
+            Sign Up
           </button>
-          
-          <button
-            onClick={handleProtectedNavClick}
-            className="transition-all font-medium text-white hover:text-[#F4D35E]"
-          >
-            My Profile
-          </button>
-          
-          <button
-            onClick={handleProtectedNavClick}
-            className="transition-all font-medium text-white hover:text-[#F4D35E]"
-          >
-            Support Center
-          </button>
-          
-          {/* Employer Link */}
+
+          {/* Employer Link - Styled Distinctly, Far Right */}
           <button
             onClick={handleEmployerLogin}
-            className="text-[#F4D35E] hover:text-white font-medium transition-all flex items-center gap-1 ml-2"
+            className="px-4 py-2 text-[#F4D35E] border-2 border-[#F4D35E] rounded-lg hover:bg-[#F4D35E] hover:text-[#0D3B66] font-medium transition-all flex items-center gap-2 ml-2"
           >
-            Employers
+            For Employers
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-
-          {/* Auth Buttons */}
-          <div className="flex items-center gap-3 ml-2">
-            <button
-              onClick={handleEmployeeLogin}
-              className="px-4 py-2 text-white border border-white rounded-lg hover:bg-white hover:text-[#0D3B66] transition-all font-medium"
-            >
-              Log In
-            </button>
-            <button
-              onClick={handleEmployeeLogin}
-              className="px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
-            >
-              Sign Up
-            </button>
-          </div>
         </div>
 
         {/* Mobile Menu Button */}
@@ -162,42 +164,38 @@ const Navbar = () => {
               Home
             </NavLink>
 
-            <button
-              onClick={handleProtectedNavClick}
-              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
+            <NavLink
+              to="/job-search"
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
+                  isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
+                }`
+              }
             >
-              Job Search
-            </button>
-            
-            <button
-              onClick={handleProtectedNavClick}
-              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
+              Browse Jobs
+            </NavLink>
+
+            <NavLink
+              to="/about-us"
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
+                  isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
+                }`
+              }
             >
-              Job Tracker
-            </button>
-            
-            <button
-              onClick={handleProtectedNavClick}
-              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
-            >
-              My Profile
-            </button>
-            
-            <button
-              onClick={handleProtectedNavClick}
-              className="block w-full text-left transition-all font-medium text-white hover:text-[#F4D35E] py-2 px-3 rounded hover:bg-[#1a4a7a]"
-            >
-              Support Center
-            </button>
-            
-            {/* Employer Link */}
+              About
+            </NavLink>
+
+            {/* Employer Link - Styled Distinctly */}
             <button
               onClick={handleEmployerLogin}
-              className="block w-full text-left text-[#F4D35E] hover:text-white font-medium py-2 px-3 rounded hover:bg-[#1a4a7a] transition-all"
+              className="block w-full text-center mt-4 px-4 py-2 text-[#F4D35E] border-2 border-[#F4D35E] rounded-lg hover:bg-[#F4D35E] hover:text-[#0D3B66] font-medium transition-all"
             >
-              Employers →
+              For Employers →
             </button>
-            
+
             {/* Auth Buttons */}
             <div className="pt-4 border-t border-[#1a4a7a] space-y-2">
               <button

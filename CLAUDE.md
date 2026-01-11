@@ -240,9 +240,39 @@ VITE_API_BASE_URL=http://localhost:5001/api
 
 # Dynamic Labs (get from https://app.dynamic.xyz/)
 VITE_DYNAMIC_ENV_ID=your_dynamic_env_id
+
+# Demo Mode
+# Set to 'true' to show demo warnings/banners (for testing/demonstration)
+# Set to 'false' for production mode (removes all demo warnings, ready for real users)
+VITE_DEMO_MODE=true
 ```
 
 **Note**: LIGHTNINGCSS_FORCE_WASM=1 is set in package.json scripts (required for Vite build)
+
+### Demo Mode Configuration
+
+The site supports a **Demo Mode** toggle to control whether demo warnings and banners are displayed:
+
+**Demo Mode ON** (`VITE_DEMO_MODE=true`):
+- Shows amber warning banner on all authenticated pages (dismissible)
+- Shows beta notice on landing page with "Request Early Access" button
+- Displays "DEMO SITE - Do not apply for real jobs" messaging
+- Recommended for: current deployment, showing to funders, testing
+
+**Demo Mode OFF** (`VITE_DEMO_MODE=false`):
+- No demo warnings or banners
+- Clean production UI
+- Ready for real users to apply for jobs
+- Recommended for: official launch
+
+**How to switch to production mode:**
+1. Update `client/.env`: Change `VITE_DEMO_MODE=true` to `VITE_DEMO_MODE=false`
+2. Rebuild the frontend: `cd client && npm run build`
+3. Redeploy (or let CI/CD handle it)
+
+**Components affected by demo mode:**
+- `BetaBanner.jsx` - Top banner on authenticated pages
+- `LandingPage.jsx` - Hero section beta notice
 
 ## Key Implementation Patterns
 
