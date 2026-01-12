@@ -10,7 +10,7 @@ const EmployeeDashboard = () => {
   return (
     <div className="min-h-screen bg-[#FFFFFF]">
       <EmployeeNavbar />
-      <div className="pt-20">
+      <div className="pt-32">
         <JobLandingHero />
       </div>
       <Footer />

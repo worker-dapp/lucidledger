@@ -38,8 +38,8 @@ const SupportCenter = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <EmployeeNavbar />
-      
-      <main className="pt-24 pb-12">
+
+      <main className="pt-40 pb-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-10">

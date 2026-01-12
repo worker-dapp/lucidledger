@@ -309,7 +309,7 @@ const EmployeeJobsPage = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         {user ? <EmployeeNavbar /> : <Navbar />}
-        <div className="pt-26 flex items-center justify-center h-96">
+        <div className={`flex items-center justify-center h-96 ${user ? 'pt-32' : 'pt-8'}`}>
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
             <p className="text-gray-600">Loading jobs...</p>
@@ -324,7 +324,7 @@ const EmployeeJobsPage = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         {user ? <EmployeeNavbar /> : <Navbar />}
-        <div className="pt-26 flex items-center justify-center h-96">
+        <div className={`flex items-center justify-center h-96 ${user ? 'pt-32' : 'pt-8'}`}>
           <div className="text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             <p className="text-gray-600">{error}</p>
@@ -344,8 +344,8 @@ const EmployeeJobsPage = () => {
   return (
     <div className="h-screen bg-gray-50 overflow-hidden">
       {user ? <EmployeeNavbar /> : <Navbar />}
-      
-      <div className="pt-26 h-full">
+
+      <div className={`h-full ${user ? 'pt-32' : 'pt-0'}`}>
 
         {/* Two-column layout taking full page width */}
         <div className="grid grid-cols-12 h-full">

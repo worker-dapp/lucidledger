@@ -9,8 +9,8 @@ const JobTracker = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <EmployeeNavbar />
-      
-      <main className="pt-24 pb-12">
+
+      <main className="pt-32 pb-12">
         {/* Welcome Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
