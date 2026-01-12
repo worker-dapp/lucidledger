@@ -3,6 +3,7 @@ import { DynamicContextProvider, useDynamicContext } from "@dynamic-labs/sdk-rea
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
+import EmployerLandingPage from "./pages/EmployerLandingPage";
 import AboutPage from "./pages/NewAbout";
 import EmployerDashboard from "./EmployerPages/EmployerDashboard";
 import Dispute from "./EmployerPages/Dispute";
@@ -20,6 +21,7 @@ import SupportCenter from "./EmployeePages/SupportCenter";
 import { useEffect, useState, useRef } from "react";
 import UserProfile from "./pages/UserProfile";
 import ClosedContracts from "./EmployerPages/ClosedContracts";
+import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import apiService from "./services/api";
 
 const enhancedEmployeeView = {
@@ -44,55 +46,114 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 // Inner component to handle redirects based on auth state
 const AppContent = () => {
-  const { user, isAuthenticated, isLoading, primaryWallet } = useDynamicContext();
+  const { user, isAuthenticated, isLoading, primaryWallet, handleLogOut } = useDynamicContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [hasRedirected, setHasRedirected] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(false);
-  
-  // Track previous user ID to detect new logins
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  // Track previous user ID to detect new logins AND logouts
   const prevUserIdRef = useRef(user?.id);
   
   useEffect(() => {
-    // Reset redirect flags only when user ID actually changes (new login)
+    // Reset redirect flags when user ID changes (new login) OR when user logs out
     if (user?.id && user.id !== prevUserIdRef.current) {
+      // New login or different user
       setHasRedirected(false);
       setCheckingProfile(false);
       prevUserIdRef.current = user.id;
+    } else if (!user && prevUserIdRef.current) {
+      // User logged out - reset flags so next login triggers profile check
+      setHasRedirected(false);
+      setCheckingProfile(false);
+      prevUserIdRef.current = null;
     }
-  }, [user?.id]);
+  }, [user?.id, user]);
+
+  // Mark initial load as complete after Dynamic Labs finishes loading
+  // Handle isLoading being undefined (not just false) as "loading complete"
+  useEffect(() => {
+    if (isLoading !== true && !initialLoadComplete) {
+      setInitialLoadComplete(true);
+    }
+  }, [isLoading, initialLoadComplete]);
+
+  // Track previous pathname to detect actual navigation
+  const prevPathnameRef = useRef(location.pathname);
+
+  // Reset hasRedirected when:
+  // 1. User navigates TO a public page FROM a non-public page
+  // 2. User switches between employee landing (/) and employer landing (/employers)
+  // This prevents infinite loops while still allowing re-check when returning to public pages or switching roles
+  useEffect(() => {
+    const isPublicPage = location.pathname === '/' || location.pathname === '/about-us' || location.pathname === '/employers';
+    const wasPublicPage = prevPathnameRef.current === '/' || prevPathnameRef.current === '/about-us' || prevPathnameRef.current === '/employers';
+    
+    // Detect role-switch: navigating between employee (/) and employer (/employers) landing pages
+    const isEmployeeLanding = location.pathname === '/';
+    const isEmployerLanding = location.pathname === '/employers';
+    const wasEmployeeLanding = prevPathnameRef.current === '/';
+    const wasEmployerLanding = prevPathnameRef.current === '/employers';
+    const switchedRoles = (isEmployeeLanding && wasEmployerLanding) || (isEmployerLanding && wasEmployeeLanding);
+    
+    // Reset if we navigated TO a public page FROM a non-public page, OR if we switched between role landing pages
+    if (hasRedirected && (isPublicPage && !wasPublicPage || switchedRoles)) {
+      setHasRedirected(false);
+      setCheckingProfile(false); // Also reset checkingProfile when switching contexts
+    }
+    
+    prevPathnameRef.current = location.pathname;
+  }, [location.pathname, hasRedirected]);
 
   useEffect(() => {
     // Wait for loading to complete and user to be available
     // Redirect authenticated users from landing page or any public page
-    const isPublicPage = location.pathname === '/' || location.pathname === '/about-us';
-    // If user exists, consider authenticated (user object is the source of truth)
+    const isPublicPage = location.pathname === '/' || location.pathname === '/about-us' || location.pathname === '/employers';
+    // CRITICAL: Use isAuthenticated flag from Dynamic Labs, not just user object presence
     // isLoading can be undefined initially, so treat undefined as "not loading"
-    const loadingComplete = isLoading !== true;
-    const authenticated = user !== null && user !== undefined; // User object exists = authenticated
-    const shouldCheck = loadingComplete && authenticated && user && isPublicPage && !hasRedirected && !checkingProfile;
+    const loadingComplete = isLoading !== true; // Handle both false AND undefined as "loading complete"
+    // Don't run check until initial load is complete to prevent FOUC
+    // Use user object as primary auth check - if user exists, they're authenticated
+    // isAuthenticated from Dynamic Labs can lag behind user object availability
+    const isUserAuthenticated = isAuthenticated === true || (user && isAuthenticated !== false);
+    const shouldCheck = loadingComplete && initialLoadComplete && isUserAuthenticated && user && isPublicPage && !hasRedirected && !checkingProfile;
 
     if (shouldCheck) {
-      const userRole =
-        user?.metadata?.role ||
-        localStorage.getItem('persistedUserRole') ||
-        localStorage.getItem('userRole') ||
-        localStorage.getItem('pendingRole');
+      // AIRBNB-STYLE ROLE TRACKING:
+      // 1. Check persistedUserRole (from previous session) - user's last active role
+      // 2. Check pendingRole (set by landing page when clicking login)
+      // 3. Fall back to URL path if neither exists
+      let intendedRole =
+        localStorage.getItem('persistedUserRole') || // Last used role (persists across sessions)
+        localStorage.getItem('pendingRole') ||       // Set by landing page before auth
+        user?.metadata?.role;                        // Set by Dynamic Labs handler
+
+      // If still no role, infer from URL as fallback
+      if (!intendedRole) {
+        if (location.pathname === '/employers') {
+          intendedRole = 'employer';
+          localStorage.setItem('pendingRole', 'employer');
+        } else {
+          intendedRole = 'employee';
+          localStorage.setItem('pendingRole', 'employee');
+        }
+      }
 
       setHasRedirected(true);
       setCheckingProfile(true);
-      
+
       // Check if user already has a profile in backend (works for both email and phone login)
       const checkProfileAndRedirect = async () => {
         try {
-          // Note: We check the database first even if newUser flag is set,
-          // because Dynamic Labs might incorrectly mark returning users as new
-          // (e.g., if they logged in with a different method than before)
-          const isNew = user.newUser === true;
+          // AIRBNB-STYLE DUAL-ROLE LOGIC:
+          // 1. Check if profile exists for intended role
+          // 2. Also check if user has the OTHER role (for role switcher UI)
+          // 3. Persist intended role to localStorage
+          // 4. Redirect to appropriate dashboard
 
-          // User is not new according to Dynamic Labs - check database for existing profile
           let profileExists = false;
-          let detectedRole = userRole;
+          let hasOtherRole = false; // Track if user has both profiles
           const walletAddress = primaryWallet?.address;
           const userEmail = user?.email;
           
@@ -143,156 +204,132 @@ const AppContent = () => {
             }
           }
 
-          // Check profile by wallet address first (if available)
-          if (walletAddress) {
+          // Step 1: Check by wallet address (if available)
+          // Check ONLY the intended role's table - dual roles are supported
+          if (walletAddress && !profileExists) {
             try {
-              // Check employee profile
-              const empResponse = await apiService.getEmployeeByWallet(walletAddress);
-              if (empResponse?.data) {
-                profileExists = true;
-                detectedRole = 'employee';
-                localStorage.setItem('persistedUserRole', 'employee');
-              }
-            } catch (empError) {
-              // Not an employee, check employer
-              try {
-                const empResponse = await apiService.getEmployerByWallet(walletAddress);
-                if (empResponse?.data) {
+              if (intendedRole === 'employer') {
+                const response = await apiService.getEmployerByWallet(walletAddress);
+                if (response?.data) {
                   profileExists = true;
-                  detectedRole = 'employer';
-                  localStorage.setItem('persistedUserRole', 'employer');
                 }
-              } catch (empError2) {
-                // No profile found by wallet, will check by email/phone below
+              } else {
+                const response = await apiService.getEmployeeByWallet(walletAddress);
+                if (response?.data) {
+                  profileExists = true;
+                }
               }
+            } catch (error) {
+              // 404 is expected for new users - will check by email/phone below
             }
           }
           
-          // If profile not found by wallet, check by email (if available)
+          // Step 2: Check by email (if available)
           if (!profileExists && userEmail) {
             try {
-              // Check employee profile by email
-              const empResponse = await apiService.getEmployeeByEmail(userEmail);
-              if (empResponse?.data) {
-                profileExists = true;
-                detectedRole = 'employee';
-                localStorage.setItem('persistedUserRole', 'employee');
-              }
-            } catch (empError) {
-              // Not an employee, check employer
-              try {
-                const empResponse = await apiService.getEmployerByEmail(userEmail);
-                if (empResponse?.data) {
+              if (intendedRole === 'employer') {
+                const response = await apiService.getEmployerByEmail(userEmail);
+                if (response?.data) {
                   profileExists = true;
-                  detectedRole = 'employer';
-                  localStorage.setItem('persistedUserRole', 'employer');
                 }
-              } catch (empError2) {
-                // No profile found by email, will check by phone below
+              } else {
+                const response = await apiService.getEmployeeByEmail(userEmail);
+                if (response?.data) {
+                  profileExists = true;
+                }
               }
+            } catch (error) {
+              // 404 is expected - will check by phone below
             }
           }
           
-          // If profile not found by wallet or email, check by phone number (if available)
-          // Database might store phone_number in different formats:
-          // 1. Just digits (e.g., "1234567890")
-          // 2. With country code (e.g., "+11234567890" or "11234567890")
+          // Step 3: Check by phone number (if available)
+          // Try multiple formats since database might store phone differently
           if (!profileExists && phoneNumber) {
-            // Try multiple formats to handle different storage patterns
-            const phoneDigits = phoneNumber.replace(/\D/g, ''); // All digits
+            const phoneDigits = phoneNumber.replace(/\D/g, '');
             const phoneWithPlus = phoneValue.startsWith('+') ? phoneValue.replace(/\s/g, '') : `+${phoneDigits}`;
-            const phoneWithoutPlus = phoneDigits;
-            
-            // Try formats: digits only, with +, original format
-            const phoneFormats = [
-              phoneWithoutPlus, // Most common: just digits
-              phoneWithPlus,    // With country code and +
-              phoneDigits       // Same as phoneWithoutPlus but explicit
-            ];
-            
-            // Remove duplicates
-            const uniqueFormats = [...new Set(phoneFormats.filter(f => f))];
+            const phoneFormats = [...new Set([phoneDigits, phoneWithPlus].filter(f => f))];
 
-            for (const phoneFormat of uniqueFormats) {
+            for (const phoneFormat of phoneFormats) {
               if (profileExists) break;
-              
+
               try {
-                // Check employee profile by phone
-                const empResponse = await apiService.getEmployeeByPhone(phoneFormat);
-                if (empResponse?.data) {
-                  profileExists = true;
-                  detectedRole = 'employee';
-                  localStorage.setItem('persistedUserRole', 'employee');
-                  break;
-                }
-              } catch (empError) {
-                // Not an employee, check employer
-                try {
-                  const empResponse = await apiService.getEmployerByPhone(phoneFormat);
-                  if (empResponse?.data) {
+                if (intendedRole === 'employer') {
+                  const response = await apiService.getEmployerByPhone(phoneFormat);
+                  if (response?.data) {
                     profileExists = true;
-                    detectedRole = 'employer';
-                    localStorage.setItem('persistedUserRole', 'employer');
                     break;
                   }
-                } catch (empError2) {
-                  // Continue to next format
+                } else {
+                  const response = await apiService.getEmployeeByPhone(phoneFormat);
+                  if (response?.data) {
+                    profileExists = true;
+                    break;
+                  }
                 }
+              } catch (error) {
+                // Continue to next format
               }
             }
           }
 
-          // If profile exists, redirect to dashboard (same flow as email login)
+          // Check if user has the OTHER role (for role switcher functionality)
+          // This allows us to show "Switch to Employer/Employee" in navbar
+          const otherRole = intendedRole === 'employer' ? 'employee' : 'employer';
+          try {
+            if (otherRole === 'employer' && walletAddress) {
+              const response = await apiService.getEmployerByWallet(walletAddress);
+              if (response?.data) hasOtherRole = true;
+            } else if (otherRole === 'employee' && walletAddress) {
+              const response = await apiService.getEmployeeByWallet(walletAddress);
+              if (response?.data) hasOtherRole = true;
+            }
+          } catch (error) {
+            // No other role - that's fine
+          }
+
+          // REDIRECT LOGIC: Based on profile existence and intended role
           if (profileExists) {
-            if (detectedRole === 'employee') {
-              // Check for pending action from anonymous job browsing
+            // Profile exists for intended role → redirect to dashboard
+            // Persist role for future sessions and clear pending role
+            localStorage.setItem('persistedUserRole', intendedRole);
+            localStorage.removeItem('pendingRole');
+
+            if (intendedRole === 'employer') {
+              navigate('/employerDashboard', { replace: true });
+            } else {
+              // Employee - check for pending action first
               const pendingAction = localStorage.getItem('pendingAction');
               if (pendingAction) {
                 try {
                   const { type, jobId, timestamp } = JSON.parse(pendingAction);
-                  // Check if action is not stale (< 10 minutes old)
                   if (Date.now() - timestamp < 10 * 60 * 1000) {
                     navigate(`/job-search?action=${type}&jobId=${jobId}`, { replace: true });
                     return;
                   }
-                  // Clear stale action
                   localStorage.removeItem('pendingAction');
                 } catch (e) {
                   console.error('Error parsing pending action:', e);
                   localStorage.removeItem('pendingAction');
                 }
               }
-              // Employee profile exists - they're already on the right page (/)
-              // The landing page will show EmployeeNavbar when user is authenticated
-              // No redirect needed - just let the page render
-            } else if (detectedRole === 'employer') {
-              navigate('/employerDashboard', { replace: true });
-            } else {
-              navigate('/user-profile', { replace: true });
+              // Employee stays on landing page (/) - navbar will update to show authenticated state
+              // Mark as redirected to prevent infinite loop (even though we're staying)
+              setHasRedirected(true);
             }
-            return;
-          }
-          
-          // No profile found in DB - redirect to profile creation
-          // CRITICAL: Database is the source of truth, not Dynamic Labs' newUser flag or localStorage
-          // If no profile exists in database, user MUST complete onboarding regardless of:
-          // - Dynamic Labs newUser flag (may be false if they logged in before with dev bypass)
-          // - localStorage cached role (may exist from previous session)
-          // Without a DB profile, dashboards will break (no employee_id/employer_id for API calls)
-          navigate('/user-profile', { replace: true });
-        } catch (error) {
-          console.error('Error checking profile:', error);
-          // On error, fall back to original logic (same as email login)
-          const isNew = user.newUser === true;
-          if (isNew) {
-            navigate('/user-profile', { replace: true });
-          } else if (userRole === 'employee') {
-            navigate('/', { replace: true });
-          } else if (userRole === 'employer') {
-            navigate('/employerDashboard', { replace: true });
           } else {
+            // No profile exists for intended role → redirect to onboarding
+            // Keep pendingRole for onboarding page to know which profile to create
             navigate('/user-profile', { replace: true });
           }
+        } catch (error) {
+          console.error('Error during profile check:', error);
+          // CRITICAL FIX: If profile checking failed with an error, we cannot trust
+          // the user has a valid profile. The database is the source of truth.
+          // Always redirect to profile creation to be safe, unless we confirmed a profile exists.
+          // The individual API calls (wallet/email/phone) already handle 404s gracefully,
+          // so if we reach this catch block, it's a real error (network, server, etc.)
+          navigate('/user-profile', { replace: true });
         } finally {
           setCheckingProfile(false);
         }
@@ -301,7 +338,7 @@ const AppContent = () => {
       // Add a small delay to ensure user state is fully set, then check profile
       setTimeout(checkProfileAndRedirect, 300);
     }
-  }, [isLoading, isAuthenticated, user, primaryWallet, location.pathname, navigate, hasRedirected, checkingProfile]);
+  }, [isLoading, isAuthenticated, user, primaryWallet, location.pathname, navigate, hasRedirected, checkingProfile, initialLoadComplete]);
 
   return null;
 };
@@ -402,6 +439,7 @@ const App = () => {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/employers" element={<EmployerLandingPage />} />
           <Route path="/about-us" element={<AboutPage />} />
 
           {/* Protected Routes */}
@@ -478,6 +516,11 @@ const App = () => {
           <Route path="/closed-contracts" element={
             <ProtectedRoute>
               <ClosedContracts />
+            </ProtectedRoute>
+          } />
+          <Route path="/employer-support" element={
+            <ProtectedRoute>
+              <EmployerSupportCenter />
             </ProtectedRoute>
           } />
 

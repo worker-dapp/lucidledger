@@ -116,15 +116,16 @@ const Navbar = () => {
           </button>
 
           {/* Employer Link - Styled Distinctly, Far Right */}
-          <button
-            onClick={handleEmployerLogin}
+          <Link
+            to="/employers"
+            onClick={handleNavClick}
             className="px-4 py-2 text-[#F4D35E] border-2 border-[#F4D35E] rounded-lg hover:bg-[#F4D35E] hover:text-[#0D3B66] font-medium transition-all flex items-center gap-2 ml-2"
           >
             For Employers
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-          </button>
+          </Link>
         </div>
 
         {/* Mobile Menu Button */}
@@ -192,12 +193,13 @@ const Navbar = () => {
             </NavLink>
 
             {/* Employer Link - Styled Distinctly */}
-            <button
-              onClick={handleEmployerLogin}
+            <Link
+              to="/employers"
+              onClick={handleNavClick}
               className="block w-full text-center mt-4 px-4 py-2 text-[#F4D35E] border-2 border-[#F4D35E] rounded-lg hover:bg-[#F4D35E] hover:text-[#0D3B66] font-medium transition-all"
             >
               For Employers →
-            </button>
+            </Link>
 
             {/* Auth Buttons */}
             <div className="pt-4 border-t border-[#1a4a7a] space-y-2">

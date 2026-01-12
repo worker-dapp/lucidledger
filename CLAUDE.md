@@ -38,14 +38,21 @@ cd server && npm run migrate
 ## Architecture Overview
 
 ### Dual-Role System
-This is a job marketplace platform with **two distinct user roles**:
+This is a job marketplace platform with **two user roles**:
 - **Employees**: Browse jobs, apply, track applications
 - **Employers**: Create jobs, review applications, manage contracts
 
-**Critical Pattern**: Role is stored in `localStorage` as `userRole` or `pendingRole` and determines:
-- Which login view to show (Dynamic Labs)
+**Users can have BOTH roles** with the same account (email/phone/wallet):
+- Same Dynamic Labs account can create both employee AND employer profiles
+- Separate database records in `employee` and `employer` tables with same wallet address
+- Self-dealing prevented by backend validation (cannot apply to own jobs)
+- See `docs/SMART_CONTRACT_SECURITY.md` for security details
+
+**Role Navigation**: Role is stored in `localStorage` as `userRole` or `pendingRole` and determines:
+- Which landing page user is on (`/` for employees, `/employers` for employers)
 - Which dashboard to redirect to after auth
-- Which API endpoints to call (employee vs employer)
+- Which profile to check/create during onboarding
+- User switches roles by visiting different landing pages
 
 ### Authentication Flow
 1. **Dynamic Labs Integration** (NOT traditional JWT)
@@ -123,6 +130,16 @@ This is a job marketplace platform with **two distinct user roles**:
 - Rate limiting: 100 requests per 15 min per IP
 - CORS: Configured via `CORS_ORIGIN` env var
 - Body size limit: 10mb
+- Self-dealing prevention: Wallet address comparison blocks applying to own jobs (see below)
+
+**Self-Dealing Prevention**:
+Backend validates wallet addresses to prevent users from applying to their own jobs:
+- `jobApplicationController.js` compares employee and employer wallet addresses
+- Returns HTTP 403 "Cannot apply to your own jobs" if addresses match
+- **Demo Mode Override**: Set `DEMO_MODE=true` in `server/.env` to allow self-dealing for testing
+- Server logs warnings when demo mode allows self-dealing
+- Frontend shows blue info banner when demo mode is active
+- See `docs/SMART_CONTRACT_SECURITY.md` for full security details
 
 **Key Endpoints**:
 ```
@@ -131,8 +148,8 @@ GET    /api/employees/email/:email       # Lookup by email
 GET    /api/employees/wallet/:address    # Lookup by wallet
 POST   /api/jobs                         # Create job (employer only)
 GET    /api/jobs?employee_id=X           # Get jobs with employee context
-POST   /api/job-applications/apply       # Apply to job
-POST   /api/job-applications/save        # Save job
+POST   /api/job-applications/apply       # Apply to job (checks wallet != job owner)
+POST   /api/job-applications/save        # Save job (checks wallet != job owner)
 GET    /api/jobs/:id/applications        # Get job applications (employer only)
 ```
 
@@ -229,6 +246,9 @@ DB_PASSWORD=your_password
 PORT=5001
 NODE_ENV=development
 
+# Demo Mode (Testing)
+DEMO_MODE=true  # Allows self-dealing for testing workflow (DISABLE IN PRODUCTION!)
+
 # Security
 CORS_ORIGIN=http://localhost:5173  # Frontend URL
 ```
@@ -251,29 +271,41 @@ VITE_DEMO_MODE=true
 
 ### Demo Mode Configuration
 
-The site supports a **Demo Mode** toggle to control whether demo warnings and banners are displayed:
+The site supports a **Demo Mode** toggle for testing and demonstration purposes:
 
-**Demo Mode ON** (`VITE_DEMO_MODE=true`):
+**Frontend Demo Mode** (`VITE_DEMO_MODE=true`):
 - Shows amber warning banner on all authenticated pages (dismissible)
 - Shows beta notice on landing page with "Request Early Access" button
 - Displays "DEMO SITE - Do not apply for real jobs" messaging
+- Shows blue info banner on job search explaining self-dealing is allowed for testing
 - Recommended for: current deployment, showing to funders, testing
 
-**Demo Mode OFF** (`VITE_DEMO_MODE=false`):
+**Backend Demo Mode** (`DEMO_MODE=true` in `server/.env`):
+- Allows users to apply to their own jobs (self-dealing) for workflow testing
+- Logs warnings in server console when self-dealing occurs
+- Essential for demonstrating full end-to-end flow to funders/partners
+- **CRITICAL**: Must be set to `false` in production to prevent fraud
+
+**Production Mode** (both set to `false`):
 - No demo warnings or banners
 - Clean production UI
+- Self-dealing blocked (HTTP 403 error)
 - Ready for real users to apply for jobs
 - Recommended for: official launch
 
 **How to switch to production mode:**
-1. Update `client/.env`: Change `VITE_DEMO_MODE=true` to `VITE_DEMO_MODE=false`
-2. Remove noindex meta tag from `client/index.html` (line 12): `<meta name="robots" content="noindex, nofollow" />`
-3. Rebuild the frontend: `cd client && npm run build`
-4. Redeploy (or let CI/CD handle it)
+1. Update `server/.env`: Change `DEMO_MODE=true` to `DEMO_MODE=false`
+2. Update `client/.env`: Change `VITE_DEMO_MODE=true` to `VITE_DEMO_MODE=false`
+3. Remove noindex meta tag from `client/index.html` (line 12): `<meta name="robots" content="noindex, nofollow" />`
+4. Rebuild the frontend: `cd client && npm run build`
+5. Restart the backend server to load new environment variables
+6. Redeploy (or let CI/CD handle it)
 
 **Components affected by demo mode:**
-- `BetaBanner.jsx` - Top banner on authenticated pages
+- `BetaBanner.jsx` - Top banner on authenticated pages (amber warning)
 - `LandingPage.jsx` - Hero section beta notice
+- `EmployeeJobsPage.jsx` - Blue info banner about self-dealing testing (lines 354-377)
+- `jobApplicationController.js` - Backend validation with demo mode override (lines 156-175, 36-45)
 
 **Important:** The noindex meta tag in `client/index.html` is NOT conditional on demo mode. It must be manually removed when deploying to production to enable search engine indexing.
 

@@ -30,7 +30,7 @@ const JobDetails = () => {
     setApplying(true);
     try {
       alert("Application submitted successfully!");
-      navigate("/employee-dashboard");
+      navigate("/job-search");
     } catch (error) {
       console.error("Error applying for job:", error);
       alert("Failed to apply for job. Please try again.");
