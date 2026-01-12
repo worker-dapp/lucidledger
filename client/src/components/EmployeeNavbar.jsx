@@ -106,6 +106,7 @@ const EmployeeNavbar = () => {
             <span>🆘</span>
             Support
           </NavLink>
+
           <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
         </div>
 

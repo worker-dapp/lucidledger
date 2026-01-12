@@ -592,7 +592,11 @@ const UserProfile = () => {
     setLoading(true);
     try {
       const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
-      
+
+      // DUAL ROLES ALLOWED: Users can have both employee and employer profiles
+      // Same email/phone/wallet can exist in both tables
+      // Backend validation will prevent applying to your own jobs
+
       const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -617,7 +621,7 @@ const UserProfile = () => {
         payload.website = formData.website;
         payload.linkedin = formData.linkedin;
       }
-      
+
       // Submit profile data to API
       if (role === 'employer') {
         await apiService.createEmployer(payload);
@@ -635,7 +639,8 @@ const UserProfile = () => {
       setPhoneVerified(false);
 
       setSubmitted(true);
-      navigate(role === 'employer' ? '/employerDashboard' : '/employee-dashboard', { replace: true });
+      // Employees go to landing page, employers go to dashboard
+      navigate(role === 'employer' ? '/employerDashboard' : '/', { replace: true });
     } catch (error) {
       console.error('Error updating profile:', error);
       setErrors({ submit: 'Failed to update profile. Please try again.' });

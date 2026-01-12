@@ -1,6 +1,8 @@
 const JobApplication = require('../models/JobApplication');
 const SavedJob = require('../models/SavedJob');
 const Job = require('../models/Job');
+const Employee = require('../models/Employee');
+const Employer = require('../models/Employer');
 const { sequelize } = require('../config/database');
 
 // Save a job
@@ -13,6 +15,41 @@ exports.saveJob = async (req, res) => {
         success: false,
         message: 'Employee ID and Job ID are required'
       });
+    }
+
+    // SECURITY CHECK: Prevent saving your own jobs
+    const job = await Job.findByPk(job_id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    const employee = await Employee.findByPk(employee_id);
+    const employer = await Employer.findByPk(job.employer_id);
+
+    if (employee && employer && employee.wallet_address && employer.wallet_address &&
+        employee.wallet_address.toLowerCase() === employer.wallet_address.toLowerCase()) {
+
+      // DEMO MODE OVERRIDE: Allow saving own jobs in demo mode for testing
+      const isDemoMode = process.env.DEMO_MODE === 'true';
+
+      if (isDemoMode) {
+        console.warn('⚠️  [DEMO MODE] Self-dealing detected (saving own job) but ALLOWED for testing:', {
+          wallet: employee.wallet_address,
+          employee_id,
+          job_id,
+          job_title: job.title
+        });
+        // Continue in demo mode
+      } else {
+        // PRODUCTION: Block self-dealing
+        return res.status(403).json({
+          success: false,
+          message: 'Cannot save your own jobs'
+        });
+      }
     }
 
     // Check if saved job already exists
@@ -100,13 +137,56 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // Check if job is closed
+    // Check if job exists and get employer info
     const job = await Job.findByPk(job_id);
     if (!job) {
       return res.status(404).json({
         success: false,
         message: 'Job not found'
       });
+    }
+
+    // CRITICAL SECURITY CHECK: Prevent self-dealing
+    // Users cannot apply to their own jobs (same wallet address)
+    const employee = await Employee.findByPk(employee_id);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee profile not found'
+      });
+    }
+
+    const employer = await Employer.findByPk(job.employer_id);
+    if (!employer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employer profile not found'
+      });
+    }
+
+    // Compare wallet addresses to prevent self-application
+    if (employee.wallet_address && employer.wallet_address &&
+        employee.wallet_address.toLowerCase() === employer.wallet_address.toLowerCase()) {
+
+      // DEMO MODE OVERRIDE: Allow self-dealing in demo mode for testing
+      const isDemoMode = process.env.DEMO_MODE === 'true';
+
+      if (isDemoMode) {
+        console.warn('⚠️  [DEMO MODE] Self-dealing detected but ALLOWED for testing:', {
+          wallet: employee.wallet_address,
+          employee_id,
+          job_id,
+          job_title: job.title
+        });
+        console.warn('⚠️  [DEMO MODE] This would be BLOCKED in production mode!');
+        // Continue with application in demo mode
+      } else {
+        // PRODUCTION: Block self-dealing
+        return res.status(403).json({
+          success: false,
+          message: 'Cannot apply to your own jobs'
+        });
+      }
     }
 
     if (job.status === 'closed') {

@@ -26,8 +26,10 @@ const ProtectedRoute = ({ children }) => {
     }
 
     // Check both isAuthenticated and user to be safe
-    if (!isAuthenticated && !user) {
-        console.log('ProtectedRoute: User not authenticated, redirecting to /');
+    // Handle undefined isAuthenticated from Dynamic Labs SDK (same as App.jsx)
+    const isUserAuthenticated = isAuthenticated === true || (user && isAuthenticated !== false);
+    
+    if (!isUserAuthenticated) {
         return <Navigate to="/" replace />;
     }
 

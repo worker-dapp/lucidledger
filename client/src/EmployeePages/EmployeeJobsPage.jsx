@@ -20,6 +20,10 @@ const EmployeeJobsPage = () => {
   const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
   const [employeeData, setEmployeeData] = useState(null); // Store employee data from API
 
+  // Demo mode detection
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  const [showDemoInfo, setShowDemoInfo] = useState(isDemoMode);
+
   // Fetch employee data on component mount
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -346,6 +350,31 @@ const EmployeeJobsPage = () => {
       {user ? <EmployeeNavbar /> : <Navbar />}
 
       <div className={`h-full ${user ? 'pt-32' : 'pt-0'}`}>
+
+        {/* Demo Mode Info Banner */}
+        {isDemoMode && showDemoInfo && user && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mx-4 mt-4 relative">
+            <button
+              onClick={() => setShowDemoInfo(false)}
+              className="absolute top-2 right-2 text-blue-700 hover:text-blue-900 text-xl font-bold"
+            >
+              ×
+            </button>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">Demo Mode Testing Enabled</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>You can apply to your own jobs in demo mode for testing the full workflow. In production, this will be blocked to prevent self-dealing.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Two-column layout taking full page width */}
         <div className="grid grid-cols-12 h-full">
