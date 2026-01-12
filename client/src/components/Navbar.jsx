@@ -61,36 +61,39 @@ const Navbar = () => {
             <NavLink
               to="/"
               className={({ isActive }) =>
-                `transition-all font-medium ${
+                `transition-all font-medium flex items-center gap-2 ${
                   isActive ? "text-[#EE964B] font-semibold" : "text-white"
                 } hover:text-[#F4D35E]`
               }
               onClick={handleNavClick}
             >
+              <span>🏠</span>
               Home
             </NavLink>
 
             <NavLink
               to="/job-search"
               className={({ isActive }) =>
-                `transition-all font-medium ${
+                `transition-all font-medium flex items-center gap-2 ${
                   isActive ? "text-[#EE964B] font-semibold" : "text-white"
                 } hover:text-[#F4D35E]`
               }
               onClick={handleNavClick}
             >
+              <span>🔍</span>
               Browse Jobs
             </NavLink>
 
             <NavLink
               to="/about-us"
               className={({ isActive }) =>
-                `transition-all font-medium ${
+                `transition-all font-medium flex items-center gap-2 ${
                   isActive ? "text-[#EE964B] font-semibold" : "text-white"
                 } hover:text-[#F4D35E]`
               }
               onClick={handleNavClick}
             >
+              <span>ℹ️</span>
               About
             </NavLink>
           </div>
@@ -161,7 +164,7 @@ const Navbar = () => {
                 }`
               }
             >
-              Home
+              🏠 Home
             </NavLink>
 
             <NavLink
@@ -173,7 +176,7 @@ const Navbar = () => {
                 }`
               }
             >
-              Browse Jobs
+              🔍 Browse Jobs
             </NavLink>
 
             <NavLink
@@ -185,7 +188,7 @@ const Navbar = () => {
                 }`
               }
             >
-              About
+              ℹ️ About
             </NavLink>
 
             {/* Employer Link - Styled Distinctly */}
