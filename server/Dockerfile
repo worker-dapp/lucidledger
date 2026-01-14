@@ -2,6 +2,9 @@ FROM node:20.18-alpine
 
 WORKDIR /app
 
+# Install build dependencies for native modules (required for native PostgreSQL bindings, etc.)
+RUN apk add --no-cache python3 make g++
+
 # Suppress npm update notices and set npm config in one layer
 RUN npm config set update-notifier false
 

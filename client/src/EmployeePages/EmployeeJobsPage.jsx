@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import EmployeeNavbar from "../components/EmployeeNavbar";
+import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 
 const EmployeeJobsPage = () => {
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, primaryWallet, setShowAuthFlow } = useDynamicContext();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,6 +19,13 @@ const EmployeeJobsPage = () => {
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'results'
   const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
   const [employeeData, setEmployeeData] = useState(null); // Store employee data from API
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [jobTypeFilter, setJobTypeFilter] = useState('');
+
+  // Demo mode detection
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  const [showDemoInfo, setShowDemoInfo] = useState(isDemoMode);
 
   // Fetch employee data on component mount
   useEffect(() => {
@@ -31,7 +41,7 @@ const EmployeeJobsPage = () => {
           const response = await apiService.getEmployeeByEmail(user.email);
           setEmployeeData(response.data);
           console.log('Employee data loaded:', response.data);
-        } 
+        }
         // Fallback to wallet address if email is not available
         else if (primaryWallet?.address) {
           const response = await apiService.getEmployeeByWallet(primaryWallet.address);
@@ -61,30 +71,55 @@ const EmployeeJobsPage = () => {
 
   // Handle search query from URL
   useEffect(() => {
-    const searchQuery = searchParams.get('search');
-    if (searchQuery && jobs.length > 0) {
-      const filteredJobs = jobs.filter(job => 
-        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.location.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      if (filteredJobs.length > 0) {
-        setSelectedJob(filteredJobs[0]);
+    const urlSearchQuery = searchParams.get('search');
+    if (urlSearchQuery) {
+      setSearchQuery(urlSearchQuery);
+      if (jobs.length > 0) {
+        const filteredJobs = jobs.filter(job =>
+          job.title.toLowerCase().includes(urlSearchQuery.toLowerCase()) ||
+          job.company_name.toLowerCase().includes(urlSearchQuery.toLowerCase()) ||
+          job.location.toLowerCase().includes(urlSearchQuery.toLowerCase())
+        );
+        if (filteredJobs.length > 0) {
+          setSelectedJob(filteredJobs[0]);
+        }
       }
     }
   }, [searchParams, jobs]);
+
+  // Handle post-auth pending actions
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const jobId = searchParams.get('jobId');
+
+    if (action && jobId && employeeData && jobs.length > 0) {
+      const job = jobs.find(j => j.id === parseInt(jobId));
+
+      if (job) {
+        if (action === 'save') {
+          handleSaveJob(job);
+        } else if (action === 'apply') {
+          handleApplyToJob(job);
+        }
+      }
+
+      // Clear localStorage and URL params
+      localStorage.removeItem('pendingAction');
+      navigate('/job-search', { replace: true });
+    }
+  }, [employeeData, jobs, searchParams, navigate]);
 
   const fetchJobs = async (employeeId = null) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       let data = [];
-      
+
       // Fetch based on active filter
       if (activeFilter === 'all') {
-        // Get all jobs with application status if logged in
-        const response = await apiService.getAllJobs(employeeId);
+        // Get all ACTIVE job postings with application status if logged in
+        const response = await apiService.getActiveJobPostings(employeeId);
         data = response.data || [];
       } else if (activeFilter === 'saved' && employeeId) {
         // Get only saved jobs for this employee
@@ -160,7 +195,16 @@ const EmployeeJobsPage = () => {
 
   const handleSaveJob = async (job) => {
     if (!user) {
-      alert('Please log in to save jobs');
+      // Store pending action for after authentication
+      localStorage.setItem('pendingAction', JSON.stringify({
+        type: 'save',
+        jobId: job.id,
+        timestamp: Date.now()
+      }));
+      localStorage.setItem('pendingRole', 'employee');
+      localStorage.setItem('userRole', 'employee');
+      window.dispatchEvent(new Event('roleSelected'));
+      setShowAuthFlow(true);
       return;
     }
 
@@ -201,7 +245,9 @@ const EmployeeJobsPage = () => {
       }
     } catch (err) {
       console.error('Error saving job:', err);
-      alert('Failed to save job. Please try again.');
+      // Show specific error message from backend if available
+      const errorMessage = err.response?.data?.message || 'Failed to save job. Please try again.';
+      alert(errorMessage);
     } finally {
       setProcessingJobId(null);
     }
@@ -209,7 +255,16 @@ const EmployeeJobsPage = () => {
 
   const handleApplyToJob = async (job) => {
     if (!user) {
-      alert('Please log in to apply for jobs');
+      // Store pending action for after authentication
+      localStorage.setItem('pendingAction', JSON.stringify({
+        type: 'apply',
+        jobId: job.id,
+        timestamp: Date.now()
+      }));
+      localStorage.setItem('pendingRole', 'employee');
+      localStorage.setItem('userRole', 'employee');
+      window.dispatchEvent(new Event('roleSelected'));
+      setShowAuthFlow(true);
       return;
     }
 
@@ -259,14 +314,36 @@ const EmployeeJobsPage = () => {
     alert('Contract signed successfully!');
   };
 
-  // Jobs are already filtered by the API, so we can use them directly
-  const filteredJobs = jobs;
+  // Client-side filtering based on search and filter inputs
+  const filteredJobs = jobs.filter(job => {
+    // Search filter (searches title, company name, and location)
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = !searchQuery ||
+      job.title?.toLowerCase().includes(searchLower) ||
+      job.company_name?.toLowerCase().includes(searchLower) ||
+      job.location?.toLowerCase().includes(searchLower) ||
+      job.description?.toLowerCase().includes(searchLower);
+
+    // Location filter
+    const matchesLocation = !locationFilter ||
+      job.location?.toLowerCase().includes(locationFilter.toLowerCase());
+
+    // Job type filter
+    const matchesJobType = !jobTypeFilter ||
+      job.job_type === jobTypeFilter;
+
+    return matchesSearch && matchesLocation && matchesJobType;
+  });
+
+  // Get unique locations and job types for filter dropdowns
+  const uniqueLocations = [...new Set(jobs.map(job => job.location).filter(Boolean))];
+  const uniqueJobTypes = [...new Set(jobs.map(job => job.job_type).filter(Boolean))];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <EmployeeNavbar />
-        <div className="pt-26 flex items-center justify-center h-96">
+        {user ? <EmployeeNavbar /> : <Navbar />}
+        <div className={`flex items-center justify-center h-96 ${user ? 'pt-32' : 'pt-8'}`}>
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
             <p className="text-gray-600">Loading jobs...</p>
@@ -280,12 +357,12 @@ const EmployeeJobsPage = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <EmployeeNavbar />
-        <div className="pt-26 flex items-center justify-center h-96">
+        {user ? <EmployeeNavbar /> : <Navbar />}
+        <div className={`flex items-center justify-center h-96 ${user ? 'pt-32' : 'pt-8'}`}>
           <div className="text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
             <p className="text-gray-600">{error}</p>
-            <button 
+            <button
               onClick={fetchJobs}
               className="mt-4 bg-[#EE964B] text-white px-6 py-2 rounded-lg hover:bg-[#d97b33] transition-all"
             >
@@ -299,17 +376,141 @@ const EmployeeJobsPage = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 overflow-hidden">
-      <EmployeeNavbar />
-      
-      <div className="pt-26 h-full">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      {user ? <EmployeeNavbar /> : <Navbar />}
+
+      <div className={`flex-1 flex flex-col ${user ? 'pt-32' : 'pt-20'} overflow-hidden`}>
+
+        {/* Demo Mode Info Banner */}
+        {isDemoMode && showDemoInfo && user && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mx-4 mt-4 relative flex-shrink-0">
+            <button
+              onClick={() => setShowDemoInfo(false)}
+              className="absolute top-2 right-2 text-blue-700 hover:text-blue-900 text-xl font-bold"
+            >
+              ×
+            </button>
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">Demo Mode Testing Enabled</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>You can apply to your own jobs in demo mode for testing the full workflow. In production, this will be blocked to prevent self-dealing.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Two-column layout taking full page width */}
-        <div className="grid grid-cols-12 h-full">
+        <div className="grid grid-cols-12 flex-1 overflow-hidden">
           {/* Left Side - Job List (narrow) */}
           <div className="col-span-12 lg:col-span-4 bg-gray-100 p-3 sm:p-4 lg:p-6 overflow-y-auto">
             <h2 className="text-lg sm:text-xl font-semibold text-[#0D3B66] mb-3 sm:mb-4">Job Listings</h2>
-            
+
+            {/* Search and Filter Section */}
+            <div className="mb-4 space-y-3">
+              {/* Search Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search jobs, companies, locations..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] focus:border-transparent text-sm"
+                />
+                <svg
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Dropdowns */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Location Filter */}
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] focus:border-transparent text-sm bg-white"
+                >
+                  <option value="">All Locations</option>
+                  {uniqueLocations.map(location => (
+                    <option key={location} value={location}>{location}</option>
+                  ))}
+                </select>
+
+                {/* Job Type Filter */}
+                <select
+                  value={jobTypeFilter}
+                  onChange={(e) => setJobTypeFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] focus:border-transparent text-sm bg-white"
+                >
+                  <option value="">All Types</option>
+                  {uniqueJobTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Active filters indicator */}
+              {(searchQuery || locationFilter || jobTypeFilter) && (
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <span>Filters active:</span>
+                  {searchQuery && (
+                    <span className="bg-[#EE964B]/20 text-[#0D3B66] px-2 py-1 rounded">
+                      "{searchQuery}"
+                    </span>
+                  )}
+                  {locationFilter && (
+                    <span className="bg-[#EE964B]/20 text-[#0D3B66] px-2 py-1 rounded">
+                      {locationFilter}
+                    </span>
+                  )}
+                  {jobTypeFilter && (
+                    <span className="bg-[#EE964B]/20 text-[#0D3B66] px-2 py-1 rounded">
+                      {jobTypeFilter}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setLocationFilter('');
+                      setJobTypeFilter('');
+                    }}
+                    className="ml-auto text-[#EE964B] hover:text-[#d97b33] font-medium"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+
+              {/* Results count */}
+              <div className="text-xs text-gray-500">
+                Showing {filteredJobs.length} of {jobs.length} jobs
+              </div>
+            </div>
+
             {/* Filter Navigation */}
             <div className="flex gap-2 mb-4 bg-white p-1 rounded-lg shadow-sm">
               <button
@@ -322,65 +523,67 @@ const EmployeeJobsPage = () => {
               >
                 All Jobs
               </button>
-              <button
-                onClick={() => {
-                  if (!user) {
-                    alert('Please log in to view saved jobs');
-                    return;
-                  }
-                  setActiveFilter('saved');
-                }}
-                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  activeFilter === 'saved'
-                    ? 'bg-[#EE964B] text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Saved
-              </button>
-              <button
-                onClick={() => {
-                  if (!user) {
-                    alert('Please log in to view applied jobs');
-                    return;
-                  }
-                  setActiveFilter('applied');
-                }}
-                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  activeFilter === 'applied'
-                    ? 'bg-[#EE964B] text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Applied
-              </button>
-              <button
-                onClick={() => {
-                  if (!user) {
-                    alert('Please log in to view job results');
-                    return;
-                  }
-                  setActiveFilter('results');
-                }}
-                className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                  activeFilter === 'results'
-                    ? 'bg-[#EE964B] text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Results
-              </button>
+              {user && (
+                <>
+                  <button
+                    onClick={() => setActiveFilter('saved')}
+                    className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                      activeFilter === 'saved'
+                        ? 'bg-[#EE964B] text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Saved
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter('applied')}
+                    className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                      activeFilter === 'applied'
+                        ? 'bg-[#EE964B] text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Applied
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter('results')}
+                    className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                      activeFilter === 'results'
+                        ? 'bg-[#EE964B] text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Results
+                  </button>
+                </>
+              )}
             </div>
             
             {filteredJobs.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-gray-400 text-6xl mb-4">📋</div>
+                <div className="text-gray-400 text-6xl mb-4">
+                  {(searchQuery || locationFilter || jobTypeFilter) ? '🔍' : '📋'}
+                </div>
                 <p className="text-gray-600">
-                  {activeFilter === 'all' 
+                  {(searchQuery || locationFilter || jobTypeFilter)
+                    ? 'No jobs match your search criteria'
+                    : activeFilter === 'all'
                     ? 'No jobs available at the moment'
                     : `No ${activeFilter} jobs`
                   }
                 </p>
+                {(searchQuery || locationFilter || jobTypeFilter) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setLocationFilter('');
+                      setJobTypeFilter('');
+                    }}
+                    className="mt-3 text-[#EE964B] hover:text-[#d97b33] font-medium text-sm"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">
@@ -390,7 +593,7 @@ const EmployeeJobsPage = () => {
                     onClick={() => handleJobClick(job)}
                     className={`p-3 sm:p-4 rounded-lg cursor-pointer transition-all hover:bg-white hover:shadow-md ${
                       selectedJob?.id === job.id
-                        ? 'bg-white shadow-md'
+                        ? 'bg-white shadow-md border-l-4 border-[#EE964B]'
                         : 'bg-white/50 hover:bg-white'
                     }`}
                   >
@@ -403,12 +606,12 @@ const EmployeeJobsPage = () => {
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             job.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
                             job.application_status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            job.application_status === 'applied' ? 'bg-blue-100 text-blue-800' :
+                            job.application_status === 'pending' ? 'bg-blue-100 text-blue-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {job.application_status === 'accepted' ? 'Accepted' :
                              job.application_status === 'rejected' ? 'Rejected' :
-                             job.application_status === 'applied' ? 'Applied' :
+                             job.application_status === 'pending' ? 'Applied' :
                              job.application_status}
                           </span>
                         )}
@@ -421,14 +624,14 @@ const EmployeeJobsPage = () => {
                         </span>
                       </div>
                     </div>
-                    
+
                     <p className="text-gray-600 mb-2 text-sm sm:text-base">{job.company_name}</p>
-                    
+
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                       <span>📍 {job.location}</span>
                       <span>💰 {job.currency} {job.salary}/{job.pay_frequency}</span>
                     </div>
-                    
+
                     <div className="mt-2 text-xs text-gray-400">
                       Posted: {formatDate(job.created_at)}
                     </div>
@@ -447,7 +650,7 @@ const EmployeeJobsPage = () => {
                 <div className="border-b border-gray-200 pb-4 text-center">
                   <div className="flex flex-col sm:flex-row sm:justify-center sm:items-center mb-2 gap-2 sm:gap-4">
                     <h3 className="text-xl sm:text-2xl font-bold text-[#0D3B66]">
-                      {selectedJob.jobTitle}
+                      {selectedJob.jobTitle || selectedJob.title}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                       selectedJob.status === 'active' ? 'bg-green-100 text-green-800' :
@@ -458,7 +661,7 @@ const EmployeeJobsPage = () => {
                     </span>
                   </div>
                   <p className="text-lg sm:text-xl text-[#EE964B] font-semibold">
-                    {selectedJob.companyName}
+                    {selectedJob.companyName || selectedJob.company_name}
                   </p>
                 </div>
 
@@ -537,49 +740,51 @@ const EmployeeJobsPage = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                   {selectedJob.application_status === 'accepted' ? (
-                    <button 
+                    // Accepted: Show Sign Contract button
+                    <button
                       onClick={handleSignContract}
                       className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
                     >
                       Sign Contract
                     </button>
+                  ) : selectedJob.application_status === 'pending' || selectedJob.application_status === 'rejected' ? (
+                    // Applied or Rejected: Show no buttons, just status message
+                    <div className="w-full text-center py-3">
+                      <span className={`inline-block px-4 py-2 rounded-lg text-sm font-medium ${
+                        selectedJob.application_status === 'rejected'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {selectedJob.application_status === 'rejected'
+                          ? 'Application Rejected'
+                          : 'Application Submitted ✓'}
+                      </span>
+                    </div>
+                  ) : selectedJob.is_saved ? (
+                    // Saved: Only show Apply button (centered)
+                    <button
+                      onClick={() => handleApplyToJob(selectedJob)}
+                      disabled={processingJobId === selectedJob.id}
+                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
+                    >
+                      {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
+                    </button>
                   ) : (
+                    // Not saved, not applied: Show both buttons
                     <>
-                      <button 
+                      <button
                         onClick={() => handleApplyToJob(selectedJob)}
-                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
-                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
-                        }`}
+                        disabled={processingJobId === selectedJob.id}
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
                       >
-                        {processingJobId === selectedJob.id 
-                          ? 'Processing...' 
-                          : selectedJob.application_status === 'applied' 
-                            ? 'Applied ✓' 
-                            : selectedJob.application_status === 'rejected'
-                              ? 'Rejected'
-                              : 'Apply Now'
-                        }
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleSaveJob(selectedJob)}
-                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
-                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : selectedJob.is_saved
-                              ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
-                              : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
-                        }`}
+                        disabled={processingJobId === selectedJob.id}
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-gray-200 text-[#0D3B66] hover:bg-gray-300"
                       >
-                        {processingJobId === selectedJob.id 
-                          ? 'Processing...' 
-                          : selectedJob.is_saved 
-                            ? 'Saved ✓' 
-                            : 'Save Job'
-                        }
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Save Job'}
                       </button>
                     </>
                   )}
@@ -621,7 +826,7 @@ const EmployeeJobsPage = () => {
                 <div className="border-b border-gray-200 pb-4 text-center">
                   <div className="flex flex-col sm:flex-row sm:justify-center sm:items-center mb-2 gap-2 sm:gap-4">
                     <h3 className="text-xl sm:text-2xl font-bold text-[#0D3B66]">
-                      {selectedJob.jobTitle}
+                      {selectedJob.jobTitle || selectedJob.title}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                       selectedJob.status === 'active' ? 'bg-green-100 text-green-800' :
@@ -645,7 +850,7 @@ const EmployeeJobsPage = () => {
                     </div>
                   )}
                   <p className="text-lg sm:text-xl text-[#EE964B] font-semibold">
-                    {selectedJob.companyName}
+                    {selectedJob.companyName || selectedJob.company_name}
                   </p>
                 </div>
 
@@ -724,49 +929,51 @@ const EmployeeJobsPage = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                   {selectedJob.application_status === 'accepted' ? (
-                    <button 
+                    // Accepted: Show Sign Contract button
+                    <button
                       onClick={handleSignContract}
                       className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
                     >
                       Sign Contract
                     </button>
+                  ) : selectedJob.application_status === 'pending' || selectedJob.application_status === 'rejected' ? (
+                    // Applied or Rejected: Show no buttons, just status message
+                    <div className="w-full text-center py-3">
+                      <span className={`inline-block px-4 py-2 rounded-lg text-sm font-medium ${
+                        selectedJob.application_status === 'rejected'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {selectedJob.application_status === 'rejected'
+                          ? 'Application Rejected'
+                          : 'Application Submitted ✓'}
+                      </span>
+                    </div>
+                  ) : selectedJob.is_saved ? (
+                    // Saved: Only show Apply button (centered)
+                    <button
+                      onClick={() => handleApplyToJob(selectedJob)}
+                      disabled={processingJobId === selectedJob.id}
+                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
+                    >
+                      {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
+                    </button>
                   ) : (
+                    // Not saved, not applied: Show both buttons
                     <>
-                      <button 
+                      <button
                         onClick={() => handleApplyToJob(selectedJob)}
-                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
-                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-[#EE964B] text-white hover:bg-[#d97b33]'
-                        }`}
+                        disabled={processingJobId === selectedJob.id}
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
                       >
-                        {processingJobId === selectedJob.id 
-                          ? 'Processing...' 
-                          : selectedJob.application_status === 'applied' 
-                            ? 'Applied ✓' 
-                            : selectedJob.application_status === 'rejected'
-                              ? 'Rejected'
-                              : 'Apply Now'
-                        }
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleSaveJob(selectedJob)}
-                        disabled={processingJobId === selectedJob.id || selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'}
-                        className={`flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                          selectedJob.application_status === 'applied' || selectedJob.application_status === 'rejected'
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : selectedJob.is_saved
-                              ? 'bg-[#0D3B66] text-white hover:bg-[#0a2d4d]'
-                              : 'bg-gray-200 text-[#0D3B66] hover:bg-gray-300'
-                        }`}
+                        disabled={processingJobId === selectedJob.id}
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-gray-200 text-[#0D3B66] hover:bg-gray-300"
                       >
-                        {processingJobId === selectedJob.id 
-                          ? 'Processing...' 
-                          : selectedJob.is_saved 
-                            ? 'Saved ✓' 
-                            : 'Save Job'
-                        }
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Save Job'}
                       </button>
                     </>
                   )}

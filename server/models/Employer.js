@@ -1,6 +1,4 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
-
+module.exports = (sequelize, DataTypes) => {
 const Employer = sequelize.define('Employer', {
   id: {
     type: DataTypes.BIGINT,
@@ -87,4 +85,17 @@ const Employer = sequelize.define('Employer', {
   updatedAt: 'updated_at'
 });
 
-module.exports = Employer;
+// Define associations
+Employer.associate = function(models) {
+  Employer.hasMany(models.JobPosting, {
+    foreignKey: 'employer_id',
+    as: 'jobPostings'
+  });
+  Employer.hasMany(models.ContractTemplate, {
+    foreignKey: 'employer_id',
+    as: 'contractTemplates'
+  });
+};
+
+return Employer;
+};

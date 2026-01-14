@@ -50,17 +50,16 @@ class JobController {
           }
         );
       } else {
-        // If no employee_id, just get all jobs (excluding closed jobs for public view)
+        // If no employee_id, show only ACTIVE jobs for anonymous/public users
+        // This ensures job seekers only see currently available opportunities
         jobs = await Job.findAll({
           where: {
-            status: {
-              [Op.ne]: 'closed'
-            }
+            status: 'active'
           },
           order: [['created_at', 'DESC']]
         });
-        
-        // Add field mappings for consistency
+
+        // Add field mappings for consistency with employee view
         jobs = jobs.map(job => {
           const jobData = job.toJSON();
           return {

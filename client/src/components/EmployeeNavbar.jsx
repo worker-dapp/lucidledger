@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
+import BetaBanner from "./BetaBanner";
 
 const EmployeeNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,7 +27,7 @@ const EmployeeNavbar = () => {
   }, []);
 
   const handleHomeClick = () => {
-    navigate('/employeeDashboard');
+    navigate('/');
     setIsMobileMenuOpen(false);
   };
 
@@ -35,11 +36,13 @@ const EmployeeNavbar = () => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 w-full z-50 bg-[#0D3B66] shadow-md">
-      <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
+    <div className="fixed top-0 left-0 right-0 w-full z-50">
+      <BetaBanner />
+      <div className="bg-[#0D3B66] shadow-md">
+        <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
         {/* Enhanced Brand Name */}
         <Link
-          to="/employeeDashboard"
+          to="/"
           className="flex items-center gap-1 text-2xl sm:text-3xl font-bold tracking-wide">
           <img
             src={logo}
@@ -52,7 +55,7 @@ const EmployeeNavbar = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-8 text-md">
+        <div className="hidden lg:flex items-center gap-6 text-md">
           <button
             onClick={handleHomeClick}
             className="transition-all font-medium text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a] px-3 py-2 rounded flex items-center gap-2">
@@ -61,14 +64,25 @@ const EmployeeNavbar = () => {
           </button>
           
           <NavLink
-            to="/employee-jobs"
+            to="/job-search"
+            className={({ isActive }) =>
+              `transition-all font-medium flex items-center gap-2 px-3 py-2 rounded ${
+                isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
+              }`
+            }>
+            <span>🔍</span>
+            Browse Jobs
+          </NavLink>
+
+          <NavLink
+            to="/job-tracker"
             className={({ isActive }) =>
               `transition-all font-medium flex items-center gap-2 px-3 py-2 rounded ${
                 isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
               }`
             }>
             <span>📋</span>
-            All Jobs
+            Job Tracker
           </NavLink>
 
           <NavLink
@@ -83,15 +97,16 @@ const EmployeeNavbar = () => {
           </NavLink>
 
           <NavLink
-            to="/support"
+            to="/support-center"
             className={({ isActive }) =>
               `transition-all font-medium flex items-center gap-2 px-3 py-2 rounded ${
                 isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
               }`
             }>
             <span>🆘</span>
-            Support Center
+            Support
           </NavLink>
+
           <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
         </div>
 
@@ -167,14 +182,25 @@ const EmployeeNavbar = () => {
               </button>
               
               <NavLink
-                to="/employee-jobs"
+                to="/job-search"
                 onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
                     isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
                   }`
                 }>
-                📋 All Jobs
+                🔍 Browse Jobs
+              </NavLink>
+
+              <NavLink
+                to="/job-tracker"
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
+                    isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
+                  }`
+                }>
+                📋 Job Tracker
               </NavLink>
 
               <NavLink
@@ -189,14 +215,14 @@ const EmployeeNavbar = () => {
               </NavLink>
 
               <NavLink
-                to="/support"
+                to="/support-center"
                 onClick={handleNavClick}
                 className={({ isActive }) =>
                   `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
                     isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
                   }`
                 }>
-                🆘 Support Center
+                🆘 Support
               </NavLink>
             </div>
 
@@ -222,6 +248,7 @@ const EmployeeNavbar = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

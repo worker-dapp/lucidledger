@@ -1,6 +1,9 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Determine if we should use SSL (only for production AWS RDS)
+const useSSL = process.env.DB_HOST && !process.env.DB_HOST.includes('localhost') && !process.env.DB_HOST.includes('postgres');
+
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -21,12 +24,13 @@ const sequelize = new Sequelize(
       underscored: true,
       freezeTableName: true,
     },
-    dialectOptions: {
+    // Only use SSL for AWS RDS (production)
+    dialectOptions: useSSL ? {
       ssl: {
         require: true,
-        rejectUnauthorized: false, // required for AWS RDS
+        rejectUnauthorized: false,
       },
-    },
+    } : {},
   }
 );
 
