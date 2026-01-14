@@ -11,9 +11,8 @@ router.post('/unsave', verifyToken, jobApplicationController.unsaveJob);
 router.post('/apply', verifyToken, jobApplicationController.applyToJob);
 
 // Get jobs by status for an employee
-router.get('/saved/:employeeId', verifyToken, jobApplicationController.getSavedJobs);
-router.get('/applied/:employeeId', verifyToken, jobApplicationController.getAppliedJobs);
-router.get('/employee/:employeeId', verifyToken, jobApplicationController.getEmployeeApplications);
+router.get('/saved/:employee_id', verifyToken, jobApplicationController.getSavedJobs);
+router.get('/applied/:employee_id', verifyToken, jobApplicationController.getAppliedJobs);
 
 // Update application status
 router.patch('/:applicationId/status', verifyToken, jobApplicationController.updateApplicationStatus);
