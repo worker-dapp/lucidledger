@@ -230,14 +230,14 @@ const EmployeeProfile = () => {
 
   // Debounced auto-save for skills
   useEffect(() => {
-    if (!skills) return;
+    if (!skills || !userDetails) return; // Only auto-save if user already exists in DB
     const t = setTimeout(() => {
       if (skills.length >= 0) {
         saveToAPI({ skills: skills }, 'Skills saved');
       }
     }, 800);
     return () => clearTimeout(t);
-  }, [skills]);
+  }, [skills, userDetails]);
 
   // Experience handlers
   const addExperienceRow = () => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Users, FolderOpen, CheckCircle, AlertTriangle, Archive } from "lucide-react";
+import { Factory, CheckCircle, AlertTriangle, Archive } from "lucide-react";
 import EmployerNavbar from "../components/EmployerNavbar";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import apiService from "../services/api";
@@ -44,46 +44,32 @@ const EmployerDashboard = () => {
 
   const dashboardItems = [
     {
-      title: "Create New Contract",
-      icon: FileText,
-      description: "Draft and initialize new contracts",
+      title: "Contract Factory & Recruitment",
+      icon: Factory,
+      description: "Create contracts, post jobs, and review applications",
       iconColor: "bg-[#EE964B]",
-      to: "/job",
+      to: "/contract-factory",
     },
     {
-      title: "View Open Contracts",
-      icon: FolderOpen,
-      description: "Browse all active contracts",
-      iconColor: "bg-green-500",
-      to: "/view-open-contracts",
-    },
-    {
-      title: "Review Applications",
-      icon: Users,
-      description: "Review pending contract applications",
-      iconColor: "bg-blue-500",
-      to: "/review-applications",
-    },
-    {
-      title: "Active Contracts",
+      title: "Active Contracts & Workforce",
       icon: CheckCircle,
-      description: "Sign the contracts and start the work",
+      description: "Manage ongoing work and payments",
       iconColor: "bg-green-600",
       to: "/review-completed-contracts",
     },
     {
-      title: "View Ongoing Disputes",
+      title: "Disputes & Resolution",
       icon: AlertTriangle,
       description: "Monitor and resolve disputes",
       iconColor: "bg-yellow-500",
       to: "/dispute",
     },
     {
-      title: "View Closed Contracts",
+      title: "Closed Contracts & History",
       icon: Archive,
-      description: "Access archived contracts",
+      description: "Access archived contracts and reports",
       iconColor: "bg-gray-500",
-      to: "/payments",
+      to: "/closed-contracts",
     },
   ];
 

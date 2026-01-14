@@ -12,8 +12,9 @@ const { sequelize } = require('./config/database');
 // Import routes
 const employeeRoutes = require('./routes/employeeRoutes');
 const employerRoutes = require('./routes/employerRoutes');
-const jobRoutes = require('./routes/jobRoutes');
 const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
+const contractTemplateRoutes = require('./routes/contractTemplateRoutes');
+const jobPostingRoutes = require('./routes/jobPostingRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,13 +22,18 @@ const PORT = process.env.PORT || 3001;
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
+// Rate limiting (disabled in development)
+if (process.env.NODE_ENV === 'production') {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
+  });
+  app.use(limiter);
+  console.log('🛡️  Rate limiting enabled (production mode)');
+} else {
+  console.log('⚠️  Rate limiting disabled (development mode)');
+}
 
 // CORS configuration
 app.use(cors({
@@ -61,8 +67,9 @@ app.get('/api/health', (req, res) => {
 // API routes
 app.use('/api/employees', employeeRoutes);
 app.use('/api/employers', employerRoutes);
-app.use('/api/jobs', jobRoutes);
 app.use('/api/job-applications', jobApplicationRoutes);
+app.use('/api/contract-templates', contractTemplateRoutes);
+app.use('/api/job-postings', jobPostingRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -85,21 +92,48 @@ app.use((err, req, res, next) => {
 // Function to run migrations on startup
 async function runMigrationsOnStartup() {
   try {
-    console.log('🔍 Checking database tables...');
-    const migrationPath = path.join(__dirname, 'migrations/create-all-tables.sql');
-    
-    if (!fs.existsSync(migrationPath)) {
-      console.log('⚠️  Migration file not found, skipping...');
+    console.log('🔍 Running database migrations...');
+    const migrationsDir = path.join(__dirname, 'migrations');
+
+    if (!fs.existsSync(migrationsDir)) {
+      console.log('⚠️  Migrations directory not found, skipping...');
       return;
     }
-    
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-    await sequelize.query(migrationSQL);
-    
-    console.log('✅ Database tables verified/created successfully!');
+
+    // Get all SQL migration files in order
+    const migrationFiles = [
+      'create-all-tables.sql',
+      'add-employer-id-to-jobs.sql',
+      'add-missing-fields.sql',
+      '001-create-contract-templates.sql',
+      '002-create-job-postings.sql',
+      '003-update-job-applications.sql',
+      '004-update-saved-jobs.sql',
+      '005-remove-old-jobs-table.sql'
+    ];
+
+    for (const file of migrationFiles) {
+      const migrationPath = path.join(migrationsDir, file);
+
+      if (fs.existsSync(migrationPath)) {
+        try {
+          console.log(`  📄 Running ${file}...`);
+          const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+          await sequelize.query(migrationSQL);
+          console.log(`  ✅ ${file} completed`);
+        } catch (fileError) {
+          console.log(`  ⚠️  ${file} failed (this is usually fine if tables already exist):`, fileError.message);
+          // Continue to next migration even if this one fails
+        }
+      } else {
+        console.log(`  ⚠️  ${file} not found, skipping...`);
+      }
+    }
+
+    console.log('✅ All database migrations completed successfully!');
   } catch (error) {
     // Don't crash the server if migrations fail (tables might already exist)
-    console.error('⚠️  Migration check failed (this is usually fine if tables already exist):', error.message);
+    console.error('⚠️  Migration failed (this is usually fine if tables already exist):', error.message);
   }
 }
 

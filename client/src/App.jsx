@@ -1,4 +1,4 @@
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { DynamicContextProvider, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
@@ -10,11 +10,8 @@ import Dispute from "./EmployerPages/Dispute";
 import JobDetails from "./pages/JobDetails";
 import EmployerProfile from "./EmployerPages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
-import EmployerJobPortal from "./EmployerPages/EmployerJobPortal";
-import OpenContracts from "./EmployerPages/OpenContracts";
 import ReviewCompletedContracts from "./EmployerPages/ReviewCompletedContracts";
-import Job from "./EmployerPages/Job";
-import ReviewApplications from "./EmployerPages/ReviewApplications";
+import ContractFactory from "./EmployerPages/ContractFactory";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import JobTracker from "./EmployeePages/JobTracker";
 import SupportCenter from "./EmployeePages/SupportCenter";
@@ -483,24 +480,11 @@ const App = () => {
               <EmployerProfile />
             </ProtectedRoute>
           } />
-          <Route path="/job" element={
+          {/* Redirect old job posting route to Contract Factory */}
+          <Route path="/job" element={<Navigate to="/contract-factory" replace />} />
+          <Route path="/contract-factory" element={
             <ProtectedRoute>
-              <Job />
-            </ProtectedRoute>
-          } />
-          <Route path="/view-employees" element={
-            <ProtectedRoute>
-              <EmployerJobPortal />
-            </ProtectedRoute>
-          } />
-          <Route path="/view-open-contracts" element={
-            <ProtectedRoute>
-              <OpenContracts />
-            </ProtectedRoute>
-          } />
-          <Route path="/review-applications" element={
-            <ProtectedRoute>
-              <ReviewApplications />
+              <ContractFactory />
             </ProtectedRoute>
           } />
           <Route path="/review-completed-contracts" element={
