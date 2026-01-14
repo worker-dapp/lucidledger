@@ -20,8 +20,8 @@ class JobPostingController {
           });
         }
 
-        // Verify template belongs to this employer
-        if (template.employer_id !== employer_id) {
+        // Verify template belongs to this employer (convert to string for comparison since Postgres bigint returns string)
+        if (String(template.employer_id) !== String(employer_id)) {
           return res.status(403).json({
             success: false,
             message: 'Template does not belong to this employer'
