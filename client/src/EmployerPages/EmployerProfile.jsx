@@ -141,16 +141,8 @@ const EmployerProfile = () => {
     fetchUserDetails();
   }, [user, primaryWallet]);
 
-  useEffect(() => {
-    if (user) {
-      // Fallback to Dynamic Labs user data if Supabase data not available
-      if (!userDetails) {
-        setFirstName(user.first_name || '');
-        setLastName(user.last_name || '');
-        setEmail(user.email || '');
-      }
-    }
-  }, [user, userDetails]);
+  // DO NOT use Dynamic Labs user data as fallback - it may contain data from employee account
+  // Employer profile must be created separately through /user-profile
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
 

@@ -110,3 +110,19 @@ private.key
 
 # Local development
 .local/
+
+# Context and planning files (optional - keep if you want these versioned)
+# ui-refactor-context/
+
+# SSL certificates (production only, not for local dev)
+ssl/
+certbot-webroot/
+
+# Docker volumes and data
+postgres-data/
+nginx-logs/
+
+# Temporary/stray files
+resolving
+conflict-*
+*.orig

@@ -1,6 +1,4 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
-
+module.exports = (sequelize, DataTypes) => {
 const JobApplication = sequelize.define('JobApplication', {
   id: {
     type: DataTypes.BIGINT,
@@ -15,13 +13,14 @@ const JobApplication = sequelize.define('JobApplication', {
       key: 'id'
     }
   },
-  job_id: {
+  job_posting_id: {
     type: DataTypes.BIGINT,
     allowNull: false,
     references: {
-      model: 'jobs',
+      model: 'job_postings',
       key: 'id'
-    }
+    },
+    onDelete: 'CASCADE'
   },
   application_status: {
     type: DataTypes.TEXT,
@@ -32,6 +31,19 @@ const JobApplication = sequelize.define('JobApplication', {
   applied_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  offer_sent_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  offer_accepted_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  blockchain_deployment_status: {
+    type: DataTypes.STRING(30),
+    defaultValue: 'not_deployed'
+    // 'not_deployed', 'pending_deployment', 'deploying', 'confirmed', 'failed'
   }
 }, {
   tableName: 'job_applications',
@@ -41,9 +53,22 @@ const JobApplication = sequelize.define('JobApplication', {
   indexes: [
     {
       unique: true,
-      fields: ['employee_id', 'job_id']
+      fields: ['employee_id', 'job_posting_id']
     }
   ]
 });
 
-module.exports = JobApplication;
+// Define associations
+JobApplication.associate = function(models) {
+  JobApplication.belongsTo(models.JobPosting, {
+    foreignKey: 'job_posting_id',
+    as: 'job'
+  });
+  JobApplication.belongsTo(models.Employee, {
+    foreignKey: 'employee_id',
+    as: 'employee'
+  });
+};
+
+return JobApplication;
+};

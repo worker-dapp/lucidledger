@@ -1,6 +1,4 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
-
+module.exports = (sequelize, DataTypes) => {
 const SavedJob = sequelize.define('SavedJob', {
   id: {
     type: DataTypes.BIGINT,
@@ -15,13 +13,14 @@ const SavedJob = sequelize.define('SavedJob', {
       key: 'id'
     }
   },
-  job_id: {
+  job_posting_id: {
     type: DataTypes.BIGINT,
     allowNull: false,
     references: {
-      model: 'jobs',
+      model: 'job_postings',
       key: 'id'
-    }
+    },
+    onDelete: 'CASCADE'
   },
   saved_at: {
     type: DataTypes.DATE,
@@ -36,10 +35,23 @@ const SavedJob = sequelize.define('SavedJob', {
   indexes: [
     {
       unique: true,
-      fields: ['employee_id', 'job_id']
+      fields: ['employee_id', 'job_posting_id']
     }
   ]
 });
 
-module.exports = SavedJob;
+// Define associations
+SavedJob.associate = function(models) {
+  SavedJob.belongsTo(models.JobPosting, {
+    foreignKey: 'job_posting_id',
+    as: 'job'
+  });
+  SavedJob.belongsTo(models.Employee, {
+    foreignKey: 'employee_id',
+    as: 'employee'
+  });
+};
+
+return SavedJob;
+};
 

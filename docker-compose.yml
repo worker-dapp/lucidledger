@@ -1,4 +1,25 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: lucidledger-postgres
+    environment:
+      POSTGRES_DB: lucidledger_dev
+      POSTGRES_USER: lucid_user
+      POSTGRES_PASSWORD: lucid_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./server/migrations/create-all-tables.sql:/docker-entrypoint-initdb.d/create-all-tables.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lucid_user -d lucidledger_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   frontend:
     build: ./client
     container_name: lucidledger-client
@@ -24,6 +45,9 @@ services:
     env_file:
       - ./server/.env
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
     volumes:
@@ -35,6 +59,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  postgres-data:
 
 networks:
   app-network:

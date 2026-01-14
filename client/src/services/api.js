@@ -131,76 +131,110 @@ class ApiService {
     });
   }
 
-  // Job API methods
-  async createJob(jobData) {
-    return this.request('/jobs', {
+  // Contract Template API methods
+  async createContractTemplate(templateData) {
+    return this.request('/contract-templates', {
       method: 'POST',
-      body: JSON.stringify(jobData),
+      body: JSON.stringify(templateData),
     });
   }
 
-  async getAllJobs(employeeId = null) {
-    const params = employeeId ? `?employee_id=${employeeId}` : '';
-    return this.request(`/jobs${params}`);
+  async getContractTemplates(employerId) {
+    return this.request(`/contract-templates?employer_id=${employerId}`);
   }
 
-  async getJobById(id) {
-    return this.request(`/jobs/${id}`);
+  async getContractTemplateById(id) {
+    return this.request(`/contract-templates/${id}`);
   }
 
-  async getJobsByEmployer(employerId) {
-    return this.request(`/jobs/employer/${employerId}`);
-  }
-
-  async getJobsWithApplicationsByEmployer(employerId) {
-    return this.request(`/jobs/employer/${employerId}/applications`);
-  }
-
-  async getJobApplications(jobId) {
-    return this.request(`/jobs/${jobId}/applications`);
-  }
-
-  async getJobsByStatus(status) {
-    return this.request(`/jobs/status/${status}`);
-  }
-
-  async getJobsByCompany(companyName) {
-    return this.request(`/jobs/company/${companyName}`);
-  }
-
-  async updateJob(id, jobData) {
-    return this.request(`/jobs/${id}`, {
+  async updateContractTemplate(id, templateData) {
+    return this.request(`/contract-templates/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(jobData),
+      body: JSON.stringify(templateData),
     });
   }
 
-  async updateJobStatus(id, status) {
-    return this.request(`/jobs/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
+  async deleteContractTemplate(id) {
+    return this.request(`/contract-templates/${id}`, {
+      method: 'DELETE',
     });
   }
+
+  async incrementTemplateUsage(id) {
+    return this.request(`/contract-templates/${id}/use`, {
+      method: 'POST',
+    });
+  }
+
+  // Job Posting API methods
+  async createJobPosting(jobPostingData) {
+    return this.request('/job-postings', {
+      method: 'POST',
+      body: JSON.stringify(jobPostingData),
+    });
+  }
+
+  async getJobPostings(employerId, status = null) {
+    const params = status ? `?employer_id=${employerId}&status=${status}` : `?employer_id=${employerId}`;
+    return this.request(`/job-postings${params}`);
+  }
+
+  async getJobPostingById(id) {
+    return this.request(`/job-postings/${id}`);
+  }
+
+  async updateJobPosting(id, jobPostingData) {
+    return this.request(`/job-postings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(jobPostingData),
+    });
+  }
+
+  async deleteJobPosting(id) {
+    return this.request(`/job-postings/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async closeJobPosting(id) {
+    return this.request(`/job-postings/${id}/close`, {
+      method: 'POST',
+    });
+  }
+
+  async activateJobPosting(id) {
+    return this.request(`/job-postings/${id}/activate`, {
+      method: 'POST',
+    });
+  }
+
+  async getActiveJobPostings(employeeId = null) {
+    const params = employeeId ? `?employee_id=${employeeId}` : '';
+    return this.request(`/job-postings/active${params}`);
+  }
+
+  // Legacy Job API methods - DEPRECATED, use Job Posting methods instead
+  // Kept temporarily for Phase 3 pages that need updating
 
   // Job Application API methods
-  async saveJob(employeeId, jobId) {
+  async saveJob(employeeId, jobPostingId) {
     return this.request('/job-applications/save', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, job_id: jobId }),
+      body: JSON.stringify({ employee_id: employeeId, job_posting_id: jobPostingId }),
     });
   }
 
-  async unsaveJob(employeeId, jobId) {
+  async unsaveJob(employeeId, jobPostingId) {
     return this.request('/job-applications/unsave', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, job_id: jobId }),
+      body: JSON.stringify({ employee_id: employeeId, job_posting_id: jobPostingId }),
     });
   }
 
-  async applyToJob(employeeId, jobId) {
+  async applyToJob(employeeId, jobPostingId) {
     return this.request('/job-applications/apply', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, job_id: jobId }),
+      body: JSON.stringify({ employee_id: employeeId, job_posting_id: jobPostingId }),
     });
   }
 
