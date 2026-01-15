@@ -5,8 +5,13 @@ const { sequelize } = require('../config/database');
 exports.saveJob = async (req, res) => {
   try {
     const { employee_id, job_posting_id } = req.body;
+    
+    console.log('📥 saveJob request received:', { employee_id, job_posting_id });
+    console.log('🔑 Auth header present:', !!req.headers.authorization);
+    console.log('👤 Decoded user:', req.user ? { sub: req.user.sub, email: req.user.email } : 'none');
 
     if (!employee_id || !job_posting_id) {
+      console.log('❌ Missing required fields');
       return res.status(400).json({
         success: false,
         message: 'Employee ID and Job Posting ID are required'
@@ -15,8 +20,12 @@ exports.saveJob = async (req, res) => {
 
     const employee = await Employee.findByPk(employee_id);
     const jobRecord = await JobPosting.findByPk(job_posting_id);
+    
+    console.log('📋 Employee found:', !!employee);
+    console.log('📋 Job posting found:', !!jobRecord);
 
     if (!jobRecord) {
+      console.log('❌ Job posting not found:', job_posting_id);
       return res.status(404).json({
         success: false,
         message: 'Job posting not found'
@@ -70,6 +79,7 @@ exports.saveJob = async (req, res) => {
     });
 
     if (savedJob) {
+      console.log('ℹ️ Job already saved');
       return res.status(200).json({
         success: true,
         message: 'Job already saved',
@@ -78,11 +88,13 @@ exports.saveJob = async (req, res) => {
     }
 
     // Create new saved job record
+    console.log('💾 Creating new saved job record...');
     savedJob = await SavedJob.create({
       employee_id,
       job_posting_id,
       saved_at: new Date()
     });
+    console.log('✅ Saved job created successfully:', savedJob.id);
 
     res.status(200).json({
       success: true,
@@ -90,7 +102,13 @@ exports.saveJob = async (req, res) => {
       data: savedJob
     });
   } catch (error) {
-    console.error('Error saving job:', error);
+    console.error('❌ Error saving job:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      sql: error.sql,
+      parameters: error.parameters
+    });
     res.status(500).json({
       success: false,
       message: 'Failed to save job',
@@ -143,8 +161,14 @@ exports.unsaveJob = async (req, res) => {
 exports.applyToJob = async (req, res) => {
   try {
     const { employee_id, job_posting_id } = req.body;
+    
+    console.log('📥 applyToJob request received:', { employee_id, job_posting_id });
+    console.log('🔑 Auth header present:', !!req.headers.authorization);
+    console.log('👤 Decoded user:', req.user ? { sub: req.user.sub, email: req.user.email } : 'none');
+    console.log('🌍 DEMO_MODE:', process.env.DEMO_MODE);
 
     if (!employee_id || !job_posting_id) {
+      console.log('❌ Missing required fields');
       return res.status(400).json({
         success: false,
         message: 'Employee ID and Job Posting ID are required'
@@ -152,8 +176,10 @@ exports.applyToJob = async (req, res) => {
     }
 
     const employee = await Employee.findByPk(employee_id);
+    console.log('📋 Employee found:', !!employee, employee?.wallet_address ? `wallet: ${employee.wallet_address.substring(0, 10)}...` : '');
 
     if (!employee) {
+      console.log('❌ Employee not found:', employee_id);
       return res.status(404).json({
         success: false,
         message: 'Employee profile not found'
@@ -200,6 +226,7 @@ exports.applyToJob = async (req, res) => {
 
     // Check if job is closed
     if (jobRecord.status === 'closed') {
+      console.log('❌ Job is closed');
       return res.status(400).json({
         success: false,
         message: 'Applications are closed for this job'
@@ -215,6 +242,7 @@ exports.applyToJob = async (req, res) => {
     });
 
     if (application) {
+      console.log('ℹ️ Already applied to this job');
       return res.status(400).json({
         success: false,
         message: 'You have already applied to this job'
@@ -222,12 +250,14 @@ exports.applyToJob = async (req, res) => {
     }
 
     // Create application
+    console.log('💾 Creating new job application...');
     application = await JobApplication.create({
       employee_id,
       job_posting_id,
       application_status: 'pending',
       applied_at: new Date()
     });
+    console.log('✅ Job application created successfully:', application.id);
 
     // Remove from saved jobs if it was saved
     await SavedJob.destroy({
@@ -243,7 +273,13 @@ exports.applyToJob = async (req, res) => {
       data: application
     });
   } catch (error) {
-    console.error('Error applying to job:', error);
+    console.error('❌ Error applying to job:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      sql: error.sql,
+      parameters: error.parameters
+    });
     res.status(500).json({
       success: false,
       message: 'Failed to apply to job',
