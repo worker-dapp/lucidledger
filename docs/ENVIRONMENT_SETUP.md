@@ -8,6 +8,7 @@ Create `client/.env` with:
 # Development environment
 VITE_API_BASE_URL=http://localhost:5001/api
 VITE_DYNAMIC_ENV_ID=your_dynamic_env_id_here
+VITE_DEMO_MODE=true
 NODE_ENV=development
 ```
 
@@ -45,6 +46,7 @@ Create `client/.env` on production server:
 ```bash
 VITE_API_BASE_URL=https://lucidledger.co/api
 VITE_DYNAMIC_ENV_ID=your_production_dynamic_env_id
+VITE_DEMO_MODE=true
 NODE_ENV=production
 ```
 
@@ -99,6 +101,7 @@ docker-compose -f docker-compose.prod.yml up -d --build
 |----------|-------------|------------|-------------|
 | `VITE_API_BASE_URL` | `http://localhost:5001/api` | `https://lucidledger.co/api` | Frontend API endpoint |
 | `VITE_DYNAMIC_ENV_ID` | Your dev env ID | Your prod env ID | Dynamic Labs environment ID |
+| `VITE_DEMO_MODE` | `true` | `true` | Shows demo mode banners and warnings |
 | `NODE_ENV` | `development` | `production` | Node environment |
 | `DB_HOST` | `localhost` | Production DB host | Database host |
 | `CORS_ORIGIN` | `http://localhost:5173` | `https://lucidledger.co` | Allowed CORS origins |

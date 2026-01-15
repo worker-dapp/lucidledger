@@ -28,6 +28,7 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
         VITE_DYNAMIC_ENV_ID: ${VITE_DYNAMIC_ENV_ID}
+        VITE_DEMO_MODE: ${VITE_DEMO_MODE}
     container_name: lucidledger-frontend
     env_file:
       - ./client/.env
