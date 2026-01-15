@@ -50,6 +50,7 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
+      - DEMO_MODE=${DEMO_MODE}
 
   certbot:
     image: certbot/certbot

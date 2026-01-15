@@ -25,6 +25,7 @@ DB_PASSWORD=your_db_password
 # Server Configuration
 PORT=5001
 NODE_ENV=development
+DEMO_MODE=true
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:5173
@@ -60,6 +61,7 @@ DB_PASSWORD=your_production_db_password
 
 PORT=5001
 NODE_ENV=production
+DEMO_MODE=true
 
 CORS_ORIGIN=https://lucidledger.co
 ```
@@ -101,7 +103,8 @@ docker-compose -f docker-compose.prod.yml up -d --build
 |----------|-------------|------------|-------------|
 | `VITE_API_BASE_URL` | `http://localhost:5001/api` | `https://lucidledger.co/api` | Frontend API endpoint |
 | `VITE_DYNAMIC_ENV_ID` | Your dev env ID | Your prod env ID | Dynamic Labs environment ID |
-| `VITE_DEMO_MODE` | `true` | `true` | Shows demo mode banners and warnings |
+| `VITE_DEMO_MODE` | `true` | `true` | Shows demo mode banners and warnings (frontend) |
+| `DEMO_MODE` | `true` | `true` | Allows self-dealing for testing (backend) |
 | `NODE_ENV` | `development` | `production` | Node environment |
 | `DB_HOST` | `localhost` | Production DB host | Database host |
 | `CORS_ORIGIN` | `http://localhost:5173` | `https://lucidledger.co` | Allowed CORS origins |

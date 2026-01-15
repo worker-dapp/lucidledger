@@ -170,6 +170,7 @@ jobs:
         export VITE_API_BASE_URL="https://$DOMAIN/api"
         export VITE_DYNAMIC_ENV_ID="bb03ee6d-6f22-4d73-b630-439914bf6b18"
         export VITE_DEMO_MODE="true"
+        export DEMO_MODE="true"
         # Enable BuildKit for faster builds with cache mounts
         export DOCKER_BUILDKIT=1
         export COMPOSE_DOCKER_CLI_BUILD=1
