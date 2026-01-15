@@ -109,7 +109,8 @@ async function runMigrationsOnStartup() {
       '002-create-job-postings.sql',
       '003-update-job-applications.sql',
       '004-update-saved-jobs.sql',
-      '005-remove-old-jobs-table.sql'
+      '005-remove-old-jobs-table.sql',
+      '006-make-job-id-nullable.sql'
     ];
 
     for (const file of migrationFiles) {
