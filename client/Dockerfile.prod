@@ -19,10 +19,12 @@ COPY . .
 # Accept build arguments
 ARG VITE_API_BASE_URL
 ARG VITE_DYNAMIC_ENV_ID
+ARG VITE_DEMO_MODE
 
 # Set environment variables for build
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_DYNAMIC_ENV_ID=$VITE_DYNAMIC_ENV_ID
+ENV VITE_DEMO_MODE=$VITE_DEMO_MODE
 
 # Increase Node.js heap size for build
 ENV NODE_OPTIONS="--max-old-space-size=1536"
