@@ -25,8 +25,8 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
     notificationEmail: "",
     JobType: "",
     jobPay: "",
-    currency: "USD",
-    payFrequency: "month",
+    currency: "",
+    payFrequency: "",
     additionalCompensation: "",
     employeeBenefits: "",
     summary: "",
@@ -39,8 +39,9 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
   });
 
   // Template options
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(true);
   const [templateName, setTemplateName] = useState("");
+  const [templateNameTouched, setTemplateNameTouched] = useState(false);
   const [positionsCount, setPositionsCount] = useState(1);
 
   const handleChange = (e) => {
@@ -53,22 +54,33 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
 
   // Auto-fill template name from job title
   useEffect(() => {
-    if (saveAsTemplate && formData.jobTitle && !templateName) {
+    if (saveAsTemplate && formData.jobTitle && !templateNameTouched) {
       setTemplateName(formData.jobTitle);
     }
-  }, [saveAsTemplate, formData.jobTitle, templateName]);
+  }, [saveAsTemplate, formData.jobTitle, templateNameTouched]);
 
   // Validation functions
   const validateStep1 = () => {
-    return formData.companyName && formData.jobTitle;
+    return (
+      formData.jobTitle &&
+      formData.jobLocationType &&
+      formData.jobLocation &&
+      formData.companyName &&
+      formData.notificationEmail
+    );
   };
 
   const validateStep2 = () => {
-    return formData.jobLocationType && formData.jobLocation;
+    return (
+      formData.JobType &&
+      formData.jobPay &&
+      formData.currency &&
+      formData.payFrequency
+    );
   };
 
   const validateStep3 = () => {
-    return formData.JobType && formData.jobPay;
+    return formData.summary && formData.summary.length >= 100;
   };
 
   const validateStep4 = () => {
@@ -89,8 +101,8 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
     return true;
   };
 
-  const canProceedToNext = () => {
-    switch (step) {
+  const isStepValid = (stepIndex) => {
+    switch (stepIndex) {
       case 1: return validateStep1();
       case 2: return validateStep2();
       case 3: return validateStep3();
@@ -101,10 +113,42 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
     }
   };
 
-  const handleNext = () => {
-    if (step < totalSteps && canProceedToNext()) {
-      setStep(step + 1);
+  const getFirstInvalidStep = (maxStep) => {
+    for (let i = 1; i <= maxStep; i += 1) {
+      if (!isStepValid(i)) {
+        return i;
+      }
     }
+    return null;
+  };
+
+  const canProceedToNext = () => getFirstInvalidStep(step) === null;
+
+  const handleNext = () => {
+    if (step >= totalSteps) return;
+
+    const firstInvalidStep = getFirstInvalidStep(step);
+    if (firstInvalidStep !== null) {
+      setStep(firstInvalidStep);
+      return;
+    }
+
+    setStep(step + 1);
+  };
+
+  const handleStepClick = (stepNum) => {
+    if (stepNum <= step) {
+      setStep(stepNum);
+      return;
+    }
+
+    const firstInvalidStep = getFirstInvalidStep(stepNum - 1);
+    if (firstInvalidStep !== null) {
+      setStep(firstInvalidStep);
+      return;
+    }
+
+    setStep(stepNum);
   };
 
   const handleBack = () => {
@@ -256,6 +300,31 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
     const employeeBenefitsList = formData.employeeBenefits
       ? formData.employeeBenefits.split(",").filter(Boolean)
       : [];
+    const oracleLabels = {
+      manual: "Manual Verification",
+      "time-clock": "Badge Scan",
+      "ble-beacon": "Bluetooth Beacon",
+      gps: "GPS",
+      weight: "Scale/Weight",
+      image: "Image"
+    };
+    const selectedOraclesList = Array.isArray(formData.selectedOracles)
+      ? formData.selectedOracles
+      : (formData.selectedOracles || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+    const selectedOracleLabels = selectedOraclesList
+      .map((key) => oracleLabels[key] || key)
+      .filter(Boolean);
+    const skillsList = (formData.skills || "")
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const responsibilitiesList = (formData.responsiblities || "")
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
     return (
       <div className="bg-white rounded-lg p-6">
@@ -295,7 +364,17 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
               </div>
               <div>
                 <h3 className="font-semibold text-[#EE964B] text-sm">Verification Method</h3>
-                <p className="text-gray-700">{formData.selectedOracles || "Not specified"}</p>
+                {selectedOracleLabels.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedOracleLabels.map((label) => (
+                      <span key={label} className="inline-block bg-gray-100 px-2 py-1 rounded text-sm">
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-700">Not specified</p>
+                )}
               </div>
               {additionalCompList.length > 0 && (
                 <div>
@@ -329,11 +408,27 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
             <div className="space-y-3">
               <div>
                 <h3 className="font-semibold text-[#EE964B] text-sm">Skills Required</h3>
-                <p className="text-gray-700 text-sm">{formData.skills || "Not specified"}</p>
+                {skillsList.length > 0 ? (
+                  <ul className="text-gray-700 text-sm list-disc list-inside space-y-1">
+                    {skillsList.map((skill) => (
+                      <li key={skill}>{skill}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-700 text-sm">Not specified</p>
+                )}
               </div>
               <div>
                 <h3 className="font-semibold text-[#EE964B] text-sm">Responsibilities</h3>
-                <p className="text-gray-700 text-sm">{formData.responsiblities || "Not specified"}</p>
+                {responsibilitiesList.length > 0 ? (
+                  <ul className="text-gray-700 text-sm list-disc list-inside space-y-1">
+                    {responsibilitiesList.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-700 text-sm">Not specified</p>
+                )}
               </div>
             </div>
           </div>
@@ -345,12 +440,12 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
-              checked={saveAsTemplate}
-              onChange={(e) => setSaveAsTemplate(e.target.checked)}
+              checked={!saveAsTemplate}
+              onChange={(e) => setSaveAsTemplate(!e.target.checked)}
               className="w-4 h-4 text-[#EE964B] border-gray-300 rounded focus:ring-[#EE964B]"
             />
             <span className="text-gray-700 font-medium">
-              Save this contract as a reusable template
+              One-time posting (do not save to template library)
             </span>
           </label>
 
@@ -362,7 +457,10 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
               <input
                 type="text"
                 value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
+                onChange={(e) => {
+                  setTemplateName(e.target.value);
+                  setTemplateNameTouched(true);
+                }}
                 placeholder="e.g., Sewing Operator, Quality Inspector"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] focus:border-transparent"
               />
@@ -374,7 +472,7 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
 
           {!saveAsTemplate && (
             <p className="text-sm text-gray-600 mt-2">
-              This will be a one-time job posting (not saved as a template)
+              This posting will not be saved for reuse in the template library
             </p>
           )}
         </div>
@@ -420,7 +518,7 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       {/* Step Indicator */}
       <StepIndicator
         currentStep={step}
-        onStepClick={setStep}
+        onStepClick={handleStepClick}
         totalSteps={totalSteps}
       />
 

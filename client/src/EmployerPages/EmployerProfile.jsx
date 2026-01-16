@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import img from "../assets/profile.webp";
-import EmployerNavbar from "../components/EmployerNavbar";
+import EmployerLayout from "../components/EmployerLayout";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import apiService from '../services/api';
 
@@ -231,9 +231,8 @@ const EmployerProfile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <EmployerNavbar />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <EmployerLayout>
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
@@ -241,15 +240,13 @@ const EmployerProfile = () => {
             </div>
           </div>
         </div>
-      </div>
+      </EmployerLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <EmployerNavbar />
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <EmployerLayout>
+      <div className="max-w-5xl mx-auto">
         {/* Header: Avatar + Name */}
         <div className="flex items-center gap-6 mb-8">
           <img
@@ -630,7 +627,7 @@ const EmployerProfile = () => {
           <div className="mt-6 text-sm text-green-600">{message}</div>
         )}
       </div>
-    </div>
+    </EmployerLayout>
   );
 };
 

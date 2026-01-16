@@ -7,7 +7,7 @@ import EmploymentType from "../Form/EmploymentType";
 import Responsibilities from "../Form/Responsibilities";
 import TheJob from "../Form/TheJob";
 import ContractFactory from "../Form/ContractFactory";
-import EmployerNavbar from "../components/EmployerNavbar";
+import EmployerLayout from "../components/EmployerLayout";
 import Oracles from "../Form/Oracles";
 import { SubmitJob } from "../components/SubmitJob";
 import apiService from "../services/api";
@@ -184,9 +184,8 @@ export default function Job() {
   };
 
   return (
-    <>
-    <EmployerNavbar />
-    <div className="w-2/3 mx-auto m-10 p-10 bg-white rounded shadow-md">
+    <EmployerLayout>
+    <div className="max-w-4xl mx-auto p-10 bg-white rounded shadow-md">
       <StepIndicator
         currentStep={step}
         onStepClick={setStep}
@@ -237,6 +236,6 @@ export default function Job() {
         </div>
       </div>
     </div>
-    </>
+    </EmployerLayout>
   );
 }

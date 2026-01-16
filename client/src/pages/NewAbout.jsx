@@ -197,9 +197,9 @@ const AboutPage = () => {
                     <rect x="420" y="140" width="130" height="40" fill="#E2E8F0" stroke="#4A5568" strokeWidth="2" rx="5"/>
                     <text x="485" y="165" textAnchor="middle" fill="#2D3748" fontSize="13">Worker Landing</text>
                     
-                    {/* Contract Factory */}
+                    {/* Recruitment Hub */}
                     <rect x="200" y="200" width="150" height="40" fill="#C3DAFE" stroke="#4A5568" strokeWidth="2" rx="5"/>
-                    <text x="275" y="225" textAnchor="middle" fill="#2D3748" fontSize="13" fontWeight="bold">Contract Factory</text>
+                    <text x="275" y="225" textAnchor="middle" fill="#2D3748" fontSize="13" fontWeight="bold">Recruitment Hub</text>
                     
                     {/* Job Posting */}
                     <rect x="380" y="280" width="120" height="40" fill="#C6F6D5" stroke="#4A5568" strokeWidth="2" rx="5"/>

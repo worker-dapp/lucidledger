@@ -76,7 +76,18 @@ const EmployerNavbar = () => {
               }`
             }>
             <span>🏭</span>
-            Contract Factory
+            Recruitment Hub
+          </NavLink>
+
+          <NavLink
+            to="/workforce"
+            className={({ isActive }) =>
+              `transition-all font-medium flex items-center gap-2 px-3 py-2 rounded ${
+                isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
+              }`
+            }>
+            <span>👥</span>
+            Workforce
           </NavLink>
 
           <NavLink
@@ -189,7 +200,18 @@ const EmployerNavbar = () => {
                     isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
                   }`
                 }>
-                🏭 Contract Factory
+                🏭 Recruitment Hub
+              </NavLink>
+
+              <NavLink
+                to="/workforce"
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
+                    isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
+                  }`
+                }>
+                👥 Workforce
               </NavLink>
 
               <NavLink

@@ -4,35 +4,41 @@ export default function OracleConfiguration({ formData, handleChange }) {
   const [selectedOracles, setSelectedOracles] = useState(formData.selectedOracles || []);
 
   const oracleOptions = {
-    gps: {
-      name: "GPS Oracle",
-      description: "Location-based work verification",
-      suitableFor: ["time-based", "milestone"],
-      features: ["Location tracking", "Attendance verification", "Route validation"]
-    },
-    image: {
-      name: "Image Oracle",
-      description: "Photo evidence for work completion",
-      suitableFor: ["piece-rate", "milestone", "volume"],
-      features: ["Photo verification", "Quality assessment", "Progress tracking"]
-    },
-    weight: {
-      name: "Weight Oracle",
-      description: "Quantity/weight-based verification",
-      suitableFor: ["volume", "piece-rate"],
-      features: ["Weight measurement", "Quantity counting", "Volume calculation"]
-    },
-    "time-clock": {
-      name: "Time Clock Oracle",
-      description: "Automated time tracking",
-      suitableFor: ["time-based"],
-      features: ["Clock in/out", "Break tracking", "Overtime calculation"]
-    },
     manual: {
       name: "Manual Verification",
       description: "Human supervisor verification",
       suitableFor: ["all"],
       features: ["Supervisor approval", "Quality control", "Custom verification"]
+    },
+    "time-clock": {
+      name: "Badge Scan",
+      description: "Badge-based clock in/out at a terminal",
+      suitableFor: ["time-based"],
+      features: ["Clock in/out", "Break tracking", "Overtime calculation"]
+    },
+    "ble-beacon": {
+      name: "Bluetooth Beacon",
+      description: "Proximity-based verification using Bluetooth beacons",
+      suitableFor: ["time-based", "milestone"],
+      features: ["On-site proximity", "Low-power tracking", "Geofenced presence"]
+    },
+    gps: {
+      name: "GPS",
+      description: "Location-based work verification",
+      suitableFor: ["time-based", "milestone"],
+      features: ["Location tracking", "Attendance verification", "Route validation"]
+    },
+    weight: {
+      name: "Scale/Weight",
+      description: "Quantity/weight-based verification",
+      suitableFor: ["volume", "piece-rate"],
+      features: ["Weight measurement", "Quantity counting", "Volume calculation"]
+    },
+    image: {
+      name: "Image",
+      description: "Photo evidence for work completion",
+      suitableFor: ["piece-rate", "milestone", "volume"],
+      features: ["Photo verification", "Quality assessment", "Progress tracking"]
     }
   };
 
@@ -57,7 +63,7 @@ export default function OracleConfiguration({ formData, handleChange }) {
       <div>
         <h2 className="text-xl font-semibold mb-2">Work Verification Setup</h2>
         <p className="text-gray-600 mb-4">
-          Choose how work will be verified and payments will be calculated. Different verification methods have different accuracy levels.
+          Choose manual verification or one or more oracle-based methods for work verification and payment calculation.
         </p>
       </div>
 
