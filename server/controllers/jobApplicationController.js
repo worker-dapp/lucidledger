@@ -1,4 +1,5 @@
 const { JobApplication, SavedJob, JobPosting, Employee, Employer } = require('../models');
+const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 // Save a job
@@ -351,7 +352,7 @@ exports.getAppliedJobs = async (req, res) => {
 // Update application status (for employers)
 exports.updateApplicationStatus = async (req, res) => {
   try {
-    const { application_id } = req.params;
+    const { applicationId } = req.params;
     const { status } = req.body;
 
     if (!status) {
@@ -361,7 +362,7 @@ exports.updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await JobApplication.findByPk(application_id);
+    const application = await JobApplication.findByPk(applicationId);
 
     if (!application) {
       return res.status(404).json({
@@ -370,7 +371,15 @@ exports.updateApplicationStatus = async (req, res) => {
       });
     }
 
-    application.application_status = status;
+    const updates = { application_status: status };
+    if (status === 'accepted') {
+      updates.offer_sent_at = new Date();
+    }
+    if (status === 'signed') {
+      updates.offer_accepted_at = new Date();
+    }
+
+    application.set(updates);
     await application.save();
 
     res.status(200).json({
@@ -383,6 +392,99 @@ exports.updateApplicationStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error updating application status',
+      error: error.message
+    });
+  }
+};
+
+// Get applications for an employer (filterable)
+exports.getApplicationsByEmployer = async (req, res) => {
+  try {
+    const { employer_id } = req.params;
+    const { status, job_posting_id } = req.query;
+
+    const applicationWhere = {};
+    if (status) {
+      if (status === 'pending') {
+        applicationWhere.application_status = {
+          [Op.or]: [{ [Op.is]: null }, 'pending']
+        };
+      } else {
+        applicationWhere.application_status = status;
+      }
+    }
+    if (job_posting_id) {
+      applicationWhere.job_posting_id = job_posting_id;
+    }
+
+    const applications = await JobApplication.findAll({
+      where: applicationWhere,
+      include: [
+        {
+          model: JobPosting,
+          as: 'job',
+          where: { employer_id },
+          required: true
+        },
+        {
+          model: Employee,
+          as: 'employee'
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: applications,
+      count: applications.length
+    });
+  } catch (error) {
+    console.error('Error fetching applications by employer:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching applications',
+      error: error.message
+    });
+  }
+};
+
+// Bulk update application status (accept/reject)
+exports.bulkUpdateApplicationStatus = async (req, res) => {
+  try {
+    const { application_ids, status } = req.body;
+
+    if (!Array.isArray(application_ids) || application_ids.length === 0 || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'application_ids array and status are required'
+      });
+    }
+
+    const updates = { application_status: status };
+    if (status === 'accepted') {
+      updates.offer_sent_at = new Date();
+    }
+    if (status === 'signed') {
+      updates.offer_accepted_at = new Date();
+    }
+
+    const [updatedCount] = await JobApplication.update(updates, {
+      where: {
+        id: application_ids
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Applications updated successfully',
+      updated: updatedCount
+    });
+  } catch (error) {
+    console.error('Error bulk updating applications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating applications',
       error: error.message
     });
   }

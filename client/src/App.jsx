@@ -5,7 +5,7 @@ import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
 import EmployerLandingPage from "./pages/EmployerLandingPage";
 import AboutPage from "./pages/NewAbout";
-import EmployerDashboard from "./EmployerPages/EmployerDashboard";
+import WorkforceDashboard from "./EmployerPages/WorkforceDashboard";
 import Dispute from "./EmployerPages/Dispute";
 import JobDetails from "./pages/JobDetails";
 import EmployerProfile from "./EmployerPages/EmployerProfile";
@@ -293,7 +293,7 @@ const AppContent = () => {
             localStorage.removeItem('pendingRole');
 
             if (intendedRole === 'employer') {
-              navigate('/employerDashboard', { replace: true });
+              navigate('/contract-factory', { replace: true });
             } else {
               // Employee - check for pending action first
               const pendingAction = localStorage.getItem('pendingAction');
@@ -470,21 +470,22 @@ const App = () => {
           } />
 
           {/* Employer Routes */}
-          <Route path="/employerDashboard" element={
-            <ProtectedRoute>
-              <EmployerDashboard />
-            </ProtectedRoute>
-          } />
+          <Route path="/employerDashboard" element={<Navigate to="/contract-factory" replace />} />
           <Route path="/employer-profile" element={
             <ProtectedRoute>
               <EmployerProfile />
             </ProtectedRoute>
           } />
-          {/* Redirect old job posting route to Contract Factory */}
+          {/* Redirect old job posting route to Recruitment Hub */}
           <Route path="/job" element={<Navigate to="/contract-factory" replace />} />
           <Route path="/contract-factory" element={
             <ProtectedRoute>
               <ContractFactory />
+            </ProtectedRoute>
+          } />
+          <Route path="/workforce" element={
+            <ProtectedRoute>
+              <WorkforceDashboard />
             </ProtectedRoute>
           } />
           <Route path="/review-completed-contracts" element={

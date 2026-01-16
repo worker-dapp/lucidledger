@@ -640,7 +640,7 @@ const UserProfile = () => {
 
       setSubmitted(true);
       // Employees go to landing page, employers go to dashboard
-      navigate(role === 'employer' ? '/employerDashboard' : '/', { replace: true });
+      navigate(role === 'employer' ? '/contract-factory' : '/', { replace: true });
     } catch (error) {
       console.error('Error updating profile:', error);
       setErrors({ submit: 'Failed to update profile. Please try again.' });
@@ -1029,5 +1029,4 @@ const UserProfile = () => {
 };
 
 export default UserProfile;
-
 

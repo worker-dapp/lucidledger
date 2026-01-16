@@ -81,7 +81,7 @@ const Navbar = () => {
               onClick={handleNavClick}
             >
               <span>🔍</span>
-              Browse Jobs
+              Job Search
             </NavLink>
 
             <NavLink
@@ -177,7 +177,7 @@ const Navbar = () => {
                 }`
               }
             >
-              🔍 Browse Jobs
+              🔍 Job Search
             </NavLink>
 
             <NavLink

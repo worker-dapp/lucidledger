@@ -1,4 +1,4 @@
-const { JobPosting, ContractTemplate, Employer } = require('../models');
+const { sequelize, JobPosting, ContractTemplate, Employer, JobApplication } = require('../models');
 const { Op } = require('sequelize');
 
 class JobPostingController {
@@ -96,6 +96,32 @@ class JobPostingController {
 
       const jobPostings = await JobPosting.findAll({
         where: whereClause,
+        attributes: {
+          include: [
+            [sequelize.fn('COUNT', sequelize.col('applications.id')), 'application_count'],
+            [
+              sequelize.literal(
+                "(SELECT COUNT(*) FROM deployed_contracts dc WHERE dc.job_posting_id = \"JobPosting\".\"id\")"
+              ),
+              'accepted_count'
+            ],
+            [
+              sequelize.literal(
+                "(SELECT COUNT(*) FROM deployed_contracts dc WHERE dc.job_posting_id = \"JobPosting\".\"id\")"
+              ),
+              'positions_filled'
+            ]
+          ]
+        },
+        include: [
+          {
+            model: JobApplication,
+            as: 'applications',
+            attributes: [],
+            required: false
+          }
+        ],
+        group: ['JobPosting.id'],
         order: [['created_at', 'DESC']]
       });
 
