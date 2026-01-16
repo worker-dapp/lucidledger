@@ -213,6 +213,67 @@ class ApiService {
     return this.request(`/job-postings/active${params}`);
   }
 
+  // Deployed Contract API methods
+  async createDeployedContract(contractData) {
+    return this.request('/deployed-contracts', {
+      method: 'POST',
+      body: JSON.stringify(contractData),
+    });
+  }
+
+  async getDeployedContracts(employerId, status = null) {
+    const params = status ? `?employer_id=${employerId}&status=${status}` : `?employer_id=${employerId}`;
+    return this.request(`/deployed-contracts${params}`);
+  }
+
+  async getDeployedContractById(id) {
+    return this.request(`/deployed-contracts/${id}`);
+  }
+
+  async getDeployedContractsByEmployee(employeeId, status = null) {
+    const params = status ? `?status=${status}` : '';
+    return this.request(`/deployed-contracts/employee/${employeeId}${params}`);
+  }
+
+  async updateDeployedContractStatus(id, status, updates = {}) {
+    return this.request(`/deployed-contracts/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, ...updates }),
+    });
+  }
+
+  // Oracle Verification API methods
+  async createOracleVerification(verificationData) {
+    return this.request('/oracle-verifications', {
+      method: 'POST',
+      body: JSON.stringify(verificationData),
+    });
+  }
+
+  async getOracleVerifications(contractId) {
+    return this.request(`/oracle-verifications?contract_id=${contractId}`);
+  }
+
+  async getLatestOracleVerifications(contractId) {
+    return this.request(`/oracle-verifications/latest/${contractId}`);
+  }
+
+  // Payment Transaction API methods
+  async createPaymentTransaction(transactionData) {
+    return this.request('/payment-transactions', {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
+  }
+
+  async getPaymentTransactions(contractId) {
+    return this.request(`/payment-transactions?contract_id=${contractId}`);
+  }
+
+  async getPendingPaymentTransactions() {
+    return this.request('/payment-transactions/pending');
+  }
+
   // Legacy Job API methods - DEPRECATED, use Job Posting methods instead
   // Kept temporarily for Phase 3 pages that need updating
 
@@ -250,6 +311,21 @@ class ApiService {
     return this.request(`/job-applications/${applicationId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  }
+
+  async getApplicationsByEmployer(employerId, status = null, jobPostingId = null) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (jobPostingId) params.set('job_posting_id', jobPostingId);
+    const query = params.toString();
+    return this.request(`/job-applications/employer/${employerId}${query ? `?${query}` : ''}`);
+  }
+
+  async bulkUpdateApplicationStatus(applicationIds, status) {
+    return this.request('/job-applications/bulk-status', {
+      method: 'POST',
+      body: JSON.stringify({ application_ids: applicationIds, status }),
     });
   }
 

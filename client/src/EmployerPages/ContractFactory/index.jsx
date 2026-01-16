@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import EmployerNavbar from "../../components/EmployerNavbar";
+import EmployerLayout from "../../components/EmployerLayout";
 import apiService from "../../services/api";
 import ContractLibrary from "./ContractLibrary";
 import PostedJobsTab from "./PostedJobsTab";
@@ -67,32 +67,19 @@ const ContractFactory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <EmployerNavbar />
+      <EmployerLayout>
         <div className="flex items-center justify-center h-96">
           <div className="text-gray-600">Loading...</div>
         </div>
-      </div>
+      </EmployerLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <EmployerNavbar />
-
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#0D3B66] mb-2">
-            Contract Factory & Recruitment Hub
-          </h1>
-          <p className="text-gray-600">
-            Create job contracts and manage bulk recruitment campaigns
-          </p>
-        </div>
-
+    <EmployerLayout>
+      <main className="container mx-auto">
         {/* Tab Navigation */}
-        <div className="mb-6">
+        <div className="mb-6 mt-2">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
               {tabs.map(({ id, label, icon: Icon, description }) => (
@@ -136,7 +123,7 @@ const ContractFactory = () => {
           {activeTab === "deployment" && <AwaitingDeploymentTab employerId={employerId} />}
         </div>
       </main>
-    </div>
+    </EmployerLayout>
   );
 };
 

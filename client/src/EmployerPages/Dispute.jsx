@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import EmployerNavbar from "../components/EmployerNavbar";
+import EmployerLayout from "../components/EmployerLayout";
 
 const disputes = [
   { id: "11111", issue: "It is a long established fact that a reader will." },
@@ -19,9 +19,8 @@ const Dispute = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] pb-20">
-      <EmployerNavbar />
-      <div className="w-1/2 mx-auto pt-10">
+    <EmployerLayout>
+      <div className="max-w-3xl mx-auto">
         <input
           type="text"
           placeholder="Search disputes..."
@@ -33,7 +32,8 @@ const Dispute = () => {
           {filteredDisputes.map((dispute) => (
             <div
               key={dispute.id}
-              className="p-5 rounded-2xl shadow-2xl border border-gray-100 bg-white/80 backdrop-blur-lg">
+              className="p-5 rounded-2xl shadow-2xl border border-gray-100 bg-white/80 backdrop-blur-lg"
+            >
               <h3 className="text-xl font-semibold">
                 Dispute ID: {dispute.id}
               </h3>
@@ -41,12 +41,14 @@ const Dispute = () => {
               <div className="mt-3 flex space-x-4">
                 <button
                   onClick={() => alert(`Resolving dispute ${dispute.id}`)}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer">
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer"
+                >
                   Resolve
                 </button>
                 <button
                   onClick={() => alert(`Escalating dispute ${dispute.id}`)}
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 cursor-pointer">
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 cursor-pointer"
+                >
                   Escalate
                 </button>
               </div>
@@ -54,7 +56,7 @@ const Dispute = () => {
           ))}
         </div>
       </div>
-    </div>
+    </EmployerLayout>
   );
 };
 
