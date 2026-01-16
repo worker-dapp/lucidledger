@@ -16,12 +16,14 @@ const EmployeeJobsPage = () => {
   const [error, setError] = useState(null);
   const [searchParams] = useSearchParams();
   const [showJobModal, setShowJobModal] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'results'
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'offers'
   const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
   const [employeeData, setEmployeeData] = useState(null); // Store employee data from API
+  const [employeeLoaded, setEmployeeLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
+  const [offersCount, setOffersCount] = useState(0);
 
   // Demo mode detection
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -32,10 +34,12 @@ const EmployeeJobsPage = () => {
     const fetchEmployeeData = async () => {
       if (!user) {
         console.log('No user logged in');
+        setEmployeeLoaded(true);
         return;
       }
 
       try {
+        setEmployeeLoaded(false);
         // Try to get employee by email first (primary method)
         if (user.email) {
           const response = await apiService.getEmployeeByEmail(user.email);
@@ -53,6 +57,8 @@ const EmployeeJobsPage = () => {
       } catch (error) {
         console.error('Error fetching employee data:', error);
         console.error('User object:', user);
+      } finally {
+        setEmployeeLoaded(true);
       }
     };
 
@@ -61,13 +67,44 @@ const EmployeeJobsPage = () => {
 
   // Fetch jobs when employee data is loaded or filter changes
   useEffect(() => {
+    if (!employeeLoaded) {
+      return;
+    }
+
+    if (user && !employeeData) {
+      return;
+    }
+
     if (employeeData) {
       fetchJobs(employeeData.id);
     } else {
       // Load jobs without employee context if not logged in
       fetchJobs(null);
     }
-  }, [employeeData, activeFilter]);
+  }, [employeeData, activeFilter, employeeLoaded, user]);
+
+  useEffect(() => {
+    const fetchOffersCount = async () => {
+      if (!employeeData?.id) {
+        setOffersCount(0);
+        return;
+      }
+
+      try {
+        const response = await apiService.getAppliedJobs(employeeData.id);
+        const data = response.data || [];
+        const count = data.filter(app =>
+          app.application_status === 'accepted'
+        ).length;
+        setOffersCount(count);
+      } catch (err) {
+        console.error('Error fetching offers count:', err);
+        setOffersCount(0);
+      }
+    };
+
+    fetchOffersCount();
+  }, [employeeData]);
 
   // Handle search query from URL
   useEffect(() => {
@@ -129,7 +166,8 @@ const EmployeeJobsPage = () => {
         data = data.map(app => ({
           ...app.job,
           is_saved: true,
-          application_status: app.application_status
+          application_status: app.application_status,
+          application_id: app.id
         }));
       } else if (activeFilter === 'applied' && employeeId) {
         // Get only applied jobs for this employee
@@ -139,25 +177,28 @@ const EmployeeJobsPage = () => {
         data = data.map(app => ({
           ...app.job,
           is_saved: app.is_saved,
-          application_status: app.application_status
+          application_status: app.application_status,
+          application_id: app.id
         }));
-      } else if (activeFilter === 'results' && employeeId) {
-        // Get accepted and rejected jobs for this employee
+      } else if (activeFilter === 'offers' && employeeId) {
+        // Get accepted offers for this employee
         const response = await apiService.getAppliedJobs(employeeId);
         data = response.data || [];
-        // Filter for accepted or rejected status
+        // Filter for accepted status
         data = data
-          .filter(app => app.application_status === 'accepted' || app.application_status === 'rejected')
+          .filter(app => app.application_status === 'accepted')
           .map(app => ({
             ...app.job,
             is_saved: app.is_saved,
-            application_status: app.application_status
+            application_status: app.application_status,
+            application_id: app.id
           }));
       }
       
-      setJobs(data);
-      if (data && data.length > 0) {
-        setSelectedJob(data[0]);
+      const visibleJobs = (data || []).filter(job => !['signed', 'deployed'].includes(job.application_status));
+      setJobs(visibleJobs);
+      if (visibleJobs.length > 0) {
+        setSelectedJob(visibleJobs[0]);
       } else {
         setSelectedJob(null);
       }
@@ -275,7 +316,7 @@ const EmployeeJobsPage = () => {
     }
 
     // Check if already applied
-    if (job.application_status === 'applied' || job.application_status === 'accepted' || job.application_status === 'rejected') {
+    if (job.application_status === 'pending' || job.application_status === 'applied' || job.application_status === 'accepted' || job.application_status === 'rejected' || job.application_status === 'signed' || job.application_status === 'deployed') {
       alert('You have already applied to this job');
       return;
     }
@@ -288,16 +329,16 @@ const EmployeeJobsPage = () => {
       if (activeFilter === 'saved') {
         await fetchJobs(employeeId);
       }
-      // If on applied or results filter, refetch to update the list
-      else if (activeFilter === 'applied' || activeFilter === 'results') {
+      // If on applied or offers filter, refetch to update the list
+      else if (activeFilter === 'applied' || activeFilter === 'offers') {
         await fetchJobs(employeeId);
       } else {
         // Update local state - mark as applied and unsaved
         setJobs(jobs.map(j => 
-          j.id === job.id ? { ...j, application_status: 'applied', is_saved: false } : j
+          j.id === job.id ? { ...j, application_status: 'pending', is_saved: false } : j
         ));
         if (selectedJob?.id === job.id) {
-          setSelectedJob({ ...selectedJob, application_status: 'applied', is_saved: false });
+          setSelectedJob({ ...selectedJob, application_status: 'pending', is_saved: false });
         }
       }
       
@@ -310,8 +351,23 @@ const EmployeeJobsPage = () => {
     }
   };
 
-  const handleSignContract = () => {
-    alert('Contract signed successfully!');
+  const handleSignContract = async () => {
+    if (!selectedJob?.application_id) {
+      alert('Unable to find the application record for this offer.');
+      return;
+    }
+
+    try {
+      await apiService.updateApplicationStatus(selectedJob.application_id, 'signed');
+      const remainingJobs = jobs.filter(job => job.application_id !== selectedJob.application_id);
+      setJobs(remainingJobs);
+      setSelectedJob(remainingJobs[0] || null);
+      setOffersCount((prev) => Math.max(prev - 1, 0));
+      alert('Offer signed successfully!');
+    } catch (err) {
+      console.error('Error signing offer:', err);
+      alert('Failed to sign the offer. Please try again.');
+    }
   };
 
   // Client-side filtering based on search and filter inputs
@@ -546,14 +602,21 @@ const EmployeeJobsPage = () => {
                     Applied
                   </button>
                   <button
-                    onClick={() => setActiveFilter('results')}
+                    onClick={() => setActiveFilter('offers')}
                     className={`flex-1 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                      activeFilter === 'results'
+                      activeFilter === 'offers'
                         ? 'bg-[#EE964B] text-white shadow-sm'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    Results
+                    <span className="inline-flex items-center gap-2">
+                      Offers
+                      {offersCount > 0 && (
+                        <span className="bg-white text-[#EE964B] px-2 py-0.5 rounded-full text-[10px] font-semibold">
+                          {offersCount}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </>
               )}
@@ -569,6 +632,8 @@ const EmployeeJobsPage = () => {
                     ? 'No jobs match your search criteria'
                     : activeFilter === 'all'
                     ? 'No jobs available at the moment'
+                    : activeFilter === 'offers'
+                    ? 'No offers yet'
                     : `No ${activeFilter} jobs`
                   }
                 </p>
@@ -607,11 +672,15 @@ const EmployeeJobsPage = () => {
                             job.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
                             job.application_status === 'rejected' ? 'bg-red-100 text-red-800' :
                             job.application_status === 'pending' ? 'bg-blue-100 text-blue-800' :
+                            job.application_status === 'signed' ? 'bg-purple-100 text-purple-800' :
+                            job.application_status === 'deployed' ? 'bg-emerald-100 text-emerald-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {job.application_status === 'accepted' ? 'Accepted' :
                              job.application_status === 'rejected' ? 'Rejected' :
                              job.application_status === 'pending' ? 'Applied' :
+                             job.application_status === 'signed' ? 'Signed' :
+                             job.application_status === 'deployed' ? 'Deployed' :
                              job.application_status}
                           </span>
                         )}
@@ -745,8 +814,20 @@ const EmployeeJobsPage = () => {
                       onClick={handleSignContract}
                       className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
                     >
-                      Sign Contract
+                      Review & Sign Offer
                     </button>
+                  ) : selectedJob.application_status === 'signed' ? (
+                    <div className="w-full text-center py-3">
+                      <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-800">
+                        Offer Signed ✓
+                      </span>
+                    </div>
+                  ) : selectedJob.application_status === 'deployed' ? (
+                    <div className="w-full text-center py-3">
+                      <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-emerald-100 text-emerald-800">
+                        Contract Deployed ✓
+                      </span>
+                    </div>
                   ) : selectedJob.application_status === 'pending' || selectedJob.application_status === 'rejected' ? (
                     // Applied or Rejected: Show no buttons, just status message
                     <div className="w-full text-center py-3">
@@ -836,15 +917,19 @@ const EmployeeJobsPage = () => {
                       {selectedJob.status}
                     </span>
                   </div>
-                  {selectedJob.application_status && (selectedJob.application_status === 'accepted' || selectedJob.application_status === 'rejected') && (
+                  {selectedJob.application_status && (selectedJob.application_status === 'accepted' || selectedJob.application_status === 'rejected' || selectedJob.application_status === 'signed' || selectedJob.application_status === 'deployed') && (
                     <div className="mb-2">
                       <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
                         selectedJob.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
                         selectedJob.application_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        selectedJob.application_status === 'signed' ? 'bg-purple-100 text-purple-800' :
+                        selectedJob.application_status === 'deployed' ? 'bg-emerald-100 text-emerald-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {selectedJob.application_status === 'accepted' ? '✓ Accepted' :
                          selectedJob.application_status === 'rejected' ? '✗ Rejected' :
+                         selectedJob.application_status === 'signed' ? '✓ Signed' :
+                         selectedJob.application_status === 'deployed' ? '✓ Deployed' :
                          selectedJob.application_status}
                       </span>
                     </div>
@@ -934,8 +1019,20 @@ const EmployeeJobsPage = () => {
                       onClick={handleSignContract}
                       className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
                     >
-                      Sign Contract
+                      Review & Sign Offer
                     </button>
+                  ) : selectedJob.application_status === 'signed' ? (
+                    <div className="w-full text-center py-3">
+                      <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-800">
+                        Offer Signed ✓
+                      </span>
+                    </div>
+                  ) : selectedJob.application_status === 'deployed' ? (
+                    <div className="w-full text-center py-3">
+                      <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-emerald-100 text-emerald-800">
+                        Contract Deployed ✓
+                      </span>
+                    </div>
                   ) : selectedJob.application_status === 'pending' || selectedJob.application_status === 'rejected' ? (
                     // Applied or Rejected: Show no buttons, just status message
                     <div className="w-full text-center py-3">

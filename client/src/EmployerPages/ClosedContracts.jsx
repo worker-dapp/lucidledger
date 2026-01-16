@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import EmployerNavbar from "../components/EmployerNavbar";
+import EmployerLayout from "../components/EmployerLayout";
 import apiService from '../services/api';
 
 const ClosedContracts = () => {
@@ -131,10 +131,8 @@ const ClosedContracts = () => {
   // RENDER
   // --------------------------------------------------------------------------
   return (
-    <div className="h-screen bg-gray-50 overflow-hidden">
-      <EmployerNavbar />
-      
-      <div className="h-full">
+    <EmployerLayout>
+      <div className="min-h-[600px] bg-gray-50 overflow-hidden">
         {/* TOP BAR */}
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-center items-center border-b border-gray-200">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#0D3B66]">Closed Contracts</h1>
@@ -316,9 +314,8 @@ const ClosedContracts = () => {
           </div>
         </div>
       </div>
-    </div>
+    </EmployerLayout>
   );
 };
 
 export default ClosedContracts;
-

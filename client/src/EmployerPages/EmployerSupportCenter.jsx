@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import EmployerNavbar from "../components/EmployerNavbar";
+import EmployerLayout from "../components/EmployerLayout";
 import Footer from "../components/Footer";
 
 const EmployerSupportCenter = () => {
@@ -36,11 +36,9 @@ const EmployerSupportCenter = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <EmployerNavbar />
-
-      <main className="pt-40 pb-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <EmployerLayout>
+      <main className="pb-12">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-[#0D3B66] mb-3">
@@ -205,7 +203,7 @@ const EmployerSupportCenter = () => {
       </main>
 
       <Footer />
-    </div>
+    </EmployerLayout>
   );
 };
 

@@ -15,6 +15,9 @@ const employerRoutes = require('./routes/employerRoutes');
 const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
 const contractTemplateRoutes = require('./routes/contractTemplateRoutes');
 const jobPostingRoutes = require('./routes/jobPostingRoutes');
+const deployedContractRoutes = require('./routes/deployedContractRoutes');
+const oracleVerificationRoutes = require('./routes/oracleVerificationRoutes');
+const paymentTransactionRoutes = require('./routes/paymentTransactionRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -70,6 +73,9 @@ app.use('/api/employers', employerRoutes);
 app.use('/api/job-applications', jobApplicationRoutes);
 app.use('/api/contract-templates', contractTemplateRoutes);
 app.use('/api/job-postings', jobPostingRoutes);
+app.use('/api/deployed-contracts', deployedContractRoutes);
+app.use('/api/oracle-verifications', oracleVerificationRoutes);
+app.use('/api/payment-transactions', paymentTransactionRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -110,7 +116,10 @@ async function runMigrationsOnStartup() {
       '003-update-job-applications.sql',
       '004-update-saved-jobs.sql',
       '005-remove-old-jobs-table.sql',
-      '006-make-job-id-nullable.sql'
+      '006-make-job-id-nullable.sql',
+      '007-create-deployed-contracts.sql',
+      '008-create-oracle-verifications.sql',
+      '009-create-payment-transactions.sql'
     ];
 
     for (const file of migrationFiles) {

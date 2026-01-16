@@ -14,6 +14,10 @@ router.post('/apply', verifyToken, jobApplicationController.applyToJob);
 router.get('/saved/:employee_id', verifyToken, jobApplicationController.getSavedJobs);
 router.get('/applied/:employee_id', verifyToken, jobApplicationController.getAppliedJobs);
 
+// Employer application review
+router.get('/employer/:employer_id', verifyToken, jobApplicationController.getApplicationsByEmployer);
+router.post('/bulk-status', verifyToken, jobApplicationController.bulkUpdateApplicationStatus);
+
 // Update application status
 router.patch('/:applicationId/status', verifyToken, jobApplicationController.updateApplicationStatus);
 
