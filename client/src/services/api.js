@@ -242,6 +242,30 @@ class ApiService {
     });
   }
 
+  async updateDeployedContract(id, contractData) {
+    return this.request(`/deployed-contracts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(contractData),
+    });
+  }
+
+  async getAllDisputedContracts() {
+    return this.request('/deployed-contracts?status=disputed');
+  }
+
+  async getDisputedContractsByMediator(mediatorId) {
+    return this.request(`/deployed-contracts/mediator/${mediatorId}/disputed`);
+  }
+  async getDisputedContractsForAdmin() {
+    return this.request('/deployed-contracts/disputed');
+  }
+  async assignMediatorToDeployedContract(contractId, mediatorId) {
+    return this.request(`/deployed-contracts/${contractId}/mediator`, {
+      method: 'PATCH',
+      body: JSON.stringify({ mediator_id: mediatorId }),
+    });
+  }
+
   // Oracle Verification API methods
   async createOracleVerification(verificationData) {
     return this.request('/oracle-verifications', {
@@ -326,6 +350,47 @@ class ApiService {
     return this.request('/job-applications/bulk-status', {
       method: 'POST',
       body: JSON.stringify({ application_ids: applicationIds, status }),
+    });
+  }
+
+  // Mediator API methods
+  async checkMediator(email) {
+    return this.request(`/mediators/check/${encodeURIComponent(email)}`);
+  }
+
+  async updateMediatorWallet(email, walletAddress) {
+    return this.request(`/mediators/wallet/${encodeURIComponent(email)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ wallet_address: walletAddress }),
+    });
+  }
+
+  async getActiveMediators() {
+    return this.request('/mediators/active');
+  }
+
+  // Admin-only mediator management
+  async getAllMediators() {
+    return this.request('/mediators');
+  }
+
+  async createMediator(mediatorData) {
+    return this.request('/mediators', {
+      method: 'POST',
+      body: JSON.stringify(mediatorData),
+    });
+  }
+
+  async updateMediator(id, mediatorData) {
+    return this.request(`/mediators/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(mediatorData),
+    });
+  }
+
+  async deleteMediator(id) {
+    return this.request(`/mediators/${id}`, {
+      method: 'DELETE',
     });
   }
 

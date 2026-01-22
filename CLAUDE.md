@@ -58,8 +58,9 @@ This is a job marketplace platform with **two user roles**:
 1. **Dynamic Labs Integration** (NOT traditional JWT)
    - Provider: `<DynamicContextProvider>` in `client/src/App.jsx`
    - Auth methods: Email, phone, or wallet connection
-   - Token: RS256 from Dynamic Labs (decoded, not verified with secret in dev)
-   - Backend middleware: `server/middleware/authMiddleware.js` extracts token from `Authorization: Bearer <token>`
+   - Token: RS256 from Dynamic Labs, verified via JWKS endpoint
+   - Backend middleware: `server/middleware/authMiddleware.js` verifies tokens using Dynamic Labs JWKS
+   - Requires `DYNAMIC_LABS_ENVIRONMENT_ID` env var for secure verification
 
 2. **Post-Auth Profile Check** (in `AppContent` component, `App.jsx:232-309`)
    - Checks if user exists in database by: email → wallet address → phone number
@@ -135,10 +136,10 @@ This is a job marketplace platform with **two user roles**:
 **Self-Dealing Prevention**:
 Backend validates wallet addresses to prevent users from applying to their own jobs:
 - `jobApplicationController.js` compares employee and employer wallet addresses
-- Returns HTTP 403 "Cannot apply to your own jobs" if addresses match
-- **Demo Mode Override**: Set `DEMO_MODE=true` in `server/.env` to allow self-dealing for testing
-- Server logs warnings when demo mode allows self-dealing
-- Frontend shows blue info banner when demo mode is active
+- Returns HTTP 403 "You cannot sign your own contract" if addresses match
+- This check is always enforced (no demo mode bypass) to align with smart contract behavior
+- The smart contract itself (`ManualWorkContract.sol`) enforces `require(_worker != msg.sender)`
+- To test the full workflow, use separate email addresses for employer, worker, and mediator roles
 - See `docs/SMART_CONTRACT_SECURITY.md` for full security details
 
 **Key Endpoints**:
@@ -184,6 +185,49 @@ Employers select during job creation (`client/src/Form/Oracles.jsx`):
 - Manual Verification - Supervisor approval
 
 Selected oracles stored in `job.selected_oracles` as comma-separated string.
+
+### Account Abstraction (Gas-Free Transactions)
+
+The platform uses Coinbase CDP-sponsored Account Abstraction to provide gas-free transactions for all users.
+
+**Architecture**:
+- **Smart Wallets**: Users get smart contract wallets via Dynamic Labs + ZeroDev
+- **Gas Sponsorship**: Coinbase CDP Paymaster pays all transaction fees
+- **Target Chain**: Base Sepolia (84532) for testnet, Base mainnet for production
+
+**Key Files**:
+- `client/src/App.jsx` - Configures `ZeroDevSmartWalletConnectors`
+- `client/src/contracts/aaClient.js` - AA client module with sponsored transaction helpers
+- `client/src/contracts/deployWorkContract.js` - Contract deployment using AA
+- `client/src/contracts/workContractInteractions.js` - Contract interactions using AA
+
+**How Sponsored Transactions Work**:
+```javascript
+import { sendSponsoredTransaction, TxSteps } from '../contracts/aaClient';
+
+// All writes go through sendSponsoredTransaction
+const result = await sendSponsoredTransaction({
+  primaryWallet,  // From useDynamicContext()
+  to: contractAddress,
+  data: encodedFunctionData,
+  onStatusChange: ({ step, message }) => {
+    // TxSteps.PREPARING_USEROP → SIGNING_USEROP → CONFIRMING → SUCCESS
+  }
+});
+```
+
+**Required Environment Variables** (client):
+```bash
+VITE_BUNDLER_URL=https://api.developer.coinbase.com/rpc/v1/base-sepolia
+VITE_PAYMASTER_URL=https://api.developer.coinbase.com/rpc/v1/base-sepolia
+VITE_CDP_API_KEY_NAME=your_key_name
+VITE_CDP_API_KEY_PRIVATE_KEY=your_private_key
+```
+
+**UI Components**:
+- Gas sponsorship banner: Shows "Gas fees sponsored - No ETH required!"
+- Transaction step indicators: Preparing → Signing → Confirming
+- AA error handling: Maps UserOp error codes to user-friendly messages
 
 ### Job Marketplace Flow
 
@@ -247,7 +291,7 @@ PORT=5001
 NODE_ENV=development
 
 # Demo Mode (Testing)
-DEMO_MODE=true  # Allows self-dealing for testing workflow (DISABLE IN PRODUCTION!)
+DEMO_MODE=true  # Controls demo-related features (banners, etc.)
 
 # Security
 CORS_ORIGIN=http://localhost:5173  # Frontend URL
@@ -277,35 +321,31 @@ The site supports a **Demo Mode** toggle for testing and demonstration purposes:
 - Shows amber warning banner on all authenticated pages (dismissible)
 - Shows beta notice on landing page with "Request Early Access" button
 - Displays "DEMO SITE - Do not apply for real jobs" messaging
-- Shows blue info banner on job search explaining self-dealing is allowed for testing
+- Shows blue info banner on job search explaining how to test with multiple accounts
 - Recommended for: current deployment, showing to funders, testing
 
 **Backend Demo Mode** (`DEMO_MODE=true` in `server/.env`):
-- Allows users to apply to their own jobs (self-dealing) for workflow testing
-- Logs warnings in server console when self-dealing occurs
-- Essential for demonstrating full end-to-end flow to funders/partners
-- **CRITICAL**: Must be set to `false` in production to prevent fraud
+- Currently used for general demo-related backend features
+- **Note**: Self-dealing is always blocked regardless of demo mode (aligns with smart contract)
+- To test the full workflow, use separate email addresses for employer, worker, and mediator roles
 
 **Production Mode** (both set to `false`):
 - No demo warnings or banners
 - Clean production UI
-- Self-dealing blocked (HTTP 403 error)
 - Ready for real users to apply for jobs
 - Recommended for: official launch
 
 **How to switch to production mode:**
-1. Update `server/.env`: Change `DEMO_MODE=true` to `DEMO_MODE=false`
-2. Update `client/.env`: Change `VITE_DEMO_MODE=true` to `VITE_DEMO_MODE=false`
-3. Remove noindex meta tag from `client/index.html` (line 12): `<meta name="robots" content="noindex, nofollow" />`
-4. Rebuild the frontend: `cd client && npm run build`
-5. Restart the backend server to load new environment variables
-6. Redeploy (or let CI/CD handle it)
+1. Update `client/.env`: Change `VITE_DEMO_MODE=true` to `VITE_DEMO_MODE=false`
+2. Remove noindex meta tag from `client/index.html` (line 12): `<meta name="robots" content="noindex, nofollow" />`
+3. Rebuild the frontend: `cd client && npm run build`
+4. Restart the backend server to load new environment variables
+5. Redeploy (or let CI/CD handle it)
 
 **Components affected by demo mode:**
 - `BetaBanner.jsx` - Top banner on authenticated pages (amber warning)
 - `LandingPage.jsx` - Hero section beta notice
-- `EmployeeJobsPage.jsx` - Blue info banner about self-dealing testing (lines 354-377)
-- `jobApplicationController.js` - Backend validation with demo mode override (lines 156-175, 36-45)
+- `EmployeeJobsPage.jsx` - Blue info banner about testing with multiple accounts
 
 **Important:** The noindex meta tag in `client/index.html` is NOT conditional on demo mode. It must be manually removed when deploying to production to enable search engine indexing.
 
@@ -401,9 +441,12 @@ const locationData = await GetLocation(); // { latitude, longitude, name }
 - **Phone normalization**: Multiple formats tried for lookup (with/without country code)
 - **Role persistence**: User role stored in localStorage, not in database user table
 - **Oracle selection**: Stored as comma-separated string, not array
-- **Dynamic Labs RS256**: Tokens are decoded, not verified with secret (add JWKS verification for production)
+- **JWT Security**: Tokens verified via Dynamic Labs JWKS endpoint (requires `DYNAMIC_LABS_ENVIRONMENT_ID`)
+- **Account Abstraction**: All blockchain writes use sponsored transactions via Coinbase CDP
+- **Gas-Free UX**: Users never need ETH - all gas paid by platform paymaster
+- **Smart Wallets**: Users have smart contract wallets, not EOAs (address is a contract)
 - **Dispute system**: UI exists but not yet connected to backend/smart contracts
-- **Payment amount**: Hardcoded to 100 wei in smart contract
+- **Payment currency**: USDC on Base Sepolia (6 decimals)
 
 ## Current Branch Context
 

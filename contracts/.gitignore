@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+artifacts/
+cache/
+typechain-types/
+
+# Environment files
+.env
+.env.local
+
+# Coverage
+coverage/
+coverage.json
+
+# IDE
+.vscode/
+.idea/

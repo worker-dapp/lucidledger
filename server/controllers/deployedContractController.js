@@ -1,4 +1,46 @@
-const { DeployedContract, JobPosting, Employee } = require('../models');
+const { DeployedContract, JobPosting, Employee, Employer, Mediator } = require('../models');
+
+const getUserEmail = (user) => {
+  return (
+    user?.email ||
+    user?.verified_credentials?.[0]?.email ||
+    user?.verifiedCredentials?.[0]?.email ||
+    ''
+  );
+};
+
+const isAdminEmail = (email) => {
+  const adminEmails = process.env.ADMIN_EMAILS;
+  if (!adminEmails || !email) {
+    return false;
+  }
+
+  const adminList = adminEmails.split(',').map((item) => item.trim().toLowerCase());
+  return adminList.includes(email.toLowerCase());
+};
+
+const pickAllowedFields = (payload, allowedFields) => {
+  return Object.keys(payload).reduce((acc, key) => {
+    if (allowedFields.includes(key)) {
+      acc[key] = payload[key];
+    }
+    return acc;
+  }, {});
+};
+
+const getEmployerForUser = async (email) => {
+  if (!email) {
+    return null;
+  }
+  return Employer.findOne({ where: { email: email.toLowerCase() } });
+};
+
+const getEmployeeForUser = async (email) => {
+  if (!email) {
+    return null;
+  }
+  return Employee.findOne({ where: { email: email.toLowerCase() } });
+};
 
 class DeployedContractController {
   // Create a deployed contract record
@@ -20,14 +62,63 @@ class DeployedContractController {
         });
       }
 
-      const deployedContract = await DeployedContract.create({
-        job_posting_id,
-        employee_id,
-        employer_id,
-        contract_address,
-        payment_amount,
-        ...payload
-      });
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify user identity'
+        });
+      }
+
+      const isAdmin = isAdminEmail(userEmail);
+      if (!isAdmin) {
+        const employer = await getEmployerForUser(userEmail);
+        if (!employer || String(employer.id) !== String(employer_id)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You do not have permission to create contracts for this employer'
+          });
+        }
+      }
+
+      const allowedCreateFields = [
+        'job_posting_id',
+        'employee_id',
+        'employer_id',
+        'contract_address',
+        'payment_amount',
+        'payment_currency',
+        'payment_frequency',
+        'status',
+        'selected_oracles',
+        'verification_status',
+        'deployment_tx_hash',
+        'deployed_at',
+        'started_at',
+        'expected_end_date',
+        'actual_end_date',
+        'last_payment_date',
+        'next_payment_date',
+        'total_paid'
+      ];
+
+      const createPayload = pickAllowedFields({ ...req.body, ...payload }, allowedCreateFields);
+      if (!isAdmin) {
+        if (createPayload.status && createPayload.status !== 'active') {
+          return res.status(403).json({
+            success: false,
+            message: 'Only admin can set non-active status on creation'
+          });
+        }
+        if (createPayload.verification_status && createPayload.verification_status !== 'pending') {
+          return res.status(403).json({
+            success: false,
+            message: 'Only admin can set non-pending verification status on creation'
+          });
+        }
+      }
+
+      const deployedContract = await DeployedContract.create(createPayload);
 
       res.status(201).json({
         success: true,
@@ -49,14 +140,42 @@ class DeployedContractController {
     try {
       const { employer_id, status } = req.query;
 
-      if (!employer_id) {
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify user identity'
+        });
+      }
+
+      const isAdmin = isAdminEmail(userEmail);
+      let effectiveEmployerId = employer_id;
+
+      if (!isAdmin) {
+        const employer = await getEmployerForUser(userEmail);
+        if (!employer) {
+          return res.status(403).json({
+            success: false,
+            message: 'Employer account not found'
+          });
+        }
+        effectiveEmployerId = String(employer.id);
+        if (employer_id && String(employer_id) !== String(employer.id)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You do not have permission to access these contracts'
+          });
+        }
+      }
+
+      if (!effectiveEmployerId) {
         return res.status(400).json({
           success: false,
           message: 'employer_id is required'
         });
       }
 
-      const whereClause = { employer_id };
+      const whereClause = { employer_id: effectiveEmployerId };
       if (status) {
         whereClause.status = status;
       }
@@ -91,7 +210,35 @@ class DeployedContractController {
       const { employee_id } = req.params;
       const { status } = req.query;
 
-      const whereClause = { employee_id };
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify user identity'
+        });
+      }
+
+      const isAdmin = isAdminEmail(userEmail);
+      let effectiveEmployeeId = employee_id;
+
+      if (!isAdmin) {
+        const employee = await getEmployeeForUser(userEmail);
+        if (!employee) {
+          return res.status(403).json({
+            success: false,
+            message: 'Employee account not found'
+          });
+        }
+        effectiveEmployeeId = String(employee.id);
+        if (employee_id && String(employee_id) !== String(employee.id)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You do not have permission to access these contracts'
+          });
+        }
+      }
+
+      const whereClause = { employee_id: effectiveEmployeeId };
       if (status) {
         whereClause.status = status;
       }
@@ -125,10 +272,19 @@ class DeployedContractController {
     try {
       const { id } = req.params;
 
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify user identity'
+        });
+      }
+
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
           { model: JobPosting, as: 'jobPosting' },
-          { model: Employee, as: 'employee' }
+          { model: Employee, as: 'employee' },
+          { model: Employer, as: 'employer' }
         ]
       });
 
@@ -136,6 +292,17 @@ class DeployedContractController {
         return res.status(404).json({
           success: false,
           message: 'Deployed contract not found'
+        });
+      }
+
+      const isAdmin = isAdminEmail(userEmail);
+      const isEmployer = deployedContract.employer?.email?.toLowerCase() === userEmail.toLowerCase();
+      const isEmployee = deployedContract.employee?.email?.toLowerCase() === userEmail.toLowerCase();
+
+      if (!isAdmin && !isEmployer && !isEmployee) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to access this contract'
         });
       }
 
@@ -154,10 +321,11 @@ class DeployedContractController {
   }
 
   // Update deployed contract status
+  // Authorization: Admin, employer, or employee (with role-based status restrictions)
   static async updateDeployedContractStatus(req, res) {
     try {
       const { id } = req.params;
-      const { status, ...updates } = req.body;
+      const { status } = req.body;
 
       if (!status) {
         return res.status(400).json({
@@ -166,7 +334,22 @@ class DeployedContractController {
         });
       }
 
-      const deployedContract = await DeployedContract.findByPk(id);
+      // Get requesting user's email for authorization
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify user identity'
+        });
+      }
+
+      // Fetch contract with related employee and employer records
+      const deployedContract = await DeployedContract.findByPk(id, {
+        include: [
+          { model: Employee, as: 'employee' },
+          { model: Employer, as: 'employer' }
+        ]
+      });
 
       if (!deployedContract) {
         return res.status(404).json({
@@ -175,7 +358,357 @@ class DeployedContractController {
         });
       }
 
-      await deployedContract.update({ status, ...updates });
+      // Check authorization
+      const isAdmin = isAdminEmail(userEmail);
+      const isEmployer = deployedContract.employer?.email?.toLowerCase() === userEmail.toLowerCase();
+      const isEmployee = deployedContract.employee?.email?.toLowerCase() === userEmail.toLowerCase();
+
+      if (!isAdmin && !isEmployer && !isEmployee) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to modify this contract'
+        });
+      }
+
+      // Validate status transitions based on role
+      // Admin: can update to any status
+      // Employer: can update to 'completed', 'disputed'
+      // Employee: can update to 'disputed'
+      const employerAllowedStatuses = ['completed', 'disputed'];
+      const employeeAllowedStatuses = ['disputed'];
+
+      if (!isAdmin) {
+        if (isEmployer && !employerAllowedStatuses.includes(status)) {
+          return res.status(403).json({
+            success: false,
+            message: `Employers can only set status to: ${employerAllowedStatuses.join(', ')}`
+          });
+        }
+        if (isEmployee && !isEmployer && !employeeAllowedStatuses.includes(status)) {
+          return res.status(403).json({
+            success: false,
+            message: `Employees can only set status to: ${employeeAllowedStatuses.join(', ')}`
+          });
+        }
+      }
+
+      await deployedContract.update({ status });
+
+      res.status(200).json({
+        success: true,
+        data: deployedContract,
+        message: 'Deployed contract updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating deployed contract:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error updating deployed contract',
+        error: error.message
+      });
+    }
+  }
+
+  // Get disputed contracts assigned to a specific mediator
+  static async getDisputedContractsByMediator(req, res) {
+    try {
+      const { mediatorId } = req.params;
+
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify mediator identity'
+        });
+      }
+
+      const normalizedEmail = userEmail.toLowerCase();
+      if (!isAdminEmail(normalizedEmail)) {
+        const mediator = await Mediator.findOne({
+          where: {
+            email: normalizedEmail,
+            status: 'active'
+          },
+          attributes: ['id']
+        });
+
+        if (!mediator || String(mediator.id) !== String(mediatorId)) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied for this mediator'
+          });
+        }
+      }
+
+      const contracts = await DeployedContract.findAll({
+        where: {
+          mediator_id: mediatorId,
+          status: 'disputed'
+        },
+        include: [
+          {
+            model: Employee,
+            as: 'employee',
+            attributes: ['id', 'first_name', 'last_name', 'email', 'wallet_address']
+          },
+          {
+            model: Employer,
+            as: 'employer',
+            attributes: ['id', 'company_name', 'wallet_address']
+          },
+          {
+            model: JobPosting,
+            as: 'jobPosting',
+            attributes: ['id', 'title', 'description']
+          }
+        ],
+        order: [['created_at', 'DESC']]
+      });
+
+      res.status(200).json({
+        success: true,
+        data: contracts,
+        count: contracts.length
+      });
+    } catch (error) {
+      console.error('Error fetching disputed contracts by mediator:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching disputed contracts',
+        error: error.message
+      });
+    }
+  }
+
+  // Admin: Get all disputed contracts
+  static async getDisputedContractsForAdmin(req, res) {
+    try {
+      const contracts = await DeployedContract.findAll({
+        where: {
+          status: 'disputed'
+        },
+        include: [
+          {
+            model: Employee,
+            as: 'employee',
+            attributes: ['id', 'first_name', 'last_name', 'email', 'wallet_address']
+          },
+          {
+            model: Employer,
+            as: 'employer',
+            attributes: ['id', 'company_name', 'wallet_address']
+          },
+          {
+            model: JobPosting,
+            as: 'jobPosting',
+            attributes: ['id', 'title', 'description']
+          },
+          {
+            model: Mediator,
+            as: 'mediator',
+            attributes: ['id', 'email', 'first_name', 'last_name', 'wallet_address']
+          }
+        ],
+        order: [['created_at', 'DESC']]
+      });
+
+      res.status(200).json({
+        success: true,
+        data: contracts,
+        count: contracts.length
+      });
+    } catch (error) {
+      console.error('Error fetching disputed contracts for admin:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching disputed contracts',
+        error: error.message
+      });
+    }
+  }
+
+  // Admin: Assign mediator to disputed deployed contract
+  static async assignMediatorToDeployedContract(req, res) {
+    try {
+      const { id } = req.params;
+      const { mediator_id } = req.body;
+
+      if (!mediator_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'mediator_id is required'
+        });
+      }
+
+      // Fetch contract with employee and employer to check for conflicts
+      const deployedContract = await DeployedContract.findByPk(id, {
+        include: [
+          { model: Employee, as: 'employee' },
+          { model: Employer, as: 'employer' }
+        ]
+      });
+
+      if (!deployedContract) {
+        return res.status(404).json({
+          success: false,
+          message: 'Deployed contract not found'
+        });
+      }
+
+      if (deployedContract.status !== 'disputed') {
+        return res.status(400).json({
+          success: false,
+          message: 'Mediator can only be assigned to disputed contracts'
+        });
+      }
+
+      if (deployedContract.mediator_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mediator already assigned'
+        });
+      }
+
+      const mediator = await Mediator.findByPk(mediator_id);
+      if (!mediator || mediator.status !== 'active') {
+        return res.status(400).json({
+          success: false,
+          message: 'Mediator is not active or does not exist'
+        });
+      }
+
+      if (!mediator.wallet_address) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mediator does not have a wallet address on file'
+        });
+      }
+
+      // Conflict check: mediator cannot be a party to the contract
+      const mediatorWalletLower = mediator.wallet_address.toLowerCase();
+      const employeeWalletLower = deployedContract.employee?.wallet_address?.toLowerCase();
+      const employerWalletLower = deployedContract.employer?.wallet_address?.toLowerCase();
+
+      if (employeeWalletLower === mediatorWalletLower) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mediator cannot be the employee of this contract'
+        });
+      }
+
+      if (employerWalletLower === mediatorWalletLower) {
+        return res.status(400).json({
+          success: false,
+          message: 'Mediator cannot be the employer of this contract'
+        });
+      }
+
+      await deployedContract.update({ mediator_id });
+
+      res.status(200).json({
+        success: true,
+        message: 'Mediator assigned successfully',
+        data: deployedContract
+      });
+    } catch (error) {
+      console.error('Error assigning mediator to deployed contract:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error assigning mediator',
+        error: error.message
+      });
+    }
+  }
+
+  // Update a deployed contract (general update)
+  // Authorization: Admin, employer, or employee of the contract only
+  static async updateDeployedContract(req, res) {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      // Get requesting user's email for authorization
+      const userEmail = getUserEmail(req.user);
+      if (!userEmail) {
+        return res.status(403).json({
+          success: false,
+          message: 'Unable to verify user identity'
+        });
+      }
+
+      // Fetch contract with related employee and employer records
+      const deployedContract = await DeployedContract.findByPk(id, {
+        include: [
+          { model: Employee, as: 'employee' },
+          { model: Employer, as: 'employer' }
+        ]
+      });
+
+      if (!deployedContract) {
+        return res.status(404).json({
+          success: false,
+          message: 'Deployed contract not found'
+        });
+      }
+
+      // Check authorization: must be admin, employer, or employee of this contract
+      const isEmployer = deployedContract.employer?.email?.toLowerCase() === userEmail.toLowerCase();
+      const isEmployee = deployedContract.employee?.email?.toLowerCase() === userEmail.toLowerCase();
+      const isAdmin = isAdminEmail(userEmail);
+
+      if (!isAdmin && !isEmployer && !isEmployee) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to modify this contract'
+        });
+      }
+
+      // Base fields anyone with access can update
+      const baseUpdateFields = ['status', 'verification_status'];
+
+      // Additional fields admins can update for corrections
+      const adminUpdateFields = [
+        ...baseUpdateFields,
+        'payment_amount',
+        'started_at',
+        'expected_end_date',
+        'actual_end_date',
+        'last_payment_date',
+        'next_payment_date',
+        'total_paid'
+      ];
+
+      const allowedUpdateFields = isAdmin ? adminUpdateFields : baseUpdateFields;
+      const filteredUpdates = pickAllowedFields(updates, allowedUpdateFields);
+
+      if (Object.keys(filteredUpdates).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No updatable fields provided'
+        });
+      }
+
+      if (filteredUpdates.status) {
+        const employerAllowedStatuses = ['completed', 'disputed'];
+        const employeeAllowedStatuses = ['disputed'];
+
+        if (!isAdmin) {
+          if (isEmployer && !employerAllowedStatuses.includes(filteredUpdates.status)) {
+            return res.status(403).json({
+              success: false,
+              message: `Employers can only set status to: ${employerAllowedStatuses.join(', ')}`
+            });
+          }
+          if (isEmployee && !isEmployer && !employeeAllowedStatuses.includes(filteredUpdates.status)) {
+            return res.status(403).json({
+              success: false,
+              message: `Employees can only set status to: ${employeeAllowedStatuses.join(', ')}`
+            });
+          }
+        }
+      }
+
+      await deployedContract.update(filteredUpdates);
 
       res.status(200).json({
         success: true,

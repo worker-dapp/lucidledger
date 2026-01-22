@@ -36,24 +36,14 @@ exports.saveJob = async (req, res) => {
     const employerRecord = await Employer.findByPk(jobRecord.employer_id);
 
     // SECURITY CHECK: Prevent saving your own jobs
+    // This check is always enforced (no demo mode bypass) to align with smart contract behavior
     if (employee && employerRecord && employee.wallet_address && employerRecord.wallet_address &&
         employee.wallet_address.toLowerCase() === employerRecord.wallet_address.toLowerCase()) {
-
-      const isDemoMode = process.env.DEMO_MODE === 'true';
-
-      if (isDemoMode) {
-        console.warn('⚠️  [DEMO MODE] Self-dealing detected (saving own job) but ALLOWED for testing:', {
-          wallet: employee.wallet_address,
-          employee_id,
-          job_posting_id,
-          job_title: jobRecord.title
-        });
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'Cannot save your own jobs'
-        });
-      }
+      console.log('🚫 Self-dealing blocked: Cannot save your own jobs');
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot save your own jobs'
+      });
     }
 
     // Check if user has already applied to this job
@@ -166,7 +156,6 @@ exports.applyToJob = async (req, res) => {
     console.log('📥 applyToJob request received:', { employee_id, job_posting_id });
     console.log('🔑 Auth header present:', !!req.headers.authorization);
     console.log('👤 Decoded user:', req.user ? { sub: req.user.sub, email: req.user.email } : 'none');
-    console.log('🌍 DEMO_MODE:', process.env.DEMO_MODE);
 
     if (!employee_id || !job_posting_id) {
       console.log('❌ Missing required fields');
@@ -204,25 +193,15 @@ exports.applyToJob = async (req, res) => {
     }
 
     // CRITICAL SECURITY CHECK: Prevent self-dealing
+    // This check is always enforced (no demo mode bypass) to align with smart contract behavior
+    // The smart contract itself prevents employer == worker, so we block it here too
     if (employee.wallet_address && employerRecord.wallet_address &&
         employee.wallet_address.toLowerCase() === employerRecord.wallet_address.toLowerCase()) {
-
-      const isDemoMode = process.env.DEMO_MODE === 'true';
-
-      if (isDemoMode) {
-        console.warn('⚠️  [DEMO MODE] Self-dealing detected but ALLOWED for testing:', {
-          wallet: employee.wallet_address,
-          employee_id,
-          job_posting_id,
-          job_title: jobRecord.title
-        });
-        console.warn('⚠️  [DEMO MODE] This would be BLOCKED in production mode!');
-      } else {
-        return res.status(403).json({
-          success: false,
-          message: 'Cannot apply to your own jobs'
-        });
-      }
+      console.log('🚫 Self-dealing blocked: Cannot apply to your own jobs');
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot sign your own contract'
+      });
     }
 
     // Check if job is closed
