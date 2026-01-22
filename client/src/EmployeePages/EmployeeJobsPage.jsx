@@ -453,9 +453,9 @@ const EmployeeJobsPage = () => {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Demo Mode Testing Enabled</h3>
+                <h3 className="text-sm font-medium text-blue-800">Demo Mode</h3>
                 <div className="mt-2 text-sm text-blue-700">
-                  <p>You can apply to your own jobs in demo mode for testing the full workflow. In production, this will be blocked to prevent self-dealing.</p>
+                  <p>This is a demonstration environment using Base Sepolia testnet. To test the full workflow with different roles, use separate email addresses for employer, worker, and mediator accounts.</p>
                 </div>
               </div>
             </div>

@@ -2,7 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
-const ProtectedRoute = ({ children }) => {
+const getRoleHome = (role) => {
+    if (role === 'employer') {
+        return '/contract-factory';
+    }
+    if (role === 'employee') {
+        return '/job-search';
+    }
+    return '/';
+};
+
+const getStoredRole = (user) => {
+    return (
+        localStorage.getItem('persistedUserRole') ||
+        localStorage.getItem('userRole') ||
+        localStorage.getItem('pendingRole') ||
+        user?.metadata?.role ||
+        ''
+    );
+};
+
+const ProtectedRoute = ({ children, requiredRole }) => {
     const { user, isLoading, isAuthenticated } = useDynamicContext();
     const [waitingForAuth, setWaitingForAuth] = useState(true);
 
@@ -31,6 +51,18 @@ const ProtectedRoute = ({ children }) => {
     
     if (!isUserAuthenticated) {
         return <Navigate to="/" replace />;
+    }
+
+    if (requiredRole) {
+        const currentRole = getStoredRole(user);
+
+        if (!currentRole) {
+            return <Navigate to="/user-profile" replace />;
+        }
+
+        if (currentRole !== requiredRole) {
+            return <Navigate to={getRoleHome(currentRole)} replace />;
+        }
     }
 
     return children;

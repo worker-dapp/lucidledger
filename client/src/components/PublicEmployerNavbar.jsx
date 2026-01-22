@@ -40,7 +40,7 @@ const PublicEmployerNavbar = () => {
           </span>
         </Link>
 
-        {/* Right Side: Auth Buttons */}
+        {/* Right Side: Auth Buttons + Workers Link */}
         <div className="hidden lg:flex items-center gap-3">
           {/* Auth Buttons */}
           <button
@@ -55,6 +55,18 @@ const PublicEmployerNavbar = () => {
           >
             Sign Up
           </button>
+
+          {/* Workers Link - Styled to match "For Employers" on worker landing */}
+          <Link
+            to="/"
+            onClick={handleNavClick}
+            className="px-4 py-2 text-[#F4D35E] border-2 border-[#F4D35E] rounded-lg hover:bg-[#F4D35E] hover:text-[#0D3B66] font-medium transition-all flex items-center gap-2 ml-2"
+          >
+            For Workers
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
         </div>
 
         {/* Mobile Menu Button */}
@@ -85,8 +97,17 @@ const PublicEmployerNavbar = () => {
       {isMobileMenuOpen && (
         <div ref={mobileMenuRef} className="lg:hidden bg-[#0D3B66] border-t border-[#1a4a7a] shadow-lg">
           <div className="px-4 py-4 space-y-3">
+            {/* Workers Link - Styled to match "For Employers" on worker landing */}
+            <Link
+              to="/"
+              onClick={handleNavClick}
+              className="block w-full text-center px-4 py-2 text-[#F4D35E] border-2 border-[#F4D35E] rounded-lg hover:bg-[#F4D35E] hover:text-[#0D3B66] font-medium transition-all"
+            >
+              For Workers →
+            </Link>
+
             {/* Auth Buttons */}
-            <div className="space-y-2">
+            <div className="pt-3 border-t border-[#1a4a7a] space-y-2">
               <button
                 onClick={handleEmployerLogin}
                 className="block w-full text-center px-4 py-2 text-white border border-white rounded-lg hover:bg-white hover:text-[#0D3B66] transition-all font-medium"

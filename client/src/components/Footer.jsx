@@ -20,6 +20,7 @@ const Footer = () => {
               <li><a href="/about-us" className="hover:text-white transition-colors">About</a></li>
               <li><a href="/employers" className="hover:text-white transition-colors">For Employers</a></li>
               <li><a href="/" className="hover:text-white transition-colors">For Workers</a></li>
+              <li><a href="/resolve-disputes" className="hover:text-white transition-colors">For Mediators</a></li>
             </ul>
           </div>
 

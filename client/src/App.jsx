@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { DynamicContextProvider, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { ZeroDevSmartWalletConnectors } from "@dynamic-labs/ethereum-aa";
 import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
 import EmployerLandingPage from "./pages/EmployerLandingPage";
@@ -19,6 +20,8 @@ import { useEffect, useState, useRef } from "react";
 import UserProfile from "./pages/UserProfile";
 import ClosedContracts from "./EmployerPages/ClosedContracts";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
+import MediatorResolution from "./pages/MediatorResolution";
+import AdminMediators from "./pages/AdminMediators";
 import apiService from "./services/api";
 
 const enhancedEmployeeView = {
@@ -393,7 +396,7 @@ const App = () => {
     <DynamicContextProvider
       settings={{
         environmentId: dynamicEnvId,
-        walletConnectors: [EthereumWalletConnectors],
+        walletConnectors: [EthereumWalletConnectors, ZeroDevSmartWalletConnectors],
         overrides: { views: getLoginView() ? [getLoginView()] : [] },
         // Add debug info for production
         ...(import.meta.env.MODE === 'production' && {
@@ -454,17 +457,17 @@ const App = () => {
           {/* Employee Routes - New Routes */}
           <Route path="/job-search" element={<EmployeeJobsPage />} />
           <Route path="/job-tracker" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employee">
               <JobTracker />
             </ProtectedRoute>
           } />
           <Route path="/support-center" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employee">
               <SupportCenter />
             </ProtectedRoute>
           } />
           <Route path="/employee-profile" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employee">
               <EmployeeProfile />
             </ProtectedRoute>
           } />
@@ -472,42 +475,48 @@ const App = () => {
           {/* Employer Routes */}
           <Route path="/employerDashboard" element={<Navigate to="/contract-factory" replace />} />
           <Route path="/employer-profile" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <EmployerProfile />
             </ProtectedRoute>
           } />
           {/* Redirect old job posting route to Recruitment Hub */}
           <Route path="/job" element={<Navigate to="/contract-factory" replace />} />
           <Route path="/contract-factory" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <ContractFactory />
             </ProtectedRoute>
           } />
           <Route path="/workforce" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <WorkforceDashboard />
             </ProtectedRoute>
           } />
           <Route path="/review-completed-contracts" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <ReviewCompletedContracts />
             </ProtectedRoute>
           } />
           <Route path="/dispute" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <Dispute />
             </ProtectedRoute>
           } />
           <Route path="/closed-contracts" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <ClosedContracts />
             </ProtectedRoute>
           } />
           <Route path="/employer-support" element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="employer">
               <EmployerSupportCenter />
             </ProtectedRoute>
           } />
+
+          {/* Mediator Route - Self-validates via email whitelist */}
+          <Route path="/resolve-disputes" element={<MediatorResolution />} />
+
+          {/* Admin Route - Self-validates via ADMIN_EMAILS */}
+          <Route path="/admin/mediators" element={<AdminMediators />} />
 
           {/* 404 - Must be last */}
           <Route path="*" element={<h1>404 - Not Found</h1>} />

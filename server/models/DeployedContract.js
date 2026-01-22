@@ -96,6 +96,14 @@ const DeployedContract = sequelize.define('DeployedContract', {
   last_verification_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  mediator_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: {
+      model: 'mediators',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'deployed_contracts',
@@ -123,6 +131,10 @@ DeployedContract.associate = function(models) {
   DeployedContract.belongsTo(models.Employer, {
     foreignKey: 'employer_id',
     as: 'employer'
+  });
+  DeployedContract.belongsTo(models.Mediator, {
+    foreignKey: 'mediator_id',
+    as: 'mediator'
   });
   DeployedContract.hasMany(models.OracleVerification, {
     foreignKey: 'deployed_contract_id',

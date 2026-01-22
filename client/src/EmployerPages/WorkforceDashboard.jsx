@@ -1,8 +1,30 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { CheckCircle, Clock, Search, Users } from "lucide-react";
+import {
+  CheckCircle,
+  Clock,
+  Search,
+  Users,
+  AlertTriangle,
+  ExternalLink,
+  Loader2,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import EmployerLayout from "../components/EmployerLayout";
 import apiService from "../services/api";
+import {
+  getContractState,
+  approveAndPay,
+  raiseDispute,
+  checkPermissions,
+  ContractState,
+  StateNames,
+} from "../contracts/workContractInteractions";
+import { getBasescanUrl } from "../contracts/deployWorkContract";
+import { TxSteps, parseAAError } from "../contracts/aaClient";
+
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
 
 const statusStyles = {
   active: "bg-green-100 text-green-700",
@@ -30,6 +52,24 @@ const WorkforceDashboard = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Blockchain state
+  const [blockchainState, setBlockchainState] = useState(null);
+  const [blockchainLoading, setBlockchainLoading] = useState(false);
+  const [permissions, setPermissions] = useState(null);
+
+  // Action states
+  const [approving, setApproving] = useState(false);
+  const [disputing, setDisputing] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [txStep, setTxStep] = useState(TxSteps.IDLE);
+  const [txMessage, setTxMessage] = useState("");
+
+  const handleTxStatusChange = ({ step, message }) => {
+    setTxStep(step);
+    setTxMessage(message);
+  };
 
   useEffect(() => {
     const fetchEmployer = async () => {
@@ -108,6 +148,133 @@ const WorkforceDashboard = () => {
     fetchDetails();
   }, [selectedContract?.id]);
 
+  // Fetch blockchain state when contract is selected
+  useEffect(() => {
+    const fetchBlockchainState = async () => {
+      if (!selectedContract?.contract_address || !primaryWallet?.address) {
+        setBlockchainState(null);
+        setPermissions(null);
+        return;
+      }
+
+      // Skip if it's a mock address (starts with 0x00...)
+      if (selectedContract.contract_address.startsWith("0x00")) {
+        setBlockchainState(null);
+        setPermissions(null);
+        return;
+      }
+
+      setBlockchainLoading(true);
+      try {
+        const [state, perms] = await Promise.all([
+          getContractState(selectedContract.contract_address),
+          checkPermissions(selectedContract.contract_address, primaryWallet.address),
+        ]);
+        setBlockchainState(state);
+        setPermissions(perms);
+      } catch (error) {
+        console.error("Error fetching blockchain state:", error);
+        setBlockchainState(null);
+        setPermissions(null);
+      } finally {
+        setBlockchainLoading(false);
+      }
+    };
+
+    fetchBlockchainState();
+  }, [selectedContract?.contract_address, primaryWallet?.address]);
+
+  const handleApproveAndPay = async () => {
+    if (!selectedContract?.contract_address || !primaryWallet) return;
+
+    setApproving(true);
+    setActionMessage("");
+    setTxStep(TxSteps.IDLE);
+
+    try {
+      const result = await approveAndPay(
+        primaryWallet,
+        selectedContract.contract_address,
+        handleTxStatusChange
+      );
+
+      // Update database status
+      await apiService.updateDeployedContract(selectedContract.id, {
+        status: "completed",
+        verification_status: "verified",
+      });
+
+      // Record payment transaction
+      await apiService.createPaymentTransaction({
+        deployed_contract_id: selectedContract.id,
+        amount: selectedContract.payment_amount,
+        currency: selectedContract.payment_currency || "USDC",
+        payment_type: "final",
+        status: "completed",
+        tx_hash: result.txHash,
+      });
+
+      setActionMessage(`Payment released (gas-free)! View on BaseScan: ${result.basescanUrl}`);
+
+      // Refresh blockchain state
+      const newState = await getContractState(selectedContract.contract_address);
+      setBlockchainState(newState);
+
+      // Update local contract status
+      setSelectedContract((prev) => ({
+        ...prev,
+        status: "completed",
+        verification_status: "verified",
+      }));
+    } catch (error) {
+      setActionMessage(`Error: ${parseAAError(error)}`);
+    } finally {
+      setApproving(false);
+      setTxStep(TxSteps.IDLE);
+    }
+  };
+
+  const handleRaiseDispute = async () => {
+    if (!selectedContract?.contract_address || !disputeReason.trim() || !primaryWallet) return;
+
+    setDisputing(true);
+    setActionMessage("");
+    setTxStep(TxSteps.IDLE);
+
+    try {
+      const result = await raiseDispute(
+        primaryWallet,
+        selectedContract.contract_address,
+        disputeReason,
+        handleTxStatusChange
+      );
+
+      // Update database status
+      await apiService.updateDeployedContract(selectedContract.id, {
+        status: "disputed",
+      });
+
+      setActionMessage(`Dispute raised (gas-free). Funds frozen. View on BaseScan: ${result.basescanUrl}`);
+      setShowDisputeModal(false);
+      setDisputeReason("");
+
+      // Refresh blockchain state
+      const newState = await getContractState(selectedContract.contract_address);
+      setBlockchainState(newState);
+
+      // Update local contract status
+      setSelectedContract((prev) => ({
+        ...prev,
+        status: "disputed",
+      }));
+    } catch (error) {
+      setActionMessage(`Error: ${parseAAError(error)}`);
+    } finally {
+      setDisputing(false);
+      setTxStep(TxSteps.IDLE);
+    }
+  };
+
   const filteredContracts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) {
@@ -133,7 +300,7 @@ const WorkforceDashboard = () => {
       return "--";
     }
     const formatted = Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return `${currency || "USD"} ${formatted}`;
+    return `${currency || "USDC"} ${formatted}`;
   };
 
   const formatDate = (value) => {
@@ -143,23 +310,8 @@ const WorkforceDashboard = () => {
     return date.toLocaleDateString();
   };
 
-  const handleRecordPayment = async (contract) => {
-    if (!contract?.id) return;
-    setActionMessage("");
-    try {
-      await apiService.createPaymentTransaction({
-        deployed_contract_id: contract.id,
-        amount: contract.payment_amount,
-        currency: contract.payment_currency,
-        payment_type: "regular",
-        status: "pending",
-      });
-      setActionMessage("Payment queued successfully.");
-      const paymentResponse = await apiService.getPaymentTransactions(contract.id);
-      setPaymentTransactions(paymentResponse?.data || []);
-    } catch (error) {
-      setActionMessage(error.message || "Failed to queue payment");
-    }
+  const isRealContract = (contract) => {
+    return contract?.contract_address && !contract.contract_address.startsWith("0x00");
   };
 
   if (loading) {
@@ -265,12 +417,14 @@ const WorkforceDashboard = () => {
                     <th className="text-left font-medium px-6 py-3">Role</th>
                     <th className="text-left font-medium px-6 py-3">Status</th>
                     <th className="text-left font-medium px-6 py-3">Verification</th>
-                    <th className="text-left font-medium px-6 py-3">Next Payment</th>
+                    <th className="text-left font-medium px-6 py-3">On-Chain</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredContracts.map((contract) => {
                     const employeeName = `${contract?.employee?.first_name || ""} ${contract?.employee?.last_name || ""}`.trim();
+                    const hasRealContract = isRealContract(contract);
+
                     return (
                       <tr
                         key={contract.id}
@@ -296,8 +450,21 @@ const WorkforceDashboard = () => {
                             {contract.verification_status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-gray-700">
-                          {formatDate(contract.next_payment_date)}
+                        <td className="px-6 py-4">
+                          {hasRealContract ? (
+                            <a
+                              href={`${BASESCAN_URL}/address/${contract.contract_address}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs"
+                            >
+                              View
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">Mock</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -332,7 +499,19 @@ const WorkforceDashboard = () => {
                   </div>
                   <div>
                     <p className="text-xs uppercase text-gray-400">Contract Address</p>
-                    <p className="break-all">{selectedContract.contract_address || "--"}</p>
+                    {isRealContract(selectedContract) ? (
+                      <a
+                        href={`${BASESCAN_URL}/address/${selectedContract.contract_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline break-all text-xs flex items-center gap-1"
+                      >
+                        {selectedContract.contract_address.slice(0, 10)}...{selectedContract.contract_address.slice(-8)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <p className="break-all text-xs text-gray-400">Mock contract</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs uppercase text-gray-400">Payment</p>
@@ -341,15 +520,120 @@ const WorkforceDashboard = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleRecordPayment(selectedContract)}
-                  className="mt-5 w-full bg-[#EE964B] text-white py-2 rounded-lg text-sm font-semibold hover:bg-[#e58a38] transition-colors"
-                >
-                  Record Payment
-                </button>
+                {/* Blockchain State */}
+                {isRealContract(selectedContract) && (
+                  <div className="mt-5 pt-5 border-t border-gray-200">
+                    <h3 className="text-sm font-semibold text-[#0D3B66] mb-3">Blockchain Status</h3>
+                    {blockchainLoading ? (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading on-chain state...
+                      </div>
+                    ) : blockchainState ? (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">State:</span>
+                          <span className={`font-medium ${
+                            blockchainState.state === ContractState.Funded ? "text-green-600" :
+                            blockchainState.state === ContractState.Completed ? "text-blue-600" :
+                            blockchainState.state === ContractState.Disputed ? "text-yellow-600" :
+                            "text-gray-600"
+                          }`}>
+                            {blockchainState.stateName}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Escrow:</span>
+                          <span className="font-medium">{blockchainState.balance} USDC</span>
+                        </div>
+                        {blockchainState.disputeReason && (
+                          <div className="mt-2 p-2 bg-yellow-50 rounded text-xs">
+                            <p className="text-yellow-800 font-medium">Dispute reason:</p>
+                            <p className="text-yellow-700">{blockchainState.disputeReason}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">Unable to load blockchain state</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                {isRealContract(selectedContract) && permissions && (
+                  <div className="mt-5 space-y-3">
+                    {/* Gas Sponsorship Notice */}
+                    {(permissions.canApprove || permissions.canDispute) && (
+                      <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
+                        <Zap className="h-4 w-4 text-green-600" />
+                        <span className="text-xs text-green-700">Gas fees sponsored — No ETH required</span>
+                      </div>
+                    )}
+
+                    {/* Transaction Status */}
+                    {txStep !== TxSteps.IDLE && (approving || disputing) && (
+                      <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700">
+                        {txMessage || "Processing..."}
+                      </div>
+                    )}
+
+                    {permissions.canApprove && (
+                      <button
+                        onClick={handleApproveAndPay}
+                        disabled={approving || !primaryWallet}
+                        className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {approving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {txStep === TxSteps.SIGNING_USEROP ? "Sign in wallet..." : "Approving..."}
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            Approve Work & Pay
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {permissions.canDispute && (
+                      <button
+                        onClick={() => setShowDisputeModal(true)}
+                        disabled={disputing}
+                        className="w-full bg-yellow-500 text-white py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                        Raise Dispute
+                      </button>
+                    )}
+
+                    {blockchainState?.state === ContractState.Disputed && (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
+                        <p className="text-yellow-800 font-medium">Contract is disputed</p>
+                        <p className="text-yellow-700 text-xs mt-1">
+                          The mediator will review and resolve this dispute. Funds are frozen until resolution.
+                        </p>
+                      </div>
+                    )}
+
+                    {blockchainState?.state === ContractState.Completed && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
+                        <p className="text-green-800 font-medium">Payment completed</p>
+                        <p className="text-green-700 text-xs mt-1">
+                          Funds have been released to the worker.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {actionMessage && (
-                  <div className="mt-3 text-xs text-gray-500">{actionMessage}</div>
+                  <div className={`mt-3 text-xs p-2 rounded ${
+                    actionMessage.startsWith("Error") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
+                  }`}>
+                    {actionMessage}
+                  </div>
                 )}
 
                 <div className="mt-6">
@@ -378,7 +662,19 @@ const WorkforceDashboard = () => {
                     {paymentTransactions.slice(0, 4).map((payment) => (
                       <div key={payment.id} className="flex items-center justify-between text-xs text-gray-600">
                         <span>{formatCurrency(payment.amount, payment.currency)}</span>
-                        <span>{payment.status}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{payment.status}</span>
+                          {payment.tx_hash && (
+                            <a
+                              href={`${BASESCAN_URL}/tx/${payment.tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -387,6 +683,62 @@ const WorkforceDashboard = () => {
             )}
           </div>
         </div>
+
+        {/* Dispute Modal */}
+        {showDisputeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-[#0D3B66]">Raise Dispute</h3>
+                <button
+                  onClick={() => setShowDisputeModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Raising a dispute will freeze the escrowed funds until a neutral mediator resolves the issue.
+                </p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for dispute *
+                </label>
+                <textarea
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  placeholder="Describe the issue..."
+                  className="w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDisputeModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRaiseDispute}
+                  disabled={!disputeReason.trim() || disputing}
+                  className="flex-1 bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {disputing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Dispute"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </EmployerLayout>
   );
