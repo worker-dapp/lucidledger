@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY || "";
+const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -15,7 +16,8 @@ module.exports = {
       optimizer: {
         enabled: true,
         runs: 200
-      }
+      },
+      viaIR: true
     }
   },
   networks: {
@@ -23,7 +25,7 @@ module.exports = {
       // Local development network
     },
     baseSepolia: {
-      url: "https://sepolia.base.org",
+      url: BASE_SEPOLIA_RPC_URL,
       chainId: 84532,
       accounts: [PRIVATE_KEY],
       gasPrice: "auto"
@@ -52,7 +54,7 @@ module.exports = {
     ]
   },
   paths: {
-    sources: "./",
+    sources: "./src",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts"
