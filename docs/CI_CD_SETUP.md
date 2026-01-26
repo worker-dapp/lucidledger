@@ -33,7 +33,10 @@ DB_USER           - Database username
 DB_PASSWORD       - Database password
 
 # Application Configuration
-VITE_DYNAMIC_ENV_ID - Dynamic Labs environment ID
+VITE_PRIVY_APP_ID - Privy app ID
+PRIVY_APP_ID - Privy app ID (server)
+PRIVY_JWKS_URL - Privy JWKS URL
+PRIVY_ISSUER - privy.io
 ```
 
 #### **Optional Secrets (for staging deployments):**
@@ -115,7 +118,7 @@ Ensure your EC2 instance has:
    - Pull latest code from selected branch
    - Stop existing services
    - **Build Docker images on EC2** (using `docker-compose.nginx.yml`)
-   - Set environment variables (VITE_API_BASE_URL, VITE_DYNAMIC_ENV_ID)
+   - Set environment variables (VITE_API_BASE_URL, VITE_PRIVY_APP_ID)
    - Start full-stack services (nginx, frontend, backend, certbot)
    - Health checks (backend & frontend)
    - API endpoint testing

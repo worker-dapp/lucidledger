@@ -65,7 +65,7 @@ If you need to manually deploy to production:
    ```bash
    # Environment variables are set in the deployment script
    export VITE_API_BASE_URL="https://lucidledger.co/api"
-   export VITE_DYNAMIC_ENV_ID="your-dynamic-env-id"
+   export VITE_PRIVY_APP_ID="your-privy-app-id"
    export DOCKER_BUILDKIT=1
    export COMPOSE_DOCKER_CLI_BUILD=1
    docker-compose -f docker-compose.nginx.yml up -d --build
@@ -126,12 +126,17 @@ NODE_ENV=development
 
 # CORS Configuration
 CORS_ORIGIN=https://lucidledger.co
+
+# Privy JWT verification
+PRIVY_APP_ID=your_privy_app_id
+PRIVY_JWKS_URL=your_privy_jwks_url
+PRIVY_ISSUER=privy.io
 ```
 
 ### Frontend (.env)
 ```env
-# Dynamic Labs Configuration
-VITE_DYNAMIC_ENV_ID=your-dynamic-env-id
+# Privy Configuration
+VITE_PRIVY_APP_ID=your-privy-app-id
 
 # API Configuration
 VITE_API_BASE_URL=http://localhost:5001/api
@@ -143,7 +148,7 @@ VITE_API_BASE_URL=http://localhost:5001/api
 
 The deployment script sets:
 - `VITE_API_BASE_URL=https://lucidledger.co/api`
-- `VITE_DYNAMIC_ENV_ID` (from GitHub secrets)
+- `VITE_PRIVY_APP_ID` (from GitHub secrets)
 - `NODE_ENV=production`
 
 ## Docker Commands

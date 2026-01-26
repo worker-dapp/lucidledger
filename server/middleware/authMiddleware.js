@@ -1,27 +1,34 @@
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
 
-// Dynamic Labs JWKS endpoint for RS256 token verification
-const DYNAMIC_LABS_ENV_ID = process.env.DYNAMIC_LABS_ENVIRONMENT_ID;
-const JWKS_URI = `https://app.dynamic.xyz/api/v0/sdk/${DYNAMIC_LABS_ENV_ID}/.well-known/jwks`;
+// Privy JWKS endpoint for RS256 token verification
+const PRIVY_APP_ID = process.env.PRIVY_APP_ID;
+const PRIVY_JWKS_URL = process.env.PRIVY_JWKS_URL;
+const PRIVY_ISSUER = process.env.PRIVY_ISSUER || 'privy.io';
 
 // Create JWKS client with caching (24-hour cache for performance)
-const client = jwksClient({
-  jwksUri: JWKS_URI,
-  cache: true,
-  cacheMaxEntries: 5,
-  cacheMaxAge: 86400000, // 24 hours in milliseconds
-  rateLimit: true,
-  jwksRequestsPerMinute: 10,
-});
+const client = PRIVY_JWKS_URL
+  ? jwksClient({
+      jwksUri: PRIVY_JWKS_URL,
+      cache: true,
+      cacheMaxEntries: 5,
+      cacheMaxAge: 86400000, // 24 hours in milliseconds
+      rateLimit: true,
+      jwksRequestsPerMinute: 10,
+    })
+  : null;
 
 /**
- * Retrieves the signing key from Dynamic Labs JWKS endpoint.
+ * Retrieves the signing key from Privy JWKS endpoint.
  * @param {string} kid - Key ID from token header
  * @returns {Promise<string>} - Public key for verification
  */
 const getSigningKey = (kid) => {
   return new Promise((resolve, reject) => {
+    if (!client) {
+      reject(new Error('JWKS client not configured'));
+      return;
+    }
     client.getSigningKey(kid, (err, key) => {
       if (err) {
         reject(err);
@@ -34,7 +41,7 @@ const getSigningKey = (kid) => {
 };
 
 /**
- * Verifies a JWT token using Dynamic Labs JWKS.
+ * Verifies a JWT token using Privy JWKS.
  * This properly validates the RS256 signature, unlike jwt.decode().
  *
  * @param {string} token - JWT token to verify
@@ -59,9 +66,8 @@ const verifyJWTWithJWKS = async (token) => {
   // Verify the token with the public key
   const verified = jwt.verify(token, signingKey, {
     algorithms: ['RS256'],
-    // Dynamic Labs tokens have these standard claims
-    issuer: `app.dynamicauth.com/${DYNAMIC_LABS_ENV_ID}`,
-    // Don't verify audience in case it varies
+    issuer: PRIVY_ISSUER,
+    audience: PRIVY_APP_ID,
     clockTolerance: 30, // 30 seconds tolerance for clock skew
   });
 
@@ -80,9 +86,9 @@ const verifyToken = async (req, res, next) => {
     });
   }
 
-  // Check if DYNAMIC_LABS_ENVIRONMENT_ID is configured
-  if (!DYNAMIC_LABS_ENV_ID) {
-    console.error('DYNAMIC_LABS_ENVIRONMENT_ID not configured - cannot verify tokens');
+  // Check if Privy environment is configured
+  if (!PRIVY_APP_ID || !PRIVY_JWKS_URL) {
+    console.error('PRIVY_APP_ID or PRIVY_JWKS_URL not configured - cannot verify tokens');
     return res.status(500).json({
       success: false,
       message: 'Authentication misconfigured'
@@ -94,7 +100,7 @@ const verifyToken = async (req, res, next) => {
     const decoded = jwt.decode(token);
     if (decoded && decoded.iss) {
       console.log('JWT actual issuer:', decoded.iss);
-      console.log('JWT expected issuer:', `https://app.dynamic.xyz/${DYNAMIC_LABS_ENV_ID}`);
+      console.log('JWT expected issuer:', PRIVY_ISSUER);
     }
 
     // 2. Verify the token with JWKS (proper RS256 signature verification)
@@ -152,9 +158,9 @@ const optionalAuth = async (req, res, next) => {
     return next();
   }
 
-  // Check if DYNAMIC_LABS_ENVIRONMENT_ID is configured
-  if (!DYNAMIC_LABS_ENV_ID) {
-    console.error('DYNAMIC_LABS_ENVIRONMENT_ID not configured - cannot verify tokens');
+  // Check if Privy environment is configured
+  if (!PRIVY_APP_ID || !PRIVY_JWKS_URL) {
+    console.error('PRIVY_APP_ID or PRIVY_JWKS_URL not configured - cannot verify tokens');
     req.user = null;
     return next();
   }
@@ -192,10 +198,12 @@ const verifyAdmin = (req, res, next) => {
   // Parse comma-separated admin emails and normalize
   const adminList = adminEmails.split(',').map(email => email.trim().toLowerCase());
 
-  // Get email from the decoded token (Dynamic Labs stores it in various places)
-  const userEmail = req.user?.email ||
-                    req.user?.verified_credentials?.[0]?.email ||
-                    req.user?.verifiedCredentials?.[0]?.email;
+  const userEmail =
+    req.user?.email ||
+    req.user?.user?.email ||
+    req.user?.claims?.email ||
+    req.user?.verified_email ||
+    req.user?.verifiedEmail;
 
   if (!userEmail) {
     return res.status(403).json({
