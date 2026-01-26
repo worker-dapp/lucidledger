@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import EmployerLayout from "../components/EmployerLayout";
 import apiService from '../services/api';
+import { useAuth } from "../hooks/useAuth";
 
 const ReviewCompletedContracts = () => {
-  const { user } = useDynamicContext();
+  const { user } = useAuth();
   
   // --------------------------------------------------------------------------
   // STATE
@@ -18,7 +18,7 @@ const ReviewCompletedContracts = () => {
   // --------------------------------------------------------------------------
   useEffect(() => {
     const fetchEmployerId = async () => {
-      if (!user?.email) {
+      if (!user?.email?.address) {
         console.error("No email available");
         setLoading(false);
         return;
@@ -26,7 +26,7 @@ const ReviewCompletedContracts = () => {
 
       try {
         // Directly fetch employer ID from employer table
-        const employerResponse = await apiService.getEmployerByEmail(user.email);
+        const employerResponse = await apiService.getEmployerByEmail(user.email.address);
         
         if (employerResponse.data && employerResponse.data.id) {
           setEmployerId(employerResponse.data.id);
@@ -40,10 +40,10 @@ const ReviewCompletedContracts = () => {
       }
     };
     
-    if (user?.email) {
+    if (user?.email?.address) {
       fetchEmployerId();
     }
-  }, [user?.email]);
+  }, [user?.email?.address]);
 
   // --------------------------------------------------------------------------
   // FETCH CLOSED JOBS USING EMPLOYER ID

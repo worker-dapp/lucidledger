@@ -3,11 +3,11 @@ import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/api";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 
 const JobTracker = () => {
   const navigate = useNavigate();
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, primaryWallet, smartWalletAddress } = useAuth();
   const [employeeData, setEmployeeData] = useState(null);
   const [openContracts, setOpenContracts] = useState([]);
   const [completedContracts, setCompletedContracts] = useState([]);
@@ -25,11 +25,12 @@ const JobTracker = () => {
       }
 
       try {
-        if (user.email) {
-          const response = await apiService.getEmployeeByEmail(user.email);
+        const userEmail = user?.email?.address || user?.email;
+        if (userEmail) {
+          const response = await apiService.getEmployeeByEmail(userEmail);
           setEmployeeData(response.data);
-        } else if (primaryWallet?.address) {
-          const response = await apiService.getEmployeeByWallet(primaryWallet.address);
+        } else if (smartWalletAddress || primaryWallet?.address) {
+          const response = await apiService.getEmployeeByWallet(smartWalletAddress || primaryWallet?.address);
           setEmployeeData(response.data);
         }
       } catch (err) {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
@@ -11,7 +11,7 @@ import img4 from "../assets/feature4.png";
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { user } = useDynamicContext();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 

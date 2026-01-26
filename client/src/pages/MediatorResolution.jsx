@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import {
   AlertTriangle,
   CheckCircle,
@@ -17,11 +16,12 @@ import {
   ContractState,
 } from "../contracts/workContractInteractions";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
+import { useAuth } from "../hooks/useAuth";
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
 
 const MediatorResolution = () => {
-  const { user, primaryWallet, isAuthenticated } = useDynamicContext();
+  const { user, isAuthenticated, smartWalletClient, smartWalletAddress } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [mediatorData, setMediatorData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,8 +38,8 @@ const MediatorResolution = () => {
     setTxMessage(message);
   };
 
-  // Get user's email from Dynamic Labs
-  const userEmail = user?.email?.toLowerCase() || "";
+  // Get user's email from Privy
+  const userEmail = user?.email?.address?.toLowerCase() || "";
 
   // Check if user's email is in the mediators whitelist
   useEffect(() => {
@@ -57,9 +57,9 @@ const MediatorResolution = () => {
           setMediatorData(response.data);
 
           // If mediator doesn't have wallet address saved yet, update it
-          if (!response.data.wallet_address && primaryWallet?.address) {
+          if (!response.data.wallet_address && smartWalletAddress) {
             try {
-              await apiService.updateMediatorWallet(userEmail, primaryWallet.address);
+              await apiService.updateMediatorWallet(userEmail, smartWalletAddress);
               console.log("Mediator wallet address updated");
             } catch (err) {
               console.error("Failed to update mediator wallet:", err);
@@ -77,7 +77,7 @@ const MediatorResolution = () => {
     };
 
     checkAuthorization();
-  }, [isAuthenticated, userEmail, primaryWallet?.address]);
+  }, [isAuthenticated, userEmail, smartWalletAddress]);
 
   // Fetch disputed contracts assigned to this mediator
   useEffect(() => {
@@ -126,7 +126,7 @@ const MediatorResolution = () => {
   }, [selectedContract?.contract_address]);
 
   const handleResolve = async (payWorker) => {
-    if (!selectedContract?.contract_address || !primaryWallet) return;
+    if (!selectedContract?.contract_address || !smartWalletClient || !smartWalletAddress) return;
 
     setResolving(true);
     setMessage("");
@@ -137,12 +137,13 @@ const MediatorResolution = () => {
       const isMockContract = selectedContract.contract_address.startsWith("0x000000");
 
       if (!isMockContract) {
-        const result = await resolveDispute(
-          primaryWallet,
-          selectedContract.contract_address,
+        const result = await resolveDispute({
+          user,
+          smartWalletClient,
+          contractAddress: selectedContract.contract_address,
           payWorker,
-          handleTxStatusChange
-        );
+          onStatusChange: handleTxStatusChange,
+        });
         setMessage(
           `Dispute resolved (gas-free)! ${payWorker ? "Worker" : "Employer"} received the funds. ` +
           `View on BaseScan: ${result.basescanUrl}`
@@ -433,7 +434,7 @@ const MediatorResolution = () => {
                   <div className="space-y-3">
                     <button
                       onClick={() => handleResolve(true)}
-                      disabled={resolving || !primaryWallet || (blockchainState && blockchainState.state !== ContractState.Disputed)}
+                      disabled={resolving || !smartWalletClient || !smartWalletAddress || (blockchainState && blockchainState.state !== ContractState.Disputed)}
                       className="w-full bg-green-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {resolving ? (
@@ -451,7 +452,7 @@ const MediatorResolution = () => {
 
                     <button
                       onClick={() => handleResolve(false)}
-                      disabled={resolving || !primaryWallet || (blockchainState && blockchainState.state !== ContractState.Disputed)}
+                      disabled={resolving || !smartWalletClient || !smartWalletAddress || (blockchainState && blockchainState.state !== ContractState.Disputed)}
                       className="w-full bg-gray-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {resolving ? (

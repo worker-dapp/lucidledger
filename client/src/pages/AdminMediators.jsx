@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useDynamicContext, DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import {
   AlertTriangle,
   CheckCircle,
@@ -16,9 +15,10 @@ import apiService from "../services/api";
 import { assignMediator } from "../contracts/workContractInteractions";
 import { parseAAError } from "../contracts/aaClient";
 import { getOnChainAdminAddress } from "../contracts/adminUtils";
+import { useAuth } from "../hooks/useAuth";
 
 const AdminMediators = () => {
-  const { user, isAuthenticated, primaryWallet } = useDynamicContext();
+  const { user, login, smartWalletClient, smartWalletAddress } = useAuth();
   const [loading, setLoading] = useState(true);
   const [mediators, setMediators] = useState([]);
   const [disputedContracts, setDisputedContracts] = useState([]);
@@ -43,7 +43,7 @@ const AdminMediators = () => {
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
 
   // Get current user's email
-  const userEmail = user?.email?.toLowerCase() || "";
+  const userEmail = user?.email?.address?.toLowerCase() || "";
 
   const handleTxStatusChange = ({ message }) => {
     setTxMessage(message);
@@ -52,8 +52,8 @@ const AdminMediators = () => {
   // Check admin status server-side by attempting to fetch admin data
   useEffect(() => {
     const checkAdminStatus = async () => {
-      // Check if user has a Dynamic session (wallet or user object)
-      if (!user && !primaryWallet) {
+      // Check if user has a session (wallet or user object)
+      if (!user && !smartWalletAddress) {
         setAdminCheckComplete(true);
         return;
       }
@@ -76,7 +76,7 @@ const AdminMediators = () => {
     };
 
     checkAdminStatus();
-  }, [user, primaryWallet]);
+  }, [user, smartWalletAddress]);
 
   // Fetch on-chain admin address on mount
   useEffect(() => {
@@ -89,13 +89,13 @@ const AdminMediators = () => {
 
   // Check for wallet mismatch when wallet or onChainAdmin changes
   useEffect(() => {
-    if (onChainAdmin && primaryWallet?.address) {
-      const mismatch = onChainAdmin.toLowerCase() !== primaryWallet.address.toLowerCase();
+    if (onChainAdmin && smartWalletAddress) {
+      const mismatch = onChainAdmin.toLowerCase() !== smartWalletAddress.toLowerCase();
       setWalletMismatch(mismatch);
     } else {
       setWalletMismatch(false);
     }
-  }, [onChainAdmin, primaryWallet?.address]);
+  }, [onChainAdmin, smartWalletAddress]);
 
   // Fetch mediators and disputed contracts after admin check completes
   useEffect(() => {
@@ -105,7 +105,7 @@ const AdminMediators = () => {
         return;
       }
 
-      if ((!user && !primaryWallet) || !isAdmin) {
+      if ((!user && !smartWalletAddress) || !isAdmin) {
         setLoading(false);
         return;
       }
@@ -139,7 +139,7 @@ const AdminMediators = () => {
     };
 
     fetchAdminData();
-  }, [user, primaryWallet, isAdmin, adminCheckComplete]);
+  }, [user, smartWalletAddress, isAdmin, adminCheckComplete]);
 
   const handleAddMediator = async (e) => {
     e.preventDefault();
@@ -211,7 +211,7 @@ const AdminMediators = () => {
       return;
     }
 
-    if (!primaryWallet) {
+    if (!smartWalletClient || !smartWalletAddress) {
       setError("Connect the admin wallet to assign mediators.");
       return;
     }
@@ -227,12 +227,12 @@ const AdminMediators = () => {
         throw new Error("Selected mediator has no wallet address");
       }
 
-      await assignMediator(
-        primaryWallet,
-        contract.contract_address,
-        mediator.wallet_address,
-        handleTxStatusChange
-      );
+      await assignMediator({
+        smartWalletClient,
+        contractAddress: contract.contract_address,
+        mediatorAddress: mediator.wallet_address,
+        onStatusChange: handleTxStatusChange,
+      });
 
       const response = await apiService.assignMediatorToDeployedContract(
         contract.id,
@@ -271,8 +271,8 @@ const AdminMediators = () => {
     );
   }
 
-  // Show login if no Dynamic session at all
-  if (!user && !primaryWallet) {
+  // Show login if no session at all
+  if (!user && !smartWalletAddress) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
@@ -283,7 +283,12 @@ const AdminMediators = () => {
           <p className="text-gray-600 mb-6">
             Sign in with your authorized email address to access the admin dashboard.
           </p>
-          <DynamicWidget />
+          <button
+            onClick={login}
+            className="px-4 py-2 bg-[#0D3B66] text-white rounded-lg hover:bg-[#0a2d4d] transition-colors"
+          >
+            Sign In
+          </button>
           <p className="text-xs text-gray-400 mt-4">
             Only authorized administrators can access this page.
           </p>
@@ -346,11 +351,11 @@ const AdminMediators = () => {
                   Mediator assignment transactions will fail.
                 </p>
                 <div className="mt-2 text-xs font-mono">
-                  <p className="text-amber-600">Connected: {primaryWallet?.address}</p>
+                  <p className="text-amber-600">Connected: {smartWalletAddress}</p>
                   <p className="text-amber-600">Expected: {onChainAdmin}</p>
                 </div>
                 <p className="text-sm text-amber-700 mt-2">
-                  Please connect the correct wallet in Dynamic Labs, or redeploy the
+                  Please connect the correct smart wallet, or redeploy the
                   factory with the current wallet as admin.
                 </p>
               </div>

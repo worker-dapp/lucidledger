@@ -10,19 +10,16 @@
     "preview": "LIGHTNINGCSS_FORCE_WASM=1 vite preview"
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^4.28.0",
-    "@dynamic-labs/ethereum-aa": "^4.57.0",
-    "@dynamic-labs/sdk-api": "^0.0.766",
-    "@dynamic-labs/sdk-react-core": "^4.28.0",
     "@mui/icons-material": "^6.5.0",
     "@mui/material": "^6.5.0",
+    "@privy-io/react-auth": "^3.12.0",
     "@tailwindcss/vite": "^4.1.12",
     "cors": "^2.8.5",
     "ethers": "^6.15.0",
     "express": "^4.21.2",
     "lightningcss": "^1.30.1",
     "lucide-react": "^0.539.0",
-    "permissionless": "^0.3.4",
+    "permissionless": "^0.2.57",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-icons": "^5.5.0",
@@ -31,7 +28,7 @@
     "react-router-dom": "^6.22.0",
     "recharts": "^2.15.4",
     "tailwindcss": "^4.1.12",
-    "viem": "^2.33.3"
+    "viem": "^2.45.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import apiService from "../../services/api";
 import StepIndicator from "../../components/StepIndicator";
 import JobBasics from "../../Form/JobBasics";
@@ -8,9 +7,10 @@ import TheJob from "../../Form/TheJob";
 import Oracles from "../../Form/Oracles";
 import Responsibilities from "../../Form/Responsibilities";
 import { Save, X } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, smartWalletAddress } = useAuth();
   const [step, setStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -165,12 +165,12 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       try {
         let employerResponse = null;
 
-        if (primaryWallet?.address) {
-          employerResponse = await apiService.getEmployerByWallet(primaryWallet.address);
+        if (smartWalletAddress) {
+          employerResponse = await apiService.getEmployerByWallet(smartWalletAddress);
         }
 
-        if ((!employerResponse || !employerResponse.data) && user?.email) {
-          employerResponse = await apiService.getEmployerByEmail(user.email);
+        if ((!employerResponse || !employerResponse.data) && user?.email?.address) {
+          employerResponse = await apiService.getEmployerByEmail(user.email.address);
         }
 
         if (employerResponse?.data) {
@@ -193,10 +193,10 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       }
     };
 
-    if (primaryWallet?.address || user?.email) {
+    if (smartWalletAddress || user?.email?.address) {
       fetchEmployerData();
     }
-  }, [primaryWallet?.address, user?.email, hasPrefilledData, user]);
+  }, [smartWalletAddress, user?.email?.address, hasPrefilledData, user]);
 
   const handleSubmit = async () => {
     if (!employerId) {

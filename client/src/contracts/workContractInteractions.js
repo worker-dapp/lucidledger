@@ -89,12 +89,18 @@ export const getContractState = async (contractAddress) => {
  * Employer approves work and releases payment to worker.
  * Uses AA for gas-free transaction.
  *
- * @param {object} primaryWallet - Dynamic Labs wallet
+ * @param {object} params.user - Privy user
+ * @param {object} params.smartWalletClient - Privy smart wallet client
  * @param {string} contractAddress - Deployed contract address
  * @param {function} [onStatusChange] - Status callback
  * @returns {Promise<{txHash: string, basescanUrl: string}>}
  */
-export const approveAndPay = async (primaryWallet, contractAddress, onStatusChange) => {
+export const approveAndPay = async ({
+  user,
+  smartWalletClient,
+  contractAddress,
+  onStatusChange,
+}) => {
   const address = getAddress(contractAddress);
 
   const updateStatus = (step, message) => {
@@ -106,7 +112,10 @@ export const approveAndPay = async (primaryWallet, contractAddress, onStatusChan
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
     // Use smart account address for permission checks (this is what the contract sees as msg.sender)
-    const signerAddress = await getSmartWalletAddress(primaryWallet);
+    const signerAddress = getSmartWalletAddress(user);
+    if (!signerAddress) {
+      throw new Error("Smart wallet not connected");
+    }
 
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying permissions...");
 
@@ -143,7 +152,7 @@ export const approveAndPay = async (primaryWallet, contractAddress, onStatusChan
 
     // Send sponsored transaction
     const result = await sendSponsoredTransaction({
-      primaryWallet,
+      smartWalletClient,
       to: address,
       data,
       onStatusChange,
@@ -165,13 +174,20 @@ export const approveAndPay = async (primaryWallet, contractAddress, onStatusChan
  * Either employer or worker can raise a dispute.
  * Uses AA for gas-free transaction.
  *
- * @param {object} primaryWallet - Dynamic Labs wallet
+ * @param {object} params.user - Privy user
+ * @param {object} params.smartWalletClient - Privy smart wallet client
  * @param {string} contractAddress - Deployed contract address
  * @param {string} reason - Description of the dispute
  * @param {function} [onStatusChange] - Status callback
  * @returns {Promise<{txHash: string, basescanUrl: string, raisedBy: string}>}
  */
-export const raiseDispute = async (primaryWallet, contractAddress, reason, onStatusChange) => {
+export const raiseDispute = async ({
+  user,
+  smartWalletClient,
+  contractAddress,
+  reason,
+  onStatusChange,
+}) => {
   if (!reason || reason.trim().length === 0) {
     throw new Error("Dispute reason is required");
   }
@@ -187,7 +203,10 @@ export const raiseDispute = async (primaryWallet, contractAddress, reason, onSta
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
     // Use smart account address for permission checks (this is what the contract sees as msg.sender)
-    const signerAddress = await getSmartWalletAddress(primaryWallet);
+    const signerAddress = getSmartWalletAddress(user);
+    if (!signerAddress) {
+      throw new Error("Smart wallet not connected");
+    }
 
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying permissions...");
 
@@ -232,7 +251,7 @@ export const raiseDispute = async (primaryWallet, contractAddress, reason, onSta
 
     // Send sponsored transaction
     const result = await sendSponsoredTransaction({
-      primaryWallet,
+      smartWalletClient,
       to: address,
       data,
       onStatusChange,
@@ -255,13 +274,20 @@ export const raiseDispute = async (primaryWallet, contractAddress, reason, onSta
  * ONLY the designated mediator can call this function.
  * Uses AA for gas-free transaction.
  *
- * @param {object} primaryWallet - Dynamic Labs wallet
+ * @param {object} params.user - Privy user
+ * @param {object} params.smartWalletClient - Privy smart wallet client
  * @param {string} contractAddress - Deployed contract address
  * @param {boolean} payWorker - True to pay worker, false to refund employer
  * @param {function} [onStatusChange] - Status callback
  * @returns {Promise<{txHash: string, basescanUrl: string, recipient: string, paidWorker: boolean}>}
  */
-export const resolveDispute = async (primaryWallet, contractAddress, payWorker, onStatusChange) => {
+export const resolveDispute = async ({
+  user,
+  smartWalletClient,
+  contractAddress,
+  payWorker,
+  onStatusChange,
+}) => {
   const address = getAddress(contractAddress);
 
   const updateStatus = (step, message) => {
@@ -273,7 +299,10 @@ export const resolveDispute = async (primaryWallet, contractAddress, payWorker, 
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
     // Use smart account address for permission checks (this is what the contract sees as msg.sender)
-    const signerAddress = await getSmartWalletAddress(primaryWallet);
+    const signerAddress = getSmartWalletAddress(user);
+    if (!signerAddress) {
+      throw new Error("Smart wallet not connected");
+    }
 
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying mediator permissions...");
 
@@ -324,7 +353,7 @@ export const resolveDispute = async (primaryWallet, contractAddress, payWorker, 
 
     // Send sponsored transaction
     const result = await sendSponsoredTransaction({
-      primaryWallet,
+      smartWalletClient,
       to: address,
       data,
       onStatusChange,
@@ -347,13 +376,18 @@ export const resolveDispute = async (primaryWallet, contractAddress, payWorker, 
  * Admin assigns mediator to a disputed contract.
  * ONLY the platform admin can call this function.
  *
- * @param {object} primaryWallet - Dynamic Labs wallet
+ * @param {object} params.smartWalletClient - Privy smart wallet client
  * @param {string} contractAddress - Deployed contract address
  * @param {string} mediatorAddress - Mediator wallet address
  * @param {function} [onStatusChange] - Status callback
  * @returns {Promise<{txHash: string, basescanUrl: string}>}
  */
-export const assignMediator = async (primaryWallet, contractAddress, mediatorAddress, onStatusChange) => {
+export const assignMediator = async ({
+  smartWalletClient,
+  contractAddress,
+  mediatorAddress,
+  onStatusChange,
+}) => {
   const address = getAddress(contractAddress);
   const mediator = getAddress(mediatorAddress);
 
@@ -373,7 +407,7 @@ export const assignMediator = async (primaryWallet, contractAddress, mediatorAdd
     });
 
     const result = await sendSponsoredTransaction({
-      primaryWallet,
+      smartWalletClient,
       to: address,
       data,
       onStatusChange,

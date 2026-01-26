@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { LayoutGrid, Users, AlertTriangle, User, Menu, X } from "lucide-react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
 import BetaBanner from "./BetaBanner";
@@ -16,7 +16,7 @@ const navItems = [
 
 const EmployerLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useDynamicContext();
+  const { user } = useAuth();
 
   const closeSidebar = () => setSidebarOpen(false);
 
@@ -88,7 +88,12 @@ const EmployerLayout = ({ children }) => {
               <div className="mt-6 px-3 py-2 rounded-lg bg-gray-50 text-xs text-gray-500">
                 Signed in as{" "}
                 <span className="font-semibold text-gray-700">
-                  {user.first_name || user.email || user.phone || "Employer"}
+                  {user.first_name ||
+                    user.email?.address ||
+                    user.email ||
+                    user.phone?.number ||
+                    user.phone ||
+                    "Employer"}
                 </span>
               </div>
             )}

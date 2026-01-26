@@ -4,10 +4,10 @@ import EmployeeNavbar from "../components/EmployeeNavbar";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 
 const EmployeeJobsPage = () => {
-  const { user, primaryWallet, setShowAuthFlow } = useDynamicContext();
+  const { user, primaryWallet, smartWalletAddress, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [jobs, setJobs] = useState([]);
@@ -41,14 +41,15 @@ const EmployeeJobsPage = () => {
       try {
         setEmployeeLoaded(false);
         // Try to get employee by email first (primary method)
-        if (user.email) {
-          const response = await apiService.getEmployeeByEmail(user.email);
+        const userEmail = user?.email?.address || user?.email;
+        if (userEmail) {
+          const response = await apiService.getEmployeeByEmail(userEmail);
           setEmployeeData(response.data);
           console.log('Employee data loaded:', response.data);
         }
         // Fallback to wallet address if email is not available
-        else if (primaryWallet?.address) {
-          const response = await apiService.getEmployeeByWallet(primaryWallet.address);
+        else if (smartWalletAddress || primaryWallet?.address) {
+          const response = await apiService.getEmployeeByWallet(smartWalletAddress || primaryWallet?.address);
           setEmployeeData(response.data);
           console.log('Employee data loaded:', response.data);
         } else {
@@ -245,7 +246,7 @@ const EmployeeJobsPage = () => {
       localStorage.setItem('pendingRole', 'employee');
       localStorage.setItem('userRole', 'employee');
       window.dispatchEvent(new Event('roleSelected'));
-      setShowAuthFlow(true);
+      login();
       return;
     }
 
@@ -305,7 +306,7 @@ const EmployeeJobsPage = () => {
       localStorage.setItem('pendingRole', 'employee');
       localStorage.setItem('userRole', 'employee');
       window.dispatchEvent(new Event('roleSelected'));
-      setShowAuthFlow(true);
+      login();
       return;
     }
 

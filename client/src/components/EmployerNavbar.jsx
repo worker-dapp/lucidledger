@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import SmartWalletInfo from "./SmartWalletInfo";
 
@@ -10,7 +10,7 @@ import BetaBanner from "./BetaBanner";
 const EmployerNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const { user } = useDynamicContext();
+  const { user } = useAuth();
   const mobileMenuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -164,12 +164,21 @@ const EmployerNavbar = () => {
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-[#EE964B] rounded-full flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">
-                        {user.first_name ? user.first_name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : (user.phone ? user.phone.charAt(0).toUpperCase() : 'U'))}
+                        {user.first_name
+                          ? user.first_name.charAt(0).toUpperCase()
+                          : (user.email?.address || user.email || user.phone?.number || user.phone || 'U')
+                              .charAt(0)
+                              .toUpperCase()}
                       </span>
                     </div>
                     <div>
                       <p className="text-white font-semibold">
-                        {user.first_name || (user.email ? user.email.split("@")[0] : user.phone || 'User')}
+                        {user.first_name ||
+                          (user.email?.address
+                            ? user.email.address.split("@")[0]
+                            : user.email
+                              ? user.email.split("@")[0]
+                              : user.phone?.number || user.phone || 'User')}
                       </p>
                       <p className="text-[#F4D35E] text-sm">Employer</p>
                     </div>
