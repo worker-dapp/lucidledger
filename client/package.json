@@ -22,7 +22,7 @@
     "express": "^4.21.2",
     "lightningcss": "^1.30.1",
     "lucide-react": "^0.539.0",
-    "permissionless": "^0.3.3",
+    "permissionless": "^0.3.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-icons": "^5.5.0",

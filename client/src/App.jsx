@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { DynamicContextProvider, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
-import { ZeroDevSmartWalletConnectors } from "@dynamic-labs/ethereum-aa";
+// ZeroDevSmartWalletConnectors removed - conflicts with manual Coinbase Smart Account in aaClient.js
+// See notes/batching-aa-dynamic-cdp.md for architecture details
 import { SdkViewSectionType, SdkViewType } from "@dynamic-labs/sdk-api";
 import LandingPage from "./pages/LandingPage";
 import EmployerLandingPage from "./pages/EmployerLandingPage";
@@ -396,7 +397,7 @@ const App = () => {
     <DynamicContextProvider
       settings={{
         environmentId: dynamicEnvId,
-        walletConnectors: [EthereumWalletConnectors, ZeroDevSmartWalletConnectors],
+        walletConnectors: [EthereumWalletConnectors],
         overrides: { views: getLoginView() ? [getLoginView()] : [] },
         // Add debug info for production
         ...(import.meta.env.MODE === 'production' && {

@@ -15,6 +15,7 @@ NODE_ENV=development
 VITE_BASE_SEPOLIA_CHAIN_ID=84532
 VITE_BASE_SEPOLIA_RPC=https://sepolia.base.org
 VITE_BASESCAN_URL=https://sepolia.basescan.org
+# Note: BaseScan API keys are issued via your Etherscan account (BaseScan uses Etherscan's key system).
 VITE_USDC_ADDRESS=0x_your_usdc_address
 VITE_MEDIATOR_ADDRESS=0x_your_mediator_address
 

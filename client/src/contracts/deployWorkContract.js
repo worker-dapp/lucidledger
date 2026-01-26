@@ -20,6 +20,7 @@ import {
   sendBatchTransaction,
   TxSteps,
   parseAAError,
+  getSmartWalletAddress,
 } from "./aaClient";
 
 // Base Sepolia testnet configuration
@@ -172,17 +173,21 @@ export const deployWorkContract = async ({
   };
 
   try {
-    // Get the employer address from the wallet
-    const employerAddress = getAddress(primaryWallet.address);
+    // Get the smart account address (this is the contract wallet that sends transactions)
+    // With Coinbase Smart Account, USDC must be held by the smart account, not the EOA
+    updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
+    const smartAccountAddress = await getSmartWalletAddress(primaryWallet);
+    const employerAddress = getAddress(smartAccountAddress);
 
-    // Check balance first
+    // Check balance on the smart account (which holds the USDC)
     updateStatus(TxSteps.PREPARING_USEROP, "Checking USDC balance...");
     const balance = await getUSDCBalance(employerAddress);
     const paymentAmountUnits = parseUnits(paymentAmountUSD.toString(), USDC_DECIMALS);
 
     if (balance.raw < paymentAmountUnits) {
       throw new Error(
-        `Insufficient USDC balance. Have: ${balance.formatted}, Need: ${paymentAmountUSD}`
+        `Insufficient USDC balance in smart wallet. Have: ${balance.formatted}, Need: ${paymentAmountUSD}. ` +
+        `Please transfer USDC to your smart wallet: ${employerAddress}`
       );
     }
 

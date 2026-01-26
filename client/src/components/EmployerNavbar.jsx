@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
-import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
+import SmartWalletInfo from "./SmartWalletInfo";
 
 import LogoutButton from "./LogoutButton";
 import BetaBanner from "./BetaBanner";
@@ -112,7 +112,7 @@ const EmployerNavbar = () => {
             Support
           </NavLink>
 
-          <DynamicWidget />
+          <SmartWalletInfo />
           <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
         </div>
 
@@ -236,7 +236,7 @@ const EmployerNavbar = () => {
                 🆘 Support
               </NavLink>
 
-              <DynamicWidget />
+              <SmartWalletInfo compact />
               <LogoutButton className='bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-all' />
             </div>
 
