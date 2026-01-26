@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useDynamicContext, DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import {
   AlertTriangle,
   CheckCircle,
@@ -52,7 +52,8 @@ const AdminMediators = () => {
   // Check admin status server-side by attempting to fetch admin data
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (!isAuthenticated) {
+      // Check if user has a Dynamic session (wallet or user object)
+      if (!user && !primaryWallet) {
         setAdminCheckComplete(true);
         return;
       }
@@ -75,7 +76,7 @@ const AdminMediators = () => {
     };
 
     checkAdminStatus();
-  }, [isAuthenticated]);
+  }, [user, primaryWallet]);
 
   // Fetch on-chain admin address on mount
   useEffect(() => {
@@ -104,7 +105,7 @@ const AdminMediators = () => {
         return;
       }
 
-      if (!isAuthenticated || !isAdmin) {
+      if ((!user && !primaryWallet) || !isAdmin) {
         setLoading(false);
         return;
       }
@@ -138,7 +139,7 @@ const AdminMediators = () => {
     };
 
     fetchAdminData();
-  }, [isAuthenticated, isAdmin, adminCheckComplete]);
+  }, [user, primaryWallet, isAdmin, adminCheckComplete]);
 
   const handleAddMediator = async (e) => {
     e.preventDefault();
@@ -270,16 +271,21 @@ const AdminMediators = () => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Show login if no Dynamic session at all
+  if (!user && !primaryWallet) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
-          <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <Shield className="h-12 w-12 text-blue-500 mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-800 mb-2">
-            Authentication Required
+            Administrator Login
           </h1>
-          <p className="text-gray-600">
-            Please connect your wallet to access this page.
+          <p className="text-gray-600 mb-6">
+            Sign in with your authorized email address to access the admin dashboard.
+          </p>
+          <DynamicWidget />
+          <p className="text-xs text-gray-400 mt-4">
+            Only authorized administrators can access this page.
           </p>
         </div>
       </div>

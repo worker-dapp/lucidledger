@@ -2,16 +2,25 @@
  * Account Abstraction Client Module
  *
  * Provides sponsored transactions via Coinbase CDP Paymaster on Base Sepolia.
- * Uses Dynamic Labs Smart Wallet with ZeroDev for account abstraction.
+ * Uses Coinbase Smart Account with Dynamic Labs for authentication.
+ *
+ * Architecture:
+ * - Dynamic Labs handles user authentication (email/phone/wallet)
+ * - User's EOA signer is wrapped in a Coinbase Smart Account
+ * - Coinbase CDP Paymaster sponsors all gas fees
+ * - Permissionless.js handles UserOp bundling and batching
  */
 
 import { createPublicClient, http, encodeFunctionData, parseUnits } from "viem";
+import { toAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
-import {
-  createSmartAccountClient,
-  ENTRYPOINT_ADDRESS_V07,
-} from "permissionless";
-import { createPimlicoBundlerClient, createPimlicoPaymasterClient } from "permissionless/clients/pimlico";
+import { createSmartAccountClient } from "permissionless";
+import { toCoinbaseSmartAccount } from "viem/account-abstraction";
+import { createPimlicoClient } from "permissionless/clients/pimlico";
+
+// Coinbase Smart Wallet uses EntryPoint v0.6, not v0.7
+// EntryPoint v0.6 address is standard across all EVM chains
+const ENTRYPOINT_V06_ADDRESS = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
 
 // Configuration from environment variables
 const BASE_SEPOLIA_RPC = import.meta.env.VITE_BASE_SEPOLIA_RPC || "https://sepolia.base.org";
@@ -116,7 +125,7 @@ export const checkAAConfiguration = () => {
 
 /**
  * Gets a wallet client from Dynamic Labs' primary wallet.
- * The wallet should already be a smart wallet when using ZeroDevSmartWalletConnectors.
+ * Returns the EOA wallet client which will be wrapped in a Coinbase Smart Account.
  *
  * @param {object} primaryWallet - Dynamic Labs primary wallet object
  * @returns {Promise<object>} Wallet client for signing
@@ -127,7 +136,7 @@ const getWalletClient = async (primaryWallet) => {
   }
 
   // Get the wallet client from Dynamic Labs
-  // Dynamic Labs provides a getWalletClient method on the primary wallet
+  // This returns an EOA wallet client that we'll wrap in a Coinbase Smart Account
   const walletClient = await primaryWallet.getWalletClient();
 
   if (!walletClient) {
@@ -138,81 +147,125 @@ const getWalletClient = async (primaryWallet) => {
 };
 
 /**
- * Creates a bundler client for submitting UserOperations.
- * Uses Coinbase CDP bundler endpoint.
+ * Creates a Pimlico client for bundler and paymaster operations.
+ * Uses Coinbase CDP endpoint which handles both bundler and paymaster.
  *
- * @returns {object} Bundler client
+ * @returns {object} Pimlico client with bundler and paymaster actions
  */
-const getBundlerClient = () => {
+const getPimlicoClient = () => {
   if (!BUNDLER_URL) {
     throw new Error("Bundler URL not configured (VITE_BUNDLER_URL)");
   }
 
-  return createPimlicoBundlerClient({
+  return createPimlicoClient({
     chain,
-    transport: http(BUNDLER_URL, {
-      fetchOptions: {
-        headers: CDP_API_KEY ? { "x-api-key": CDP_API_KEY } : {},
-      },
-    }),
-    entryPoint: ENTRYPOINT_ADDRESS_V07,
+    // Coinbase CDP bundler URL already includes the API key in the path
+    // Don't add x-api-key header as it's not allowed by CORS policy
+    transport: http(BUNDLER_URL),
+    // Coinbase Smart Wallet uses EntryPoint v0.6
+    entryPoint: {
+      address: ENTRYPOINT_V06_ADDRESS,
+      version: "0.6",
+    },
   });
 };
 
 /**
- * Creates a paymaster client for gas sponsorship.
- * Uses Coinbase CDP paymaster endpoint.
+ * Creates a LocalAccount-compatible owner from a wallet client.
+ * This wraps the wallet client's signing methods so it can be used as a smart account owner.
  *
- * @returns {object} Paymaster client
+ * @param {object} walletClient - Viem wallet client
+ * @returns {object} LocalAccount-compatible owner
  */
-const getPaymasterClient = () => {
-  if (!PAYMASTER_URL) {
-    throw new Error("Paymaster URL not configured (VITE_PAYMASTER_URL)");
-  }
+const createOwnerFromWalletClient = (walletClient) => {
+  // toCoinbaseSmartAccount expects a LocalAccount with signing methods
+  // walletClient.account is just an address representation, so we need to wrap it
+  return toAccount({
+    address: walletClient.account.address,
 
-  return createPimlicoPaymasterClient({
-    chain,
-    transport: http(PAYMASTER_URL, {
-      fetchOptions: {
-        headers: CDP_API_KEY ? { "x-api-key": CDP_API_KEY } : {},
-      },
-    }),
-    entryPoint: ENTRYPOINT_ADDRESS_V07,
+    // Sign raw bytes (required for UserOperation signing)
+    // This is called when signing the UserOperation hash
+    async sign({ hash }) {
+      return walletClient.signMessage({
+        account: walletClient.account,
+        message: { raw: hash },
+      });
+    },
+
+    async signMessage({ message }) {
+      return walletClient.signMessage({ 
+        account: walletClient.account,
+        message 
+      });
+    },
+
+    async signTransaction(transaction) {
+      return walletClient.signTransaction({ 
+        account: walletClient.account,
+        ...transaction 
+      });
+    },
+
+    async signTypedData(typedData) {
+      return walletClient.signTypedData({ 
+        account: walletClient.account,
+        ...typedData 
+      });
+    },
   });
+};
+
+/**
+ * Creates a Coinbase Smart Account from an EOA signer.
+ * The smart account is a contract wallet that supports batching and is AA-compatible.
+ *
+ * @param {object} walletClient - Viem wallet client with EOA account
+ * @returns {Promise<object>} Coinbase Smart Account
+ */
+const createCoinbaseSmartAccount = async (walletClient) => {
+  // Create a proper LocalAccount owner from the wallet client
+  // This wraps the signing methods so toCoinbaseSmartAccount can use them
+  const owner = createOwnerFromWalletClient(walletClient);
+
+  // toCoinbaseSmartAccount creates a Coinbase Smart Wallet from an EOA owner
+  // This smart account implements encodeCalls and all EIP-4337 methods
+  const smartAccount = await toCoinbaseSmartAccount({
+    client: publicClient,
+    owners: [owner],
+  });
+
+  return smartAccount;
 };
 
 /**
  * Gets the smart account client for a Dynamic Labs wallet.
- * This enables sponsored transactions via the CDP paymaster.
+ * This wraps the EOA in a Coinbase Smart Account and enables sponsored transactions.
+ *
+ * Flow:
+ * 1. Get EOA wallet client from Dynamic Labs
+ * 2. Wrap EOA in Coinbase Smart Account (contract wallet)
+ * 3. Create smart account client with CDP paymaster for gas sponsorship
  *
  * @param {object} primaryWallet - Dynamic Labs primary wallet
- * @returns {Promise<object>} Smart account client
+ * @returns {Promise<object>} Smart account client with batching and sponsorship
  */
 export const getSmartAccountClient = async (primaryWallet) => {
   const walletClient = await getWalletClient(primaryWallet);
-  const bundlerClient = getBundlerClient();
-  const paymasterClient = getPaymasterClient();
+  const pimlicoClient = getPimlicoClient();
 
-  // The wallet from Dynamic Labs with ZeroDev should already be a smart account
-  // We just need to wrap it with the paymaster for sponsorship
+  // Create a Coinbase Smart Account from the EOA signer
+  // This is the key fix: we wrap the EOA in a proper SmartAccount
+  // that implements encodeCalls, signUserOperation, etc.
+  const smartAccount = await createCoinbaseSmartAccount(walletClient);
+
+  // Create the smart account client with bundler and paymaster
+  // Note: API key is in the URL path, not headers (CORS doesn't allow x-api-key header)
   const smartAccountClient = createSmartAccountClient({
-    account: walletClient.account,
+    account: smartAccount,
     chain,
-    bundlerTransport: http(BUNDLER_URL, {
-      fetchOptions: {
-        headers: CDP_API_KEY ? { "x-api-key": CDP_API_KEY } : {},
-      },
-    }),
-    middleware: {
-      // Use CDP paymaster for gas sponsorship
-      sponsorUserOperation: async ({ userOperation }) => {
-        const sponsorResult = await paymasterClient.sponsorUserOperation({
-          userOperation,
-        });
-        return sponsorResult;
-      },
-    },
-    entryPoint: ENTRYPOINT_ADDRESS_V07,
+    bundlerTransport: http(BUNDLER_URL),
+    // Use CDP paymaster for gas sponsorship
+    paymaster: pimlicoClient,
   });
 
   return smartAccountClient;
@@ -253,7 +306,7 @@ export const sendSponsoredTransaction = async ({
     }
 
     const smartAccountClient = await getSmartAccountClient(primaryWallet);
-    const bundlerClient = getBundlerClient();
+    const pimlicoClient = getPimlicoClient();
 
     updateStatus(TxSteps.SIGNING_USEROP, "Sign in your wallet...");
 
@@ -266,13 +319,9 @@ export const sendSponsoredTransaction = async ({
 
     updateStatus(TxSteps.CONFIRMING, "Confirming on-chain...");
 
-    const waitForUserOpReceipt =
-      smartAccountClient.waitForUserOperationReceipt ||
-      bundlerClient.waitForUserOperationReceipt;
-    if (!waitForUserOpReceipt) {
-      throw new Error("Bundler client does not support waitForUserOperationReceipt");
-    }
-    const userOpReceipt = await waitForUserOpReceipt({ hash: userOpHash });
+    const userOpReceipt = await pimlicoClient.waitForUserOperationReceipt({
+      hash: userOpHash,
+    });
     const txHash = userOpReceipt?.receipt?.transactionHash;
 
     updateStatus(TxSteps.SUCCESS, "Transaction confirmed!");
@@ -320,13 +369,14 @@ export const sendBatchTransaction = async ({
     }
 
     const smartAccountClient = await getSmartAccountClient(primaryWallet);
-    const bundlerClient = getBundlerClient();
+    const pimlicoClient = getPimlicoClient();
 
+    // Coinbase Smart Account always supports batching via encodeCalls
     updateStatus(TxSteps.SIGNING_USEROP, "Sign batch in your wallet...");
 
-    // Smart account clients support batch transactions
-    const userOpHash = await smartAccountClient.sendTransactions({
-      transactions: calls.map((call) => ({
+    // Send all calls atomically in a single UserOperation
+    const userOpHash = await smartAccountClient.sendTransaction({
+      calls: calls.map((call) => ({
         to: call.to,
         data: call.data,
         value: call.value || 0n,
@@ -335,13 +385,9 @@ export const sendBatchTransaction = async ({
 
     updateStatus(TxSteps.CONFIRMING, "Confirming on-chain...");
 
-    const waitForUserOpReceipt =
-      smartAccountClient.waitForUserOperationReceipt ||
-      bundlerClient.waitForUserOperationReceipt;
-    if (!waitForUserOpReceipt) {
-      throw new Error("Bundler client does not support waitForUserOperationReceipt");
-    }
-    const userOpReceipt = await waitForUserOpReceipt({ hash: userOpHash });
+    const userOpReceipt = await pimlicoClient.waitForUserOperationReceipt({
+      hash: userOpHash,
+    });
     const txHash = userOpReceipt?.receipt?.transactionHash;
 
     updateStatus(TxSteps.SUCCESS, "Batch confirmed!");
@@ -398,17 +444,37 @@ export const isContract = async (address) => {
 
 /**
  * Gets the smart wallet address for the connected wallet.
- * With AA, the user's address is a smart contract, not an EOA.
+ * With Coinbase Smart Account, the address is derived from the owner EOA.
  *
  * @param {object} primaryWallet - Dynamic Labs wallet
- * @returns {Promise<string>} Smart wallet address
+ * @returns {Promise<string>} Smart wallet address (contract address)
  */
 export const getSmartWalletAddress = async (primaryWallet) => {
   if (!primaryWallet) {
     throw new Error("No wallet connected");
   }
 
-  // With ZeroDev connectors, primaryWallet.address is already the smart wallet
+  // Create the smart account to get its deterministic address
+  const walletClient = await getWalletClient(primaryWallet);
+  const smartAccount = await createCoinbaseSmartAccount(walletClient);
+
+  // The smart account address is a contract, not the EOA
+  return smartAccount.address;
+};
+
+/**
+ * Gets the EOA address for the connected wallet.
+ * This is the signer's address, not the smart account address.
+ *
+ * @param {object} primaryWallet - Dynamic Labs wallet
+ * @returns {string} EOA address
+ */
+export const getEOAAddress = (primaryWallet) => {
+  if (!primaryWallet) {
+    throw new Error("No wallet connected");
+  }
+
+  // primaryWallet.address is the EOA address from Dynamic Labs
   return primaryWallet.address;
 };
 
@@ -426,4 +492,5 @@ export default {
   encodeApproveData,
   isContract,
   getSmartWalletAddress,
+  getEOAAddress,
 };

@@ -12,6 +12,7 @@ import {
   sendSponsoredTransaction,
   TxSteps,
   parseAAError,
+  getSmartWalletAddress,
 } from "./aaClient";
 import { getBasescanUrl } from "./deployWorkContract";
 
@@ -95,7 +96,6 @@ export const getContractState = async (contractAddress) => {
  */
 export const approveAndPay = async (primaryWallet, contractAddress, onStatusChange) => {
   const address = getAddress(contractAddress);
-  const signerAddress = primaryWallet.address;
 
   const updateStatus = (step, message) => {
     if (onStatusChange) {
@@ -104,6 +104,10 @@ export const approveAndPay = async (primaryWallet, contractAddress, onStatusChan
   };
 
   try {
+    updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
+    // Use smart account address for permission checks (this is what the contract sees as msg.sender)
+    const signerAddress = await getSmartWalletAddress(primaryWallet);
+
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying permissions...");
 
     // Verify caller is employer
@@ -173,7 +177,6 @@ export const raiseDispute = async (primaryWallet, contractAddress, reason, onSta
   }
 
   const address = getAddress(contractAddress);
-  const signerAddress = primaryWallet.address;
 
   const updateStatus = (step, message) => {
     if (onStatusChange) {
@@ -182,6 +185,10 @@ export const raiseDispute = async (primaryWallet, contractAddress, reason, onSta
   };
 
   try {
+    updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
+    // Use smart account address for permission checks (this is what the contract sees as msg.sender)
+    const signerAddress = await getSmartWalletAddress(primaryWallet);
+
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying permissions...");
 
     // Verify caller is employer or worker
@@ -256,7 +263,6 @@ export const raiseDispute = async (primaryWallet, contractAddress, reason, onSta
  */
 export const resolveDispute = async (primaryWallet, contractAddress, payWorker, onStatusChange) => {
   const address = getAddress(contractAddress);
-  const signerAddress = primaryWallet.address;
 
   const updateStatus = (step, message) => {
     if (onStatusChange) {
@@ -265,6 +271,10 @@ export const resolveDispute = async (primaryWallet, contractAddress, payWorker, 
   };
 
   try {
+    updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
+    // Use smart account address for permission checks (this is what the contract sees as msg.sender)
+    const signerAddress = await getSmartWalletAddress(primaryWallet);
+
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying mediator permissions...");
 
     // Verify caller is mediator and contract is in Disputed state

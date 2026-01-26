@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { LayoutGrid, Users, AlertTriangle, User, Menu, X } from "lucide-react";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
 import BetaBanner from "./BetaBanner";
+import SmartWalletInfo from "./SmartWalletInfo";
 
 const navItems = [
   { to: "/contract-factory", label: "Recruitment Hub", icon: LayoutGrid },
@@ -50,7 +50,7 @@ const EmployerLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <DynamicWidget />
+            <SmartWalletInfo />
             <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
           </div>
         </div>

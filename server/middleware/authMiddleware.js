@@ -60,7 +60,7 @@ const verifyJWTWithJWKS = async (token) => {
   const verified = jwt.verify(token, signingKey, {
     algorithms: ['RS256'],
     // Dynamic Labs tokens have these standard claims
-    issuer: `https://app.dynamic.xyz/${DYNAMIC_LABS_ENV_ID}`,
+    issuer: `app.dynamicauth.com/${DYNAMIC_LABS_ENV_ID}`,
     // Don't verify audience in case it varies
     clockTolerance: 30, // 30 seconds tolerance for clock skew
   });
@@ -90,6 +90,13 @@ const verifyToken = async (req, res, next) => {
   }
 
   try {
+    // Debug: decode token to see actual issuer (without verification)
+    const decoded = jwt.decode(token);
+    if (decoded && decoded.iss) {
+      console.log('JWT actual issuer:', decoded.iss);
+      console.log('JWT expected issuer:', `https://app.dynamic.xyz/${DYNAMIC_LABS_ENV_ID}`);
+    }
+
     // 2. Verify the token with JWKS (proper RS256 signature verification)
     const verified = await verifyJWTWithJWKS(token);
 
