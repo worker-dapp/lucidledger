@@ -163,6 +163,14 @@ lucid-ledger/
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Dynamic + Coinbase Smart Wallet Note
+
+We attempted to combine Dynamic embedded MPC wallets with Coinbase Smart Wallet (AA).
+The Dynamic wallet signatures verify against a prefixed hash (EIP-191) instead of the
+raw UserOperation hash required by Coinbase Smart Wallet validation, so the UserOp
+signature check fails and the bundler rejects the operation. This appears to be a
+compatibility limitation unless Dynamic exposes raw `eth_sign` or Coinbase changes
+validation behavior.
 
 ## Support
 

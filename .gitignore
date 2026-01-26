@@ -126,3 +126,6 @@ nginx-logs/
 resolving
 conflict-*
 *.orig
+
+# Local notes
+notes/

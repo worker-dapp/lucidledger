@@ -11,7 +11,14 @@
  * - Permissionless.js handles UserOp bundling and batching
  */
 
-import { createPublicClient, http, encodeFunctionData, parseUnits } from "viem";
+import {
+  createPublicClient,
+  http,
+  encodeFunctionData,
+  parseUnits,
+  recoverAddress,
+  hashMessage,
+} from "viem";
 import { toAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { createSmartAccountClient } from "permissionless";
@@ -28,6 +35,7 @@ const BUNDLER_URL = import.meta.env.VITE_BUNDLER_URL;
 const PAYMASTER_URL = import.meta.env.VITE_PAYMASTER_URL;
 const CDP_API_KEY = import.meta.env.VITE_CDP_API_KEY_NAME;
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
+const DEBUG_AA_SIGNATURES = import.meta.env.VITE_DEBUG_AA_SIGNATURES === "true";
 
 // Chain configuration for Base Sepolia
 const chain = baseSepolia;
@@ -171,6 +179,21 @@ const getPimlicoClient = () => {
 };
 
 /**
+ * Attempt raw eth_sign for UserOperation hashing.
+ * Some wallets (especially MPC) only support prefixed signing via signMessage.
+ *
+ * @param {object} walletClient - Viem wallet client
+ * @param {string} hash - 0x-prefixed bytes32 hash
+ * @returns {Promise<string>} signature
+ */
+const tryEthSign = async (walletClient, hash) => {
+  return walletClient.request({
+    method: "eth_sign",
+    params: [walletClient.account.address, hash],
+  });
+};
+
+/**
  * Creates a LocalAccount-compatible owner from a wallet client.
  * This wraps the wallet client's signing methods so it can be used as a smart account owner.
  *
@@ -186,10 +209,38 @@ const createOwnerFromWalletClient = (walletClient) => {
     // Sign raw bytes (required for UserOperation signing)
     // This is called when signing the UserOperation hash
     async sign({ hash }) {
-      return walletClient.signMessage({
-        account: walletClient.account,
-        message: { raw: hash },
-      });
+      let signature;
+      try {
+        signature = await tryEthSign(walletClient, hash);
+      } catch {
+        signature = await walletClient.signMessage({
+          account: walletClient.account,
+          message: { raw: hash },
+        });
+      }
+
+      if (DEBUG_AA_SIGNATURES) {
+        try {
+          const recoveredRaw = await recoverAddress({ hash, signature });
+          const recoveredPrefixed = await recoverAddress({
+            hash: hashMessage({ raw: hash }),
+            signature,
+          });
+          console.debug("[AA Signature Debug]", {
+            owner: walletClient.account.address,
+            recoveredRaw,
+            recoveredPrefixed,
+            matchesRaw: recoveredRaw?.toLowerCase?.() ===
+              walletClient.account.address.toLowerCase(),
+            matchesPrefixed: recoveredPrefixed?.toLowerCase?.() ===
+              walletClient.account.address.toLowerCase(),
+          });
+        } catch (error) {
+          console.debug("[AA Signature Debug] Failed to recover signature", error);
+        }
+      }
+
+      return signature;
     },
 
     async signMessage({ message }) {
