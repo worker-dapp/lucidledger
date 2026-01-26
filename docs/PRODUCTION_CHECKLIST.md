@@ -20,7 +20,7 @@ Before deploying to production, verify:
 - [ ] Database migrations are up to date
 - [ ] Smart contracts are deployed and tested
 - [ ] Payment processing is functional
-- [ ] User authentication (Dynamic Labs) is configured for production
+- [ ] User authentication (Privy) is configured for production
 - [ ] All critical bugs are resolved
 - [ ] Legal terms and privacy policy are in place
 - [ ] Support email (`admin@lucidledger.co`) is monitored
@@ -82,8 +82,8 @@ Remove the noindex meta tag at line 12:
 # Production API endpoint
 VITE_API_BASE_URL=https://lucidledger.co/api
 
-# Dynamic Labs production environment
-VITE_DYNAMIC_ENV_ID=your_production_dynamic_env_id
+# Privy production environment
+VITE_PRIVY_APP_ID=your_production_privy_app_id
 
 # Demo mode OFF for production
 VITE_DEMO_MODE=false
@@ -108,6 +108,11 @@ NODE_ENV=production
 
 # CORS configuration
 CORS_ORIGIN=https://lucidledger.co
+
+# Privy JWT verification
+PRIVY_APP_ID=your_production_privy_app_id
+PRIVY_JWKS_URL=your_production_privy_jwks_url
+PRIVY_ISSUER=privy.io
 ```
 
 #### GitHub Secrets (for CI/CD)
@@ -118,7 +123,10 @@ Verify these secrets are set in GitHub repository settings:
 - `EC2_USER` - SSH username
 - `SSH_PRIVATE_KEY` - SSH private key for deployment
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` - Production database
-- `VITE_DYNAMIC_ENV_ID` - Dynamic Labs production environment
+- `VITE_PRIVY_APP_ID` - Privy production app ID
+- `PRIVY_APP_ID` - Privy production app ID (server)
+- `PRIVY_JWKS_URL` - Privy JWKS URL
+- `PRIVY_ISSUER` - privy.io
 
 ---
 
@@ -206,7 +214,7 @@ Visit the site and verify:
 
 - [ ] Landing page loads without demo banners
 - [ ] Job search page is accessible
-- [ ] Login flow works (Dynamic Labs)
+- [ ] Login flow works (Privy)
 - [ ] Employee dashboard loads correctly
 - [ ] Employer dashboard loads correctly
 - [ ] Job application flow works end-to-end
