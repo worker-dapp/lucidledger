@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import img from "../assets/profile.webp";
 import EmployerLayout from "../components/EmployerLayout";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import apiService from '../services/api';
 
 const PencilIcon = ({ className = "w-5 h-5" }) => (
@@ -12,7 +12,7 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 );
 
 const EmployerProfile = () => {
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, primaryWallet, smartWalletAddress } = useAuth();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -98,14 +98,15 @@ const EmployerProfile = () => {
 
   // Fetch user details from localStorage
   const fetchUserDetails = async () => {
-    if (!user || !primaryWallet?.address) {
+    const walletAddress = smartWalletAddress || primaryWallet?.address;
+    if (!user || !walletAddress) {
       setLoading(false);
       return;
     }
 
     try {
       // Get employer profile from API
-      const response = await apiService.getEmployerByWallet(primaryWallet.address);
+      const response = await apiService.getEmployerByWallet(walletAddress);
       const data = response.data;
 
       if (data) {
@@ -141,7 +142,7 @@ const EmployerProfile = () => {
     fetchUserDetails();
   }, [user, primaryWallet]);
 
-  // DO NOT use Dynamic Labs user data as fallback - it may contain data from employee account
+  // DO NOT use auth user data as fallback - it may contain data from employee account
   // Employer profile must be created separately through /user-profile
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
@@ -151,13 +152,14 @@ const EmployerProfile = () => {
     setMessage('');
     
     try {
-      if (!primaryWallet?.address) {
+      const walletAddress = smartWalletAddress || primaryWallet?.address;
+      if (!walletAddress) {
         throw new Error('Wallet address not available');
       }
 
       const payload = {
         ...data,
-        wallet_address: primaryWallet.address
+        wallet_address: walletAddress
       };
 
       if (userDetails) {

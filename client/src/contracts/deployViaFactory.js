@@ -11,7 +11,7 @@
  */
 
 import { encodeFunctionData, parseUnits, decodeEventLog, getAddress } from 'viem';
-import { sendBatchTransaction, publicClient, TxSteps } from './aaClient';
+import { sendBatchTransaction, publicClient } from './aaClient';
 import WorkContractFactoryABI from './WorkContractFactory.json';
 import ERC20ABI from './ERC20.json';
 
@@ -75,15 +75,15 @@ export const getUSDCBalance = async (address) => {
  * Deploy a single contract via Factory (atomic approve + deploy + fund).
  *
  * @param {object} params - Deployment parameters
- * @param {object} params.primaryWallet - Dynamic Labs wallet
+ * @param {object} params.smartWalletClient - Privy smart wallet client
  * @param {string} params.workerAddress - Worker's wallet address
  * @param {number} params.paymentAmountUSD - Payment amount in USD
  * @param {number} params.jobId - Database ID of the job posting
  * @param {function} [params.onStatusChange] - Callback for status updates
- * @returns {Promise<{contractAddress: string, txHash: string, userOpHash: string, basescanUrl: string}>}
+ * @returns {Promise<{contractAddress: string, txHash: string, basescanUrl: string}>}
  */
 export const deploySingleViaFactory = async ({
-  primaryWallet,
+  smartWalletClient,
   workerAddress,
   paymentAmountUSD,
   jobId,
@@ -120,7 +120,7 @@ export const deploySingleViaFactory = async ({
   ];
 
   const result = await sendBatchTransaction({
-    primaryWallet,
+    smartWalletClient,
     calls,
     onStatusChange,
   });
@@ -131,7 +131,6 @@ export const deploySingleViaFactory = async ({
   return {
     contractAddress,
     txHash: result.hash,
-    userOpHash: result.userOpHash,
     basescanUrl: `${BASESCAN_URL}/address/${contractAddress}`,
   };
 };
@@ -140,13 +139,13 @@ export const deploySingleViaFactory = async ({
  * Deploy multiple contracts via Factory batch function (single signature).
  *
  * @param {object} params - Batch parameters
- * @param {object} params.primaryWallet - Dynamic Labs wallet
+ * @param {object} params.smartWalletClient - Privy smart wallet client
  * @param {Array<{workerAddress: string, paymentAmountUSD: number, jobId: number}>} params.deployments - Array of deployment configs
  * @param {function} [params.onStatusChange] - Callback for status updates
- * @returns {Promise<{contractAddresses: string[], txHash: string, userOpHash: string, basescanUrl: string}>}
+ * @returns {Promise<{contractAddresses: string[], txHash: string, basescanUrl: string}>}
  */
 export const deployBatchViaFactory = async ({
-  primaryWallet,
+  smartWalletClient,
   deployments,
   onStatusChange,
 }) => {
@@ -192,7 +191,7 @@ export const deployBatchViaFactory = async ({
   ];
 
   const result = await sendBatchTransaction({
-    primaryWallet,
+    smartWalletClient,
     calls,
     onStatusChange,
   });
@@ -203,7 +202,6 @@ export const deployBatchViaFactory = async ({
   return {
     contractAddresses,
     txHash: result.hash,
-    userOpHash: result.userOpHash,
     basescanUrl: `${BASESCAN_URL}/tx/${result.hash}`,
   };
 };

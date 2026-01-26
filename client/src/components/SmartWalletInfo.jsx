@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { getSmartWalletAddress, getEOAAddress } from '../contracts/aaClient';
 import { getUSDCBalance } from '../contracts/deployViaFactory';
+import { useAuth } from '../hooks/useAuth';
 
 /**
  * SmartWalletInfo Component
  * 
  * Displays the user's Coinbase Smart Account address and USDC balance.
  * This is the account that holds funds and sends transactions on-chain.
- * Replaces the DynamicWidget which shows EOA address and ETH balance.
+ * Replaces the legacy wallet widget which showed EOA address and ETH balance.
  */
 const SmartWalletInfo = ({ compact = false }) => {
-  const { primaryWallet, user } = useDynamicContext();
-  const [smartAddress, setSmartAddress] = useState(null);
+  const { user, smartWalletAddress } = useAuth();
   const [usdcBalance, setUsdcBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,7 +32,7 @@ const SmartWalletInfo = ({ compact = false }) => {
   // Fetch smart wallet address and balance
   useEffect(() => {
     const fetchWalletInfo = async () => {
-      if (!primaryWallet) {
+      if (!smartWalletAddress) {
         setLoading(false);
         return;
       }
@@ -43,13 +41,9 @@ const SmartWalletInfo = ({ compact = false }) => {
         setLoading(true);
         setError(null);
 
-        // Get smart account address
-        const address = await getSmartWalletAddress(primaryWallet);
-        setSmartAddress(address);
-
         // Get USDC balance
         try {
-          const balance = await getUSDCBalance(address);
+          const balance = await getUSDCBalance(smartWalletAddress);
           setUsdcBalance(balance.formatted);
         } catch (balanceErr) {
           // USDC balance might fail if not configured - that's OK
@@ -65,15 +59,15 @@ const SmartWalletInfo = ({ compact = false }) => {
     };
 
     fetchWalletInfo();
-  }, [primaryWallet]);
+  }, [smartWalletAddress]);
 
   // Refresh balance periodically
   useEffect(() => {
-    if (!smartAddress) return;
+    if (!smartWalletAddress) return;
 
     const refreshBalance = async () => {
       try {
-        const balance = await getUSDCBalance(smartAddress);
+        const balance = await getUSDCBalance(smartWalletAddress);
         setUsdcBalance(balance.formatted);
       } catch (err) {
         // Silent fail for refresh
@@ -82,7 +76,7 @@ const SmartWalletInfo = ({ compact = false }) => {
 
     const interval = setInterval(refreshBalance, 30000); // Every 30 seconds
     return () => clearInterval(interval);
-  }, [smartAddress]);
+  }, [smartWalletAddress]);
 
   const copyToClipboard = async (text, label) => {
     try {
@@ -104,7 +98,7 @@ const SmartWalletInfo = ({ compact = false }) => {
     return `${basescanBase}/address/${address}`;
   };
 
-  if (!primaryWallet || !user) {
+  if (!smartWalletAddress || !user) {
     return null;
   }
 
@@ -130,11 +124,11 @@ const SmartWalletInfo = ({ compact = false }) => {
     return (
       <div 
         className="flex items-center gap-2 px-3 py-2 bg-[#1a4a7a] rounded-lg cursor-pointer hover:bg-[#2a5a8a] transition-colors"
-        onClick={() => copyToClipboard(smartAddress, 'address')}
-        title={`Smart Wallet: ${smartAddress}\nClick to copy`}
+        onClick={() => copyToClipboard(smartWalletAddress, 'address')}
+        title={`Smart Wallet: ${smartWalletAddress}\nClick to copy`}
       >
         <span className="text-[#22c55e] font-semibold">${usdcBalance}</span>
-        <span className="text-white/70 text-sm">{truncateAddress(smartAddress)}</span>
+        <span className="text-white/70 text-sm">{truncateAddress(smartWalletAddress)}</span>
         {copyFeedback === 'address' && (
           <span className="text-green-400 text-xs">✓</span>
         )}
@@ -154,7 +148,7 @@ const SmartWalletInfo = ({ compact = false }) => {
         </div>
         <div className="text-left">
           <div className="text-[#22c55e] font-semibold text-sm">${usdcBalance} USDC</div>
-          <div className="text-white/70 text-xs">{truncateAddress(smartAddress)}</div>
+          <div className="text-white/70 text-xs">{truncateAddress(smartWalletAddress)}</div>
         </div>
         <svg 
           className={`w-4 h-4 text-white/70 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
@@ -189,16 +183,16 @@ const SmartWalletInfo = ({ compact = false }) => {
                 </span>
               </div>
               <div className="flex items-center gap-2 bg-[#1a4a7a] rounded p-2">
-                <code className="text-white text-xs flex-1 break-all">{smartAddress}</code>
+                <code className="text-white text-xs flex-1 break-all">{smartWalletAddress}</code>
                 <button
-                  onClick={() => copyToClipboard(smartAddress, 'smart')}
+                  onClick={() => copyToClipboard(smartWalletAddress, 'smart')}
                   className="text-white/60 hover:text-white p-1"
                   title="Copy address"
                 >
                   {copyFeedback === 'smart' ? '✓' : '📋'}
                 </button>
                 <a
-                  href={getBasescanUrl(smartAddress)}
+                  href={getBasescanUrl(smartWalletAddress)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-white/60 hover:text-white p-1"
@@ -235,13 +229,13 @@ const SmartWalletInfo = ({ compact = false }) => {
             {/* Quick Actions */}
             <div className="flex gap-2 pt-2 border-t border-[#1a4a7a]">
               <button
-                onClick={() => copyToClipboard(smartAddress, 'quick')}
+                onClick={() => copyToClipboard(smartWalletAddress, 'quick')}
                 className="flex-1 text-sm text-white bg-[#1a4a7a] hover:bg-[#2a5a8a] px-3 py-2 rounded transition-colors"
               >
                 {copyFeedback === 'quick' ? '✓ Copied!' : '📋 Copy Address'}
               </button>
               <a
-                href={getBasescanUrl(smartAddress)}
+                href={getBasescanUrl(smartWalletAddress)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 text-sm text-center text-white bg-[#1a4a7a] hover:bg-[#2a5a8a] px-3 py-2 rounded transition-colors"

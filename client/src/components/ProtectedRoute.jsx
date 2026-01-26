@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useAuth } from '../hooks/useAuth';
 
 const getRoleHome = (role) => {
     if (role === 'employer') {
@@ -23,13 +23,13 @@ const getStoredRole = (user) => {
 };
 
 const ProtectedRoute = ({ children, requiredRole }) => {
-    const { user, isLoading, isAuthenticated } = useDynamicContext();
+    const { user, isLoading, isAuthenticated } = useAuth();
     const [waitingForAuth, setWaitingForAuth] = useState(true);
 
     // Wait a bit for authentication state to settle after redirect
     useEffect(() => {
         if (!isLoading) {
-            // Give Dynamic Labs a moment to fully load user state
+            // Give auth provider a moment to fully load user state
             const timer = setTimeout(() => {
                 setWaitingForAuth(false);
             }, 500);
@@ -46,7 +46,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     }
 
     // Check both isAuthenticated and user to be safe
-    // Handle undefined isAuthenticated from Dynamic Labs SDK (same as App.jsx)
+    // Handle undefined isAuthenticated from auth SDK (same as App.jsx)
     const isUserAuthenticated = isAuthenticated === true || (user && isAuthenticated !== false);
     
     if (!isUserAuthenticated) {

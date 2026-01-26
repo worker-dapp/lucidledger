@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import {
   CheckCircle,
   Clock,
@@ -23,6 +22,7 @@ import {
 } from "../contracts/workContractInteractions";
 import { getBasescanUrl } from "../contracts/deployWorkContract";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
+import { useAuth } from "../hooks/useAuth";
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
 
@@ -40,7 +40,7 @@ const verificationStyles = {
 };
 
 const WorkforceDashboard = () => {
-  const { primaryWallet } = useDynamicContext();
+  const { user, smartWalletClient, smartWalletAddress } = useAuth();
   const [employerId, setEmployerId] = useState(null);
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +73,7 @@ const WorkforceDashboard = () => {
 
   useEffect(() => {
     const fetchEmployer = async () => {
-      const walletAddress = primaryWallet?.address;
+      const walletAddress = smartWalletAddress;
 
       if (!walletAddress) {
         setLoading(false);
@@ -93,7 +93,7 @@ const WorkforceDashboard = () => {
     };
 
     fetchEmployer();
-  }, [primaryWallet?.address]);
+  }, [smartWalletAddress]);
 
   useEffect(() => {
     const fetchContracts = async () => {
@@ -151,7 +151,7 @@ const WorkforceDashboard = () => {
   // Fetch blockchain state when contract is selected
   useEffect(() => {
     const fetchBlockchainState = async () => {
-      if (!selectedContract?.contract_address || !primaryWallet?.address) {
+      if (!selectedContract?.contract_address || !smartWalletAddress) {
         setBlockchainState(null);
         setPermissions(null);
         return;
@@ -168,7 +168,7 @@ const WorkforceDashboard = () => {
       try {
         const [state, perms] = await Promise.all([
           getContractState(selectedContract.contract_address),
-          checkPermissions(selectedContract.contract_address, primaryWallet.address),
+          checkPermissions(selectedContract.contract_address, smartWalletAddress),
         ]);
         setBlockchainState(state);
         setPermissions(perms);
@@ -182,21 +182,22 @@ const WorkforceDashboard = () => {
     };
 
     fetchBlockchainState();
-  }, [selectedContract?.contract_address, primaryWallet?.address]);
+  }, [selectedContract?.contract_address, smartWalletAddress]);
 
   const handleApproveAndPay = async () => {
-    if (!selectedContract?.contract_address || !primaryWallet) return;
+    if (!selectedContract?.contract_address || !smartWalletClient || !smartWalletAddress) return;
 
     setApproving(true);
     setActionMessage("");
     setTxStep(TxSteps.IDLE);
 
     try {
-      const result = await approveAndPay(
-        primaryWallet,
-        selectedContract.contract_address,
-        handleTxStatusChange
-      );
+      const result = await approveAndPay({
+        user,
+        smartWalletClient,
+        contractAddress: selectedContract.contract_address,
+        onStatusChange: handleTxStatusChange,
+      });
 
       // Update database status
       await apiService.updateDeployedContract(selectedContract.id, {
@@ -235,19 +236,20 @@ const WorkforceDashboard = () => {
   };
 
   const handleRaiseDispute = async () => {
-    if (!selectedContract?.contract_address || !disputeReason.trim() || !primaryWallet) return;
+    if (!selectedContract?.contract_address || !disputeReason.trim() || !smartWalletClient || !smartWalletAddress) return;
 
     setDisputing(true);
     setActionMessage("");
     setTxStep(TxSteps.IDLE);
 
     try {
-      const result = await raiseDispute(
-        primaryWallet,
-        selectedContract.contract_address,
-        disputeReason,
-        handleTxStatusChange
-      );
+      const result = await raiseDispute({
+        user,
+        smartWalletClient,
+        contractAddress: selectedContract.contract_address,
+        reason: disputeReason,
+        onStatusChange: handleTxStatusChange,
+      });
 
       // Update database status
       await apiService.updateDeployedContract(selectedContract.id, {
@@ -580,7 +582,7 @@ const WorkforceDashboard = () => {
                     {permissions.canApprove && (
                       <button
                         onClick={handleApproveAndPay}
-                        disabled={approving || !primaryWallet}
+                        disabled={approving || !smartWalletClient || !smartWalletAddress}
                         className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {approving ? (

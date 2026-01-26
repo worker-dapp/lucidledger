@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import img from '../assets/profile.webp';
 import EmployeeNavbar from "../components/EmployeeNavbar";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import apiService from '../services/api';
 
 const PencilIcon = ({ className = "w-5 h-5" }) => (
@@ -12,7 +12,7 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 );
 
 const EmployeeProfile = () => {
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, primaryWallet, smartWalletAddress } = useAuth();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -89,14 +89,15 @@ const EmployeeProfile = () => {
 
   // Fetch user details from localStorage
   const fetchUserDetails = async () => {
-    if (!user || !primaryWallet?.address) {
+    const walletAddress = smartWalletAddress || primaryWallet?.address;
+    if (!user || !walletAddress) {
       setLoading(false);
       return;
     }
 
     try {
       // Get employee profile from API
-      const response = await apiService.getEmployeeByWallet(primaryWallet.address);
+      const response = await apiService.getEmployeeByWallet(walletAddress);
       const data = response.data;
 
       if (data) {
@@ -128,11 +129,11 @@ const EmployeeProfile = () => {
 
   useEffect(() => {
     if (user) {
-      // Fallback to Dynamic Labs user data if Supabase data not available
+      // Fallback to auth user data if Supabase data not available
       if (!userDetails) {
         setFirstName(user.first_name || '');
         setLastName(user.last_name || '');
-        setEmail(user.email || '');
+        setEmail(user.email?.address || user.email || '');
       }
     }
   }, [user, userDetails]);
@@ -144,13 +145,14 @@ const EmployeeProfile = () => {
     setMessage('');
     
     try {
-      if (!primaryWallet?.address) {
-        throw new Error('Wallet address not available');
-      }
+    const walletAddress = smartWalletAddress || primaryWallet?.address;
+    if (!walletAddress) {
+      throw new Error('Wallet address not available');
+    }
 
       const payload = {
         ...data,
-        wallet_address: primaryWallet.address
+        wallet_address: walletAddress
       };
 
       if (userDetails) {

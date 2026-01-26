@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import EmployerLayout from "../../components/EmployerLayout";
 import apiService from "../../services/api";
 import ContractLibrary from "./ContractLibrary";
@@ -7,16 +6,17 @@ import PostedJobsTab from "./PostedJobsTab";
 import ApplicationReviewTab from "./ApplicationReviewTab";
 import AwaitingDeploymentTab from "./AwaitingDeploymentTab";
 import { FileText, Users, Rocket } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 
 const ContractFactory = () => {
-  const { primaryWallet } = useDynamicContext();
+  const { smartWalletAddress } = useAuth();
   const [activeTab, setActiveTab] = useState("contracts");
   const [employerId, setEmployerId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchEmployer = async () => {
-      const walletAddress = primaryWallet?.address;
+      const walletAddress = smartWalletAddress;
 
       if (!walletAddress) {
         setLoading(false);
@@ -36,7 +36,7 @@ const ContractFactory = () => {
     };
 
     fetchEmployer();
-  }, [primaryWallet?.address]);
+  }, [smartWalletAddress]);
 
   const tabs = [
     {

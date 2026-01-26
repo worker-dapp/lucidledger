@@ -1,13 +1,13 @@
 import React from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 const LogoutButton = ({ className = "", children = "Log out" }) => {
-  const { handleLogOut } = useDynamicContext();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await handleLogOut();
+    await logout();
     navigate("/");
   };
 
@@ -19,5 +19,4 @@ const LogoutButton = ({ className = "", children = "Log out" }) => {
 };
 
 export default LogoutButton;
-
 

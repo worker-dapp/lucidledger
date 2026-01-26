@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import StepIndicator from "../components/StepIndicator";
 import JobBasics from "../Form/JobBasics";
 import EmploymentType from "../Form/EmploymentType";
@@ -11,9 +10,10 @@ import EmployerLayout from "../components/EmployerLayout";
 import Oracles from "../Form/Oracles";
 import { SubmitJob } from "../components/SubmitJob";
 import apiService from "../services/api";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Job() {
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, smartWalletAddress } = useAuth();
   const navigate = useNavigate();
   const [employerId, setEmployerId] = useState(null);
   const [step, setStep] = useState(1);
@@ -102,12 +102,12 @@ export default function Job() {
       try {
         let employerResponse = null;
 
-        if (primaryWallet?.address) {
-          employerResponse = await apiService.getEmployerByWallet(primaryWallet.address);
+        if (smartWalletAddress) {
+          employerResponse = await apiService.getEmployerByWallet(smartWalletAddress);
         }
 
-        if ((!employerResponse || !employerResponse.data) && user?.email) {
-          employerResponse = await apiService.getEmployerByEmail(user.email);
+        if ((!employerResponse || !employerResponse.data) && user?.email?.address) {
+          employerResponse = await apiService.getEmployerByEmail(user.email.address);
         }
 
         if (employerResponse?.data) {
@@ -134,10 +134,10 @@ export default function Job() {
       }
     };
 
-    if (primaryWallet?.address || user?.email) {
+    if (smartWalletAddress || user?.email?.address) {
       fetchEmployerData();
     }
-  }, [primaryWallet?.address, user?.email, hasPrefilledData]);
+  }, [smartWalletAddress, user?.email?.address, hasPrefilledData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

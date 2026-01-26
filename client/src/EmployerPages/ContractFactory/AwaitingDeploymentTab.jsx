@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { ExternalLink, Rocket, AlertCircle, CheckCircle, Loader2, Zap } from "lucide-react";
 import { parseUnits } from "viem";
 import apiService from "../../services/api";
@@ -9,6 +8,7 @@ import {
   checkFactoryConfiguration,
 } from "../../contracts/deployViaFactory";
 import { TxSteps, checkAAConfiguration, parseAAError } from "../../contracts/aaClient";
+import { useAuth } from "../../hooks/useAuth";
 
 const USDC_DECIMALS = 6;
 
@@ -24,7 +24,7 @@ const stepMessages = {
 };
 
 const AwaitingDeploymentTab = ({ employerId }) => {
-  const { primaryWallet } = useDynamicContext();
+  const { smartWalletClient, smartWalletAddress } = useAuth();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -44,12 +44,12 @@ const AwaitingDeploymentTab = ({ employerId }) => {
     setConfigValid(config.valid);
     setConfigMissing(config.missing);
 
-    const aaConfig = checkAAConfiguration();
+    const aaConfig = checkAAConfiguration({ smartWalletClient });
     setAaConfigValid(aaConfig.valid);
     if (!aaConfig.valid) {
       setConfigMissing((prev) => [...prev, ...aaConfig.missing]);
     }
-  }, []);
+  }, [smartWalletClient]);
 
   const fetchSignedApplications = async () => {
     if (!employerId) {
@@ -149,7 +149,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
       return;
     }
 
-    if (!primaryWallet) {
+    if (!smartWalletClient || !smartWalletAddress) {
       setMessage("Please connect your wallet first.");
       return;
     }
@@ -172,7 +172,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
 
       // Check USDC balance
       setDeploymentMessage("Checking USDC balance...");
-      const balance = await getUSDCBalance(primaryWallet.address);
+      const balance = await getUSDCBalance(smartWalletAddress);
       const requiredAmount = parseUnits(totalUSDC.toString(), USDC_DECIMALS);
 
       if (balance.raw < requiredAmount) {
@@ -188,7 +188,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
 
       // Single batch deployment (one wallet signature for all contracts)
       const result = await deployBatchViaFactory({
-        primaryWallet,
+        smartWalletClient,
         deployments,
         onStatusChange: handleStatusChange,
       });
@@ -490,7 +490,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
           </div>
           <button
             onClick={deploySelected}
-            disabled={selectedIds.size === 0 || deploymentStep !== TxSteps.IDLE || !primaryWallet}
+            disabled={selectedIds.size === 0 || deploymentStep !== TxSteps.IDLE || !smartWalletClient || !smartWalletAddress}
             className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Rocket className="h-4 w-4" />

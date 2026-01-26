@@ -1,5 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-import { getAuthToken } from "@dynamic-labs/sdk-react-core";
+import { getAuthToken } from "./authToken";
 
 class ApiService {
   // Generic request method
@@ -13,8 +13,8 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     console.log(`Making API request to: ${url}`);
     
-    // Get the Dynamic JWT token
-    const token = getAuthToken();
+    // Get the Privy access token
+    const token = await getAuthToken();
     
     const config = {
       headers: {

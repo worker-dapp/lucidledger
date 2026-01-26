@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import PublicEmployerNavbar from "../components/PublicEmployerNavbar";
 import Footer from "../components/Footer";
 import img1 from "../assets/feature1.png";
@@ -10,15 +10,14 @@ import img4 from "../assets/feature4.png";
 
 const EmployerLandingPage = () => {
   const navigate = useNavigate();
-  const { user, setShowAuthFlow, openModal } = useDynamicContext();
+  const { login } = useAuth();
   // Note: Redirect logic handled by App.jsx, same as employee landing page
 
   const handleEmployerLogin = () => {
     localStorage.setItem('pendingRole', 'employer');
     localStorage.setItem('userRole', 'employer');
     window.dispatchEvent(new Event('roleSelected'));
-    setShowAuthFlow(true);
-    openModal?.();
+    login();
     // Do NOT navigate - let App.jsx redirect logic handle it after auth
   };
 

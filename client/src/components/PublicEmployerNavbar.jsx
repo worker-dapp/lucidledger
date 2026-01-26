@@ -1,12 +1,12 @@
 import React, { useState, useRef } from "react";
 import { NavLink, Link } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 
 const PublicEmployerNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef(null);
-  const { setShowAuthFlow, openModal } = useDynamicContext();
+  const { login } = useAuth();
 
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);
@@ -16,8 +16,7 @@ const PublicEmployerNavbar = () => {
     localStorage.setItem('pendingRole', 'employer');
     localStorage.setItem('userRole', 'employer');
     window.dispatchEvent(new Event('roleSelected'));
-    setShowAuthFlow(true);
-    openModal?.();
+    login();
     setIsMobileMenuOpen(false);
   };
 
