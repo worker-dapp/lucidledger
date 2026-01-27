@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
 
-// Privy JWKS endpoint for RS256 token verification
+// Privy JWKS endpoint for token verification (Privy uses ES256)
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID;
 const PRIVY_JWKS_URL = process.env.PRIVY_JWKS_URL;
 const PRIVY_ISSUER = process.env.PRIVY_ISSUER || 'privy.io';
@@ -42,7 +42,7 @@ const getSigningKey = (kid) => {
 
 /**
  * Verifies a JWT token using Privy JWKS.
- * This properly validates the RS256 signature, unlike jwt.decode().
+ * This properly validates the ES256/RS256 signature, unlike jwt.decode().
  *
  * @param {string} token - JWT token to verify
  * @returns {Promise<object>} - Decoded and verified token payload
@@ -64,8 +64,9 @@ const verifyJWTWithJWKS = async (token) => {
   const signingKey = await getSigningKey(kid);
 
   // Verify the token with the public key
+  // Privy uses ES256 algorithm for access tokens
   const verified = jwt.verify(token, signingKey, {
-    algorithms: ['RS256'],
+    algorithms: ['ES256', 'RS256'],
     issuer: PRIVY_ISSUER,
     audience: PRIVY_APP_ID,
     clockTolerance: 30, // 30 seconds tolerance for clock skew
