@@ -1,31 +1,14 @@
 const { DeployedContract, JobPosting, Employee, Employer, Mediator } = require('../models');
 
-const getUserEmail = (user) => {
-  return (
-    user?.email ||
-    // Privy format (email might be in linked accounts or claims)
-    user?.email?.address ||
-    user?.linkedAccounts?.find(a => a.type === 'email')?.address ||
-    // Dynamic Labs format (legacy)
-    user?.verified_credentials?.[0]?.email ||
-    user?.verifiedCredentials?.[0]?.email ||
-    ''
-  );
-};
-
-// Get user's Privy ID from token (Privy uses 'sub' claim)
-const getPrivyUserId = (user) => {
-  return user?.sub || user?.userId || user?.id || null;
-};
-
-const isAdminEmail = (email) => {
-  const adminEmails = process.env.ADMIN_EMAILS;
-  if (!adminEmails || !email) {
+// Check if wallet address is in admin list
+// TODO: Update to use ADMIN_WALLETS env var (see notes/privy-admin-mediator-auth.md)
+const isAdminWallet = (walletAddress) => {
+  const adminWallets = process.env.ADMIN_WALLETS;
+  if (!adminWallets || !walletAddress) {
     return false;
   }
-
-  const adminList = adminEmails.split(',').map((item) => item.trim().toLowerCase());
-  return adminList.includes(email.toLowerCase());
+  const adminList = adminWallets.split(',').map((item) => item.trim().toLowerCase());
+  return adminList.includes(walletAddress.toLowerCase());
 };
 
 const pickAllowedFields = (payload, allowedFields) => {
@@ -37,30 +20,16 @@ const pickAllowedFields = (payload, allowedFields) => {
   }, {});
 };
 
-const getEmployerForUser = async (email, walletAddress = null) => {
-  // Try email first
-  if (email) {
-    const employer = await Employer.findOne({ where: { email: email.toLowerCase() } });
-    if (employer) return employer;
-  }
-  // Fallback to wallet address
-  if (walletAddress) {
-    return Employer.findOne({ where: { wallet_address: walletAddress } });
-  }
-  return null;
+// Get employer by wallet address (primary identifier with Privy)
+const getEmployerForUser = async (walletAddress) => {
+  if (!walletAddress) return null;
+  return Employer.findOne({ where: { wallet_address: walletAddress } });
 };
 
-const getEmployeeForUser = async (email, walletAddress = null) => {
-  // Try email first
-  if (email) {
-    const employee = await Employee.findOne({ where: { email: email.toLowerCase() } });
-    if (employee) return employee;
-  }
-  // Fallback to wallet address
-  if (walletAddress) {
-    return Employee.findOne({ where: { wallet_address: walletAddress } });
-  }
-  return null;
+// Get employee by wallet address (primary identifier with Privy)
+const getEmployeeForUser = async (walletAddress) => {
+  if (!walletAddress) return null;
+  return Employee.findOne({ where: { wallet_address: walletAddress } });
 };
 
 class DeployedContractController {
@@ -83,12 +52,11 @@ class DeployedContractController {
         });
       }
 
-      const userEmail = getUserEmail(req.user);
       const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
-      const isAdmin = userEmail && isAdminEmail(userEmail);
+      const isAdmin = isAdminWallet(walletAddress);
 
       if (!isAdmin) {
-        const employer = await getEmployerForUser(userEmail, walletAddress);
+        const employer = await getEmployerForUser(walletAddress);
         if (!employer || String(employer.id) !== String(employer_id)) {
           return res.status(403).json({
             success: false,
@@ -157,13 +125,11 @@ class DeployedContractController {
       const { employer_id, status } = req.query;
       const walletAddress = req.headers['x-wallet-address'] || req.query.wallet_address;
 
-      const userEmail = getUserEmail(req.user);
-      const isAdmin = userEmail && isAdminEmail(userEmail);
+      const isAdmin = isAdminWallet(walletAddress);
       let effectiveEmployerId = employer_id;
 
       if (!isAdmin) {
-        // Try to find employer by email or wallet address
-        const employer = await getEmployerForUser(userEmail, walletAddress);
+        const employer = await getEmployerForUser(walletAddress);
         if (!employer) {
           return res.status(403).json({
             success: false,
@@ -222,12 +188,11 @@ class DeployedContractController {
       const { status } = req.query;
       const walletAddress = req.headers['x-wallet-address'] || req.query.wallet_address;
 
-      const userEmail = getUserEmail(req.user);
-      const isAdmin = userEmail && isAdminEmail(userEmail);
+      const isAdmin = isAdminWallet(walletAddress);
       let effectiveEmployeeId = employee_id;
 
       if (!isAdmin) {
-        const employee = await getEmployeeForUser(userEmail, walletAddress);
+        const employee = await getEmployeeForUser(walletAddress);
         if (!employee) {
           return res.status(403).json({
             success: false,
@@ -277,7 +242,6 @@ class DeployedContractController {
     try {
       const { id } = req.params;
 
-      const userEmail = getUserEmail(req.user);
       const walletAddress = req.headers['x-wallet-address'] || req.query.wallet_address;
 
       const deployedContract = await DeployedContract.findByPk(id, {
@@ -295,13 +259,11 @@ class DeployedContractController {
         });
       }
 
-      const isAdmin = userEmail && isAdminEmail(userEmail);
-      const isEmployerByEmail = userEmail && deployedContract.employer?.email?.toLowerCase() === userEmail.toLowerCase();
-      const isEmployeeByEmail = userEmail && deployedContract.employee?.email?.toLowerCase() === userEmail.toLowerCase();
+      const isAdmin = isAdminWallet(walletAddress);
       const isEmployerByWallet = walletAddress && deployedContract.employer?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
       const isEmployeeByWallet = walletAddress && deployedContract.employee?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
 
-      if (!isAdmin && !isEmployerByEmail && !isEmployeeByEmail && !isEmployerByWallet && !isEmployeeByWallet) {
+      if (!isAdmin && !isEmployerByWallet && !isEmployeeByWallet) {
         return res.status(403).json({
           success: false,
           message: 'You do not have permission to access this contract'
@@ -336,8 +298,7 @@ class DeployedContractController {
         });
       }
 
-      // Get requesting user's identity for authorization
-      const userEmail = getUserEmail(req.user);
+      // Get requesting user's wallet address for authorization
       const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
 
       // Fetch contract with related employee and employer records
@@ -355,15 +316,10 @@ class DeployedContractController {
         });
       }
 
-      // Check authorization - by email or wallet address
-      const isAdmin = userEmail && isAdminEmail(userEmail);
-      const isEmployerByEmail = userEmail && deployedContract.employer?.email?.toLowerCase() === userEmail.toLowerCase();
-      const isEmployeeByEmail = userEmail && deployedContract.employee?.email?.toLowerCase() === userEmail.toLowerCase();
-      const isEmployerByWallet = walletAddress && deployedContract.employer?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
-      const isEmployeeByWallet = walletAddress && deployedContract.employee?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
-
-      const isEmployer = isEmployerByEmail || isEmployerByWallet;
-      const isEmployee = isEmployeeByEmail || isEmployeeByWallet;
+      // Check authorization by wallet address
+      const isAdmin = isAdminWallet(walletAddress);
+      const isEmployer = walletAddress && deployedContract.employer?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
+      const isEmployee = walletAddress && deployedContract.employee?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
 
       if (!isAdmin && !isEmployer && !isEmployee) {
         return res.status(403).json({
@@ -412,23 +368,24 @@ class DeployedContractController {
   }
 
   // Get disputed contracts assigned to a specific mediator
+  // TODO: Mediator verification needs wallet address support (see notes/privy-admin-mediator-auth.md)
   static async getDisputedContractsByMediator(req, res) {
     try {
       const { mediatorId } = req.params;
+      const walletAddress = req.headers['x-wallet-address'] || req.query.wallet_address;
 
-      const userEmail = getUserEmail(req.user);
-      if (!userEmail) {
+      if (!walletAddress) {
         return res.status(403).json({
           success: false,
-          message: 'Unable to verify mediator identity'
+          message: 'Unable to verify mediator identity. Please ensure your wallet is connected.'
         });
       }
 
-      const normalizedEmail = userEmail.toLowerCase();
-      if (!isAdminEmail(normalizedEmail)) {
+      if (!isAdminWallet(walletAddress)) {
+        // Look up mediator by wallet address
         const mediator = await Mediator.findOne({
           where: {
-            email: normalizedEmail,
+            wallet_address: walletAddress,
             status: 'active'
           },
           attributes: ['id']
@@ -629,12 +586,12 @@ class DeployedContractController {
       const { id } = req.params;
       const updates = req.body;
 
-      // Get requesting user's email for authorization
-      const userEmail = getUserEmail(req.user);
-      if (!userEmail) {
+      // Get requesting user's wallet address for authorization
+      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
+      if (!walletAddress) {
         return res.status(403).json({
           success: false,
-          message: 'Unable to verify user identity'
+          message: 'Unable to verify user identity. Please ensure your wallet is connected.'
         });
       }
 
@@ -653,10 +610,10 @@ class DeployedContractController {
         });
       }
 
-      // Check authorization: must be admin, employer, or employee of this contract
-      const isEmployer = deployedContract.employer?.email?.toLowerCase() === userEmail.toLowerCase();
-      const isEmployee = deployedContract.employee?.email?.toLowerCase() === userEmail.toLowerCase();
-      const isAdmin = isAdminEmail(userEmail);
+      // Check authorization by wallet address
+      const isEmployer = walletAddress && deployedContract.employer?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
+      const isEmployee = walletAddress && deployedContract.employee?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
+      const isAdmin = isAdminWallet(walletAddress);
 
       if (!isAdmin && !isEmployer && !isEmployee) {
         return res.status(403).json({
