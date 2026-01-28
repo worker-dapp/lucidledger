@@ -11,6 +11,7 @@ const JobTracker = () => {
   const [employeeData, setEmployeeData] = useState(null);
   const [openContracts, setOpenContracts] = useState([]);
   const [completedContracts, setCompletedContracts] = useState([]);
+  const [disputedContracts, setDisputedContracts] = useState([]);
   const [activeTab, setActiveTab] = useState("open");
   const [selectedContract, setSelectedContract] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -102,8 +103,27 @@ const JobTracker = () => {
             source: "deployed_contract"
           }));
 
+        // Disputed contracts
+        const disputed = deployedData
+          .filter(dc => dc.status === "disputed")
+          .map(dc => ({
+            ...dc.jobPosting,
+            contract_address: dc.contract_address,
+            payment_amount: dc.payment_amount,
+            payment_currency: dc.payment_currency,
+            deployed_contract_id: dc.id,
+            application_status: "disputed",
+            deployed_at: dc.deployed_at,
+            dispute_reason: dc.dispute_reason,
+            mediator_id: dc.mediator_id,
+            mediator: dc.mediator,
+            employer_name: dc.employer?.company_name,
+            source: "deployed_contract"
+          }));
+
         setOpenContracts([...pendingContracts, ...activeContracts]);
         setCompletedContracts(completed);
+        setDisputedContracts(disputed);
       } catch (err) {
         console.error("Error fetching contracts:", err);
         setError("Unable to load contracts. Please try again.");
@@ -375,11 +395,39 @@ const JobTracker = () => {
             {/* Disputes Section */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
               <h2 className="text-2xl font-bold text-[#0D3B66] mb-4">Disputes</h2>
-              <div className="text-center py-8">
-                <div className="text-6xl mb-4">⚖️</div>
-                <p className="text-gray-500">Coming Soon</p>
-                <p className="text-sm text-gray-400 mt-2">Any ongoing disputes will appear here</p>
-              </div>
+              {disputedContracts.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4">⚖️</div>
+                  <p className="text-gray-500">No active disputes</p>
+                  <p className="text-sm text-gray-400 mt-2">Any ongoing disputes will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {disputedContracts.map((contract) => (
+                    <div key={contract.deployed_contract_id} className="p-4 border border-yellow-200 bg-yellow-50 rounded-xl">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-[#0D3B66]">{contract.title}</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">{contract.employer_name || contract.company_name}</p>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
+                          contract.mediator_id ? "bg-blue-100 text-blue-700" : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {contract.mediator_id ? "Mediator Assigned" : "Awaiting Mediator"}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-600">
+                        <span>Escrow: {contract.payment_currency || "USDC"} {contract.payment_amount}</span>
+                      </div>
+                      {contract.dispute_reason && (
+                        <p className="mt-2 text-xs text-yellow-800 bg-yellow-100 p-2 rounded">
+                          {contract.dispute_reason}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
