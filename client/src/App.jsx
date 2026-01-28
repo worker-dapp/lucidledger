@@ -49,6 +49,15 @@ const AppContent = () => {
     }
   }, [getAccessToken]);
 
+  // Set wallet address for API requests (used for identity verification)
+  useEffect(() => {
+    if (smartWalletAddress) {
+      apiService.setWalletAddress(smartWalletAddress);
+    } else {
+      apiService.setWalletAddress(null);
+    }
+  }, [smartWalletAddress]);
+
   // Track previous user ID to detect new logins AND logouts
   const prevUserIdRef = useRef(user?.id);
 
@@ -115,12 +124,12 @@ const AppContent = () => {
 
     if (shouldCheck) {
       // AIRBNB-STYLE ROLE TRACKING:
-      // 1. Check persistedUserRole (from previous session) - user's last active role
-      // 2. Check pendingRole (set by landing page when clicking login)
+      // 1. Check pendingRole (set by landing page) - current session intent takes priority
+      // 2. Check persistedUserRole (from previous session) - fallback to last active role
       // 3. Fall back to URL path if neither exists
       let intendedRole =
-        localStorage.getItem('persistedUserRole') || // Last used role (persists across sessions)
-        localStorage.getItem('pendingRole');         // Set by landing page before auth
+        localStorage.getItem('pendingRole') ||         // Set by landing page (current intent)
+        localStorage.getItem('persistedUserRole');     // Last used role (persists across sessions)
 
       // If still no role, infer from URL as fallback
       if (!intendedRole) {
@@ -146,6 +155,8 @@ const AppContent = () => {
           // 4. Redirect to appropriate dashboard
 
           let profileExists = false;
+          let foundProfileId = null; // Track found profile for wallet sync
+          let foundProfileWallet = null;
           let hasOtherRole = false; // Track if user has both profiles
           const walletAddress = smartWalletAddress || primaryWallet?.address;
           const userEmail = user?.email?.address || user?.email || '';
@@ -180,11 +191,15 @@ const AppContent = () => {
                 const response = await apiService.getEmployerByWallet(walletAddress);
                 if (response?.data) {
                   profileExists = true;
+                  foundProfileId = response.data.id;
+                  foundProfileWallet = response.data.wallet_address;
                 }
               } else {
                 const response = await apiService.getEmployeeByWallet(walletAddress);
                 if (response?.data) {
                   profileExists = true;
+                  foundProfileId = response.data.id;
+                  foundProfileWallet = response.data.wallet_address;
                 }
               }
             } catch (err) {
@@ -199,11 +214,15 @@ const AppContent = () => {
                 const response = await apiService.getEmployerByEmail(userEmail);
                 if (response?.data) {
                   profileExists = true;
+                  foundProfileId = response.data.id;
+                  foundProfileWallet = response.data.wallet_address;
                 }
               } else {
                 const response = await apiService.getEmployeeByEmail(userEmail);
                 if (response?.data) {
                   profileExists = true;
+                  foundProfileId = response.data.id;
+                  foundProfileWallet = response.data.wallet_address;
                 }
               }
             } catch (err) {
@@ -218,15 +237,35 @@ const AppContent = () => {
                 const response = await apiService.getEmployerByPhone(phoneNumber);
                 if (response?.data) {
                   profileExists = true;
+                  foundProfileId = response.data.id;
+                  foundProfileWallet = response.data.wallet_address;
                 }
               } else {
                 const response = await apiService.getEmployeeByPhone(phoneNumber);
                 if (response?.data) {
                   profileExists = true;
+                  foundProfileId = response.data.id;
+                  foundProfileWallet = response.data.wallet_address;
                 }
               }
             } catch (err) {
               // Ignore 404s
+            }
+          }
+
+          // Step 3.5: Sync wallet address if profile found by email/phone but wallet differs
+          // This handles users who created accounts before Privy wallet integration
+          if (profileExists && foundProfileId && walletAddress && foundProfileWallet !== walletAddress) {
+            try {
+              if (intendedRole === 'employer') {
+                await apiService.updateEmployer(foundProfileId, { wallet_address: walletAddress });
+              } else {
+                await apiService.updateEmployee(foundProfileId, { wallet_address: walletAddress });
+              }
+              console.log('Synced wallet address for profile:', foundProfileId);
+            } catch (err) {
+              console.error('Failed to sync wallet address:', err);
+              // Continue anyway - profile exists, wallet sync failed but user can still proceed
             }
           }
 

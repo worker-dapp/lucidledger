@@ -122,7 +122,8 @@ async function runMigrationsOnStartup() {
       '007-create-deployed-contracts.sql',
       '008-create-oracle-verifications.sql',
       '009-create-payment-transactions.sql',
-      '010-create-mediators.sql'
+      '010-create-mediators.sql',
+      '011-add-mediator-to-deployed-contracts.sql'
     ];
 
     for (const file of migrationFiles) {

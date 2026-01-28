@@ -71,6 +71,13 @@ const WorkforceDashboard = () => {
     setTxMessage(message);
   };
 
+  // Set wallet address for API requests when it changes
+  useEffect(() => {
+    if (smartWalletAddress) {
+      apiService.setWalletAddress(smartWalletAddress);
+    }
+  }, [smartWalletAddress]);
+
   useEffect(() => {
     const fetchEmployer = async () => {
       const walletAddress = smartWalletAddress;
