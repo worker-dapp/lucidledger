@@ -102,29 +102,29 @@ const WorkforceDashboard = () => {
     fetchEmployer();
   }, [smartWalletAddress]);
 
+  const fetchContracts = async () => {
+    if (!employerId) {
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await apiService.getDeployedContracts(employerId, statusFilter);
+      const data = response?.data || [];
+      setContracts(data);
+      if (data.length > 0 && !selectedContract) {
+        setSelectedContract(data[0]);
+      }
+    } catch (error) {
+      setErrorMessage(error.message || "Failed to load contracts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchContracts = async () => {
-      if (!employerId) {
-        return;
-      }
-
-      setLoading(true);
-      setErrorMessage("");
-
-      try {
-        const response = await apiService.getDeployedContracts(employerId, statusFilter);
-        const data = response?.data || [];
-        setContracts(data);
-        if (data.length > 0 && !selectedContract) {
-          setSelectedContract(data[0]);
-        }
-      } catch (error) {
-        setErrorMessage(error.message || "Failed to load contracts");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchContracts();
   }, [employerId, statusFilter]);
 
@@ -228,12 +228,9 @@ const WorkforceDashboard = () => {
       const newState = await getContractState(selectedContract.contract_address);
       setBlockchainState(newState);
 
-      // Update local contract status
-      setSelectedContract((prev) => ({
-        ...prev,
-        status: "completed",
-        verification_status: "verified",
-      }));
+      // Refresh contracts list so the completed contract moves to the correct tab
+      setSelectedContract(null);
+      fetchContracts();
     } catch (error) {
       setActionMessage(`Error: ${parseAAError(error)}`);
     } finally {
@@ -271,11 +268,9 @@ const WorkforceDashboard = () => {
       const newState = await getContractState(selectedContract.contract_address);
       setBlockchainState(newState);
 
-      // Update local contract status
-      setSelectedContract((prev) => ({
-        ...prev,
-        status: "disputed",
-      }));
+      // Refresh contracts list so the disputed contract moves to the correct tab
+      setSelectedContract(null);
+      fetchContracts();
     } catch (error) {
       setActionMessage(`Error: ${parseAAError(error)}`);
     } finally {
