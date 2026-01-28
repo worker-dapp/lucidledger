@@ -42,9 +42,10 @@ const JobTracker = () => {
   }, [user, primaryWallet]);
 
   useEffect(() => {
-    const fetchOpenContracts = async () => {
+    const fetchContracts = async () => {
       if (!employeeData?.id) {
         setOpenContracts([]);
+        setCompletedContracts([]);
         setLoading(false);
         return;
       }
@@ -52,28 +53,66 @@ const JobTracker = () => {
       setLoading(true);
       setError("");
       try {
-        const response = await apiService.getAppliedJobs(employeeData.id);
-        const data = response.data || [];
-        const contracts = data
-          .filter(app => app.application_status === "signed" || app.application_status === "deployed")
+        // Fetch job applications (for signed contracts pending deployment)
+        const applicationsResponse = await apiService.getAppliedJobs(employeeData.id);
+        const applicationsData = applicationsResponse.data || [];
+
+        // Signed contracts waiting for deployment
+        const pendingContracts = applicationsData
+          .filter(app => app.application_status === "signed")
           .map(app => ({
             ...app.job,
             application_status: app.application_status,
             application_id: app.id,
             offer_accepted_at: app.offer_accepted_at,
-            applied_at: app.applied_at
+            applied_at: app.applied_at,
+            source: "application"
           }));
-        setOpenContracts(contracts);
-        setCompletedContracts([]);
+
+        // Fetch deployed contracts from deployed_contracts table
+        const deployedResponse = await apiService.getDeployedContractsByEmployee(employeeData.id);
+        const deployedData = deployedResponse.data || [];
+
+        // Active deployed contracts
+        const activeContracts = deployedData
+          .filter(dc => dc.status === "active")
+          .map(dc => ({
+            ...dc.jobPosting,
+            contract_address: dc.contract_address,
+            payment_amount: dc.payment_amount,
+            payment_currency: dc.payment_currency,
+            deployed_contract_id: dc.id,
+            application_status: "deployed",
+            deployed_at: dc.deployed_at,
+            source: "deployed_contract"
+          }));
+
+        // Completed contracts
+        const completed = deployedData
+          .filter(dc => dc.status === "completed")
+          .map(dc => ({
+            ...dc.jobPosting,
+            contract_address: dc.contract_address,
+            payment_amount: dc.payment_amount,
+            payment_currency: dc.payment_currency,
+            deployed_contract_id: dc.id,
+            application_status: "completed",
+            deployed_at: dc.deployed_at,
+            completed_at: dc.updated_at,
+            source: "deployed_contract"
+          }));
+
+        setOpenContracts([...pendingContracts, ...activeContracts]);
+        setCompletedContracts(completed);
       } catch (err) {
-        console.error("Error fetching open contracts:", err);
+        console.error("Error fetching contracts:", err);
         setError("Unable to load contracts. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchOpenContracts();
+    fetchContracts();
   }, [employeeData]);
 
   useEffect(() => {
@@ -201,10 +240,12 @@ const JobTracker = () => {
                   <div className="max-h-[520px] overflow-y-auto divide-y divide-gray-100">
                     {(activeTab === "open" ? openContracts : completedContracts).map(contract => (
                       <button
-                        key={contract.application_id}
+                        key={contract.deployed_contract_id || contract.application_id}
                         onClick={() => setSelectedContract(contract)}
                         className={`w-full text-left p-4 hover:bg-gray-50 transition-all ${
-                          selectedContract?.application_id === contract.application_id ? "bg-[#FFF9F2]" : "bg-white"
+                          (selectedContract?.deployed_contract_id === contract.deployed_contract_id && contract.deployed_contract_id) ||
+                          (selectedContract?.application_id === contract.application_id && contract.application_id)
+                            ? "bg-[#FFF9F2]" : "bg-white"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -212,7 +253,7 @@ const JobTracker = () => {
                             <h3 className="text-sm font-semibold text-[#0D3B66]">{contract.title}</h3>
                             <p className="text-xs text-gray-500">{contract.company_name}</p>
                           </div>
-                          {activeTab === "open" && (
+                          {activeTab === "open" ? (
                             contract.application_status === "signed" ? (
                               <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">
                                 Pending
@@ -222,6 +263,10 @@ const JobTracker = () => {
                                 Active
                               </span>
                             )
+                          ) : (
+                            <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800">
+                              Paid
+                            </span>
                           )}
                         </div>
                         <div className="mt-2 text-xs text-gray-400">
@@ -241,7 +286,7 @@ const JobTracker = () => {
                             <h3 className="text-xl font-bold text-[#0D3B66]">{selectedContract.title}</h3>
                             <p className="text-sm text-gray-500">{selectedContract.company_name}</p>
                           </div>
-                          {activeTab === "open" && (
+                          {activeTab === "open" ? (
                             selectedContract.application_status === "signed" ? (
                               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                                 Pending Deployment
@@ -251,6 +296,10 @@ const JobTracker = () => {
                                 Active Contract
                               </span>
                             )
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                              Completed & Paid
+                            </span>
                           )}
                         </div>
                       </div>
@@ -263,12 +312,14 @@ const JobTracker = () => {
                         <div className="bg-gray-50 p-4 rounded-lg">
                           <p className="text-xs font-semibold text-gray-500 mb-1">Compensation</p>
                           <p className="text-sm text-gray-700">
-                            {selectedContract.currency} {selectedContract.salary}/{selectedContract.pay_frequency}
+                            {selectedContract.payment_currency || selectedContract.currency || "USD"} {selectedContract.payment_amount || selectedContract.salary}/{selectedContract.pay_frequency}
                           </p>
                         </div>
                         <div className="bg-gray-50 p-4 rounded-lg">
-                          <p className="text-xs font-semibold text-gray-500 mb-1">Signed</p>
-                          <p className="text-sm text-gray-700">{formatDate(selectedContract.offer_accepted_at || selectedContract.applied_at)}</p>
+                          <p className="text-xs font-semibold text-gray-500 mb-1">{activeTab === "completed" ? "Completed" : "Signed"}</p>
+                          <p className="text-sm text-gray-700">
+                            {formatDate(activeTab === "completed" ? selectedContract.completed_at : (selectedContract.deployed_at || selectedContract.offer_accepted_at || selectedContract.applied_at))}
+                          </p>
                         </div>
                         <div className="bg-gray-50 p-4 rounded-lg">
                           <p className="text-xs font-semibold text-gray-500 mb-1">Type</p>

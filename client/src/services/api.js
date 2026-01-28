@@ -1,7 +1,20 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 import { getAuthToken } from "./authToken";
 
+// Store wallet address for API requests (set by components that have wallet access)
+let currentWalletAddress = null;
+
 class ApiService {
+  // Set the wallet address for API requests
+  setWalletAddress(address) {
+    currentWalletAddress = address;
+  }
+
+  // Get the current wallet address
+  getWalletAddress() {
+    return currentWalletAddress;
+  }
+
   // Generic request method
   async request(endpoint, options = {}) {
     // Check if API_BASE_URL is configured
@@ -9,17 +22,18 @@ class ApiService {
       console.error('VITE_API_BASE_URL is not configured!');
       throw new Error('API base URL is not configured. Please set VITE_API_BASE_URL in your environment variables.');
     }
-    
+
     const url = `${API_BASE_URL}${endpoint}`;
     console.log(`Making API request to: ${url}`);
-    
+
     // Get the Privy access token
     const token = await getAuthToken();
-    
+
     const config = {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(currentWalletAddress ? { 'x-wallet-address': currentWalletAddress } : {}),
         ...options.headers,
       },
       ...options,
