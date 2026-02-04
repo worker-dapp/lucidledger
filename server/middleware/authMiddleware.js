@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
+const { PrivyClient } = require('@privy-io/server-auth');
 
 // Privy JWKS endpoint for token verification (Privy uses ES256)
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID;
@@ -183,9 +184,15 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// Privy server client for looking up user details (email) by DID
+const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET;
+const privyClient = (PRIVY_APP_ID && PRIVY_APP_SECRET)
+  ? new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET)
+  : null;
+
 // Admin verification middleware - checks if user's email is in ADMIN_EMAILS env var
 // Must be used AFTER verifyToken middleware
-const verifyAdmin = (req, res, next) => {
+const verifyAdmin = async (req, res, next) => {
   const adminEmails = process.env.ADMIN_EMAILS;
 
   if (!adminEmails) {
@@ -196,36 +203,53 @@ const verifyAdmin = (req, res, next) => {
     });
   }
 
-  // Parse comma-separated admin emails and normalize
+  if (!privyClient) {
+    console.error('PRIVY_APP_SECRET not configured - cannot look up user email');
+    return res.status(500).json({
+      success: false,
+      message: 'Admin verification misconfigured'
+    });
+  }
+
   const adminList = adminEmails.split(',').map(email => email.trim().toLowerCase());
+  const privyDid = req.user?.sub;
 
-  const userEmail =
-    req.user?.email ||
-    req.user?.user?.email ||
-    req.user?.claims?.email ||
-    req.user?.verified_email ||
-    req.user?.verifiedEmail;
-
-  if (!userEmail) {
+  if (!privyDid) {
     return res.status(403).json({
       success: false,
-      message: 'Unable to determine user email from token'
+      message: 'Unable to determine user identity from token'
     });
   }
 
-  const normalizedEmail = userEmail.toLowerCase();
+  try {
+    const privyUser = await privyClient.getUser(privyDid);
+    const userEmail = privyUser?.email?.address?.toLowerCase();
 
-  if (!adminList.includes(normalizedEmail)) {
-    console.warn(`Admin access denied for email: ${normalizedEmail}`);
-    return res.status(403).json({
+    if (!userEmail) {
+      return res.status(403).json({
+        success: false,
+        message: 'No email associated with this account'
+      });
+    }
+
+    if (!adminList.includes(userEmail)) {
+      console.warn(`Admin access denied for email: ${userEmail}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required'
+      });
+    }
+
+    req.isAdmin = true;
+    req.adminEmail = userEmail;
+    next();
+  } catch (error) {
+    console.error('Failed to look up user from Privy:', error.message);
+    return res.status(500).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Failed to verify admin status'
     });
   }
-
-  // User is an admin, proceed
-  req.isAdmin = true;
-  next();
 };
 
 module.exports = { verifyToken, optionalAuth, verifyAdmin };

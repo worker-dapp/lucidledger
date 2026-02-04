@@ -21,6 +21,8 @@ import ClosedContracts from "./EmployerPages/ClosedContracts";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import MediatorResolution from "./pages/MediatorResolution";
 import AdminMediators from "./pages/AdminMediators";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminDeployFactory from "./pages/AdminDeployFactory";
 import apiService from "./services/api";
 import { setAuthTokenProvider } from "./services/authToken";
 import { useAuth } from "./hooks/useAuth";
@@ -449,8 +451,10 @@ const App = () => {
             {/* Mediator Route - Self-validates via DB-backed mediator list */}
             <Route path="/resolve-disputes" element={<MediatorResolution />} />
 
-            {/* Admin Route - Self-validates via ADMIN_EMAILS */}
+            {/* Admin Routes - Self-validate via ADMIN_EMAILS */}
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/mediators" element={<AdminMediators />} />
+            <Route path="/admin/deploy-factory" element={<AdminDeployFactory />} />
 
             {/* 404 - Must be last */}
             <Route path="*" element={<h1>404 - Not Found</h1>} />
