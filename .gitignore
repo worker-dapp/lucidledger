@@ -127,5 +127,5 @@ resolving
 conflict-*
 *.orig
 
-# Local notes
-notes/
+# Local notes (now tracked for backup)
+# notes/
