@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiService from "../../services/api";
 import PostJobModal from "./PostJobModal";
-import { Plus, Search, Filter, Eye, Edit, Trash2, CheckCircle, XCircle, Clock, FileText } from "lucide-react";
+import { Plus, Search, Filter, Eye, Edit, Trash2, CheckCircle, CheckCircle2, XCircle, Clock, FileText, PlayCircle } from "lucide-react";
 
 const PostedJobsTab = ({ employerId }) => {
   const [jobPostings, setJobPostings] = useState([]);
@@ -95,16 +95,18 @@ const PostedJobsTab = ({ employerId }) => {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      draft: { color: "gray", icon: Clock, label: "Draft" },
-      active: { color: "green", icon: CheckCircle, label: "Active" },
-      closed: { color: "red", icon: XCircle, label: "Closed" },
+      draft: { classes: "bg-gray-50 text-gray-700", icon: Clock, label: "Draft" },
+      active: { classes: "bg-green-50 text-green-700", icon: CheckCircle, label: "Active" },
+      in_progress: { classes: "bg-blue-50 text-blue-700", icon: PlayCircle, label: "In Progress" },
+      completed: { classes: "bg-emerald-50 text-emerald-700", icon: CheckCircle2, label: "Completed" },
+      closed: { classes: "bg-red-50 text-red-700", icon: XCircle, label: "Closed" },
     };
 
     const config = statusConfig[status] || statusConfig.draft;
     const Icon = config.icon;
 
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 bg-${config.color}-50 text-${config.color}-700 text-xs font-medium rounded`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-1 ${config.classes} text-xs font-medium rounded`}>
         <Icon className="h-3 w-3" />
         {config.label}
       </span>
@@ -155,6 +157,8 @@ const PostedJobsTab = ({ employerId }) => {
               <option value="all">All Status</option>
               <option value="draft">Draft</option>
               <option value="active">Active</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
               <option value="closed">Closed</option>
             </select>
           </div>

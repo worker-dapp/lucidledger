@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle,
   ExternalLink,
   Loader2,
+  LogOut,
   Scale,
   Shield,
   XCircle,
@@ -21,7 +23,13 @@ import { useAuth } from "../hooks/useAuth";
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
 
 const MediatorResolution = () => {
-  const { user, isAuthenticated, smartWalletClient, smartWalletAddress } = useAuth();
+  const { user, isAuthenticated, login, logout, smartWalletClient, smartWalletAddress } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [mediatorData, setMediatorData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -198,9 +206,15 @@ const MediatorResolution = () => {
           <h1 className="text-xl font-semibold text-gray-800 mb-2">
             Authentication Required
           </h1>
-          <p className="text-gray-600">
-            Please log in to access this page.
+          <p className="text-gray-600 mb-6">
+            Please log in to access the Dispute Resolution Center.
           </p>
+          <button
+            onClick={login}
+            className="bg-[#0D3B66] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#0a2f52] transition-colors"
+          >
+            Log In
+          </button>
         </div>
       </div>
     );
@@ -217,13 +231,20 @@ const MediatorResolution = () => {
           <p className="text-gray-600 mb-4">
             This page is only accessible to approved mediators.
           </p>
-          <div className="bg-gray-50 rounded-lg p-3 text-sm">
+          <div className="bg-gray-50 rounded-lg p-3 text-sm mb-4">
             <p className="text-gray-500 mb-1">Your email:</p>
             <p className="font-mono text-xs text-gray-700 break-all">
               {userEmail || "Not available"}
             </p>
           </div>
-          <p className="text-sm text-gray-500 mt-4">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 mb-4"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out & Try Another Account
+          </button>
+          <p className="text-sm text-gray-500">
             If you believe you should have access, please contact a platform administrator.
           </p>
         </div>
@@ -236,16 +257,25 @@ const MediatorResolution = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Scale className="h-8 w-8 text-[#0D3B66]" />
-            <div>
-              <h1 className="text-xl font-semibold text-[#0D3B66]">
-                Dispute Resolution Center
-              </h1>
-              <p className="text-sm text-gray-500">
-                Mediator Dashboard - Review and resolve contract disputes
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Scale className="h-8 w-8 text-[#0D3B66]" />
+              <div>
+                <h1 className="text-xl font-semibold text-[#0D3B66]">
+                  Dispute Resolution Center
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Mediator Dashboard - Review and resolve contract disputes
+                </p>
+              </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
           </div>
         </div>
       </header>

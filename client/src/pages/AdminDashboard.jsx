@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Shield,
   Users,
@@ -13,6 +13,12 @@ import { useAuth } from "../hooks/useAuth";
 
 const AdminDashboard = () => {
   const { user, login, logout, smartWalletAddress } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
 
@@ -80,12 +86,19 @@ const AdminDashboard = () => {
           <p className="text-gray-600 mb-4">
             This page is only accessible to platform administrators.
           </p>
-          <div className="bg-gray-50 rounded-lg p-3 text-sm">
+          <div className="bg-gray-50 rounded-lg p-3 text-sm mb-4">
             <p className="text-gray-500 mb-1">Your email:</p>
             <p className="font-mono text-xs text-gray-700 break-all">
               {userEmail || "Not available"}
             </p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out & Try Another Account
+          </button>
         </div>
       </div>
     );
@@ -123,7 +136,7 @@ const AdminDashboard = () => {
               </div>
             </div>
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <LogOut className="h-4 w-4" />

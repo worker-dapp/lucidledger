@@ -124,7 +124,18 @@ const verifyToken = async (req, res, next) => {
     // 5. Attach user info to request
     req.user = verified;
 
-    // 6. Proceed to the route
+    // 6. Look up user's email from Privy (since JWT only has DID)
+    if (privyClient && verified.sub) {
+      try {
+        const privyUser = await privyClient.getUser(verified.sub);
+        req.user.email = privyUser?.email?.address?.toLowerCase() || null;
+      } catch (lookupError) {
+        console.warn('Could not look up user email from Privy:', lookupError.message);
+        // Continue without email - some endpoints don't need it
+      }
+    }
+
+    // 7. Proceed to the route
     next();
   } catch (error) {
     console.error('Token verification failed:', error.message);

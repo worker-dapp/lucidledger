@@ -1,4 +1,61 @@
 const { DeployedContract, JobPosting, Employee, Employer, Mediator } = require('../models');
+const { Op } = require('sequelize');
+
+// Terminal contract statuses (contract lifecycle is complete)
+const TERMINAL_CONTRACT_STATUSES = ['completed', 'refunded', 'terminated'];
+
+/**
+ * Check if all contracts for a job are complete and update job status accordingly.
+ * Called after a contract status changes to a terminal state.
+ *
+ * Job status flow:
+ * - 'active' -> 'in_progress' when first contract is deployed
+ * - 'in_progress' -> 'completed' when all contracts are completed
+ * - 'in_progress' -> 'closed' when all contracts are refunded/terminated
+ */
+const updateJobStatusIfAllContractsComplete = async (jobPostingId) => {
+  if (!jobPostingId) return;
+
+  try {
+    // Get all deployed contracts for this job
+    const allContracts = await DeployedContract.findAll({
+      where: { job_posting_id: jobPostingId },
+      attributes: ['id', 'status']
+    });
+
+    // If no contracts, nothing to do
+    if (allContracts.length === 0) return;
+
+    // Check if ALL contracts are in terminal states
+    const allTerminal = allContracts.every(c => TERMINAL_CONTRACT_STATUSES.includes(c.status));
+
+    if (!allTerminal) {
+      // Some contracts still in progress - ensure job is 'in_progress'
+      await JobPosting.update(
+        { status: 'in_progress' },
+        { where: { id: jobPostingId, status: 'active' } }
+      );
+      return;
+    }
+
+    // All contracts are terminal - determine final job status
+    const allRefundedOrTerminated = allContracts.every(c =>
+      c.status === 'refunded' || c.status === 'terminated'
+    );
+
+    const newJobStatus = allRefundedOrTerminated ? 'closed' : 'completed';
+
+    await JobPosting.update(
+      { status: newJobStatus },
+      { where: { id: jobPostingId } }
+    );
+
+    console.log(`Job ${jobPostingId} status updated to '${newJobStatus}' (all ${allContracts.length} contracts complete)`);
+  } catch (error) {
+    // Log but don't throw - this is a secondary operation
+    console.error('Error updating job status:', error.message);
+  }
+};
 
 // Check if wallet address is in admin list
 // TODO: Update to use ADMIN_WALLETS env var (see notes/privy-admin-mediator-auth.md)
@@ -352,6 +409,11 @@ class DeployedContractController {
 
       await deployedContract.update({ status });
 
+      // If contract moved to terminal state, check if job status should update
+      if (TERMINAL_CONTRACT_STATUSES.includes(status)) {
+        await updateJobStatusIfAllContractsComplete(deployedContract.job_posting_id);
+      }
+
       res.status(200).json({
         success: true,
         data: deployedContract,
@@ -580,7 +642,7 @@ class DeployedContractController {
   }
 
   // Update a deployed contract (general update)
-  // Authorization: Admin, employer, or employee of the contract only
+  // Authorization: Admin, employer, employee, or assigned mediator
   static async updateDeployedContract(req, res) {
     try {
       const { id } = req.params;
@@ -595,11 +657,12 @@ class DeployedContractController {
         });
       }
 
-      // Fetch contract with related employee and employer records
+      // Fetch contract with related employee, employer, and mediator records
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
           { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' }
+          { model: Employer, as: 'employer' },
+          { model: Mediator, as: 'mediator' }
         ]
       });
 
@@ -613,9 +676,10 @@ class DeployedContractController {
       // Check authorization by wallet address
       const isEmployer = walletAddress && deployedContract.employer?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
       const isEmployee = walletAddress && deployedContract.employee?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
+      const isMediator = walletAddress && deployedContract.mediator?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
       const isAdmin = isAdminWallet(walletAddress);
 
-      if (!isAdmin && !isEmployer && !isEmployee) {
+      if (!isAdmin && !isEmployer && !isEmployee && !isMediator) {
         return res.status(403).json({
           success: false,
           message: 'You do not have permission to modify this contract'
@@ -650,15 +714,22 @@ class DeployedContractController {
       if (filteredUpdates.status) {
         const employerAllowedStatuses = ['completed', 'disputed'];
         const employeeAllowedStatuses = ['disputed'];
+        const mediatorAllowedStatuses = ['completed', 'terminated']; // For dispute resolution
 
         if (!isAdmin) {
-          if (isEmployer && !employerAllowedStatuses.includes(filteredUpdates.status)) {
+          if (isMediator && !mediatorAllowedStatuses.includes(filteredUpdates.status)) {
+            return res.status(403).json({
+              success: false,
+              message: `Mediators can only set status to: ${mediatorAllowedStatuses.join(', ')}`
+            });
+          }
+          if (isEmployer && !isMediator && !employerAllowedStatuses.includes(filteredUpdates.status)) {
             return res.status(403).json({
               success: false,
               message: `Employers can only set status to: ${employerAllowedStatuses.join(', ')}`
             });
           }
-          if (isEmployee && !isEmployer && !employeeAllowedStatuses.includes(filteredUpdates.status)) {
+          if (isEmployee && !isEmployer && !isMediator && !employeeAllowedStatuses.includes(filteredUpdates.status)) {
             return res.status(403).json({
               success: false,
               message: `Employees can only set status to: ${employeeAllowedStatuses.join(', ')}`
@@ -668,6 +739,11 @@ class DeployedContractController {
       }
 
       await deployedContract.update(filteredUpdates);
+
+      // If contract moved to terminal state, check if job status should update
+      if (filteredUpdates.status && TERMINAL_CONTRACT_STATUSES.includes(filteredUpdates.status)) {
+        await updateJobStatusIfAllContractsComplete(deployedContract.job_posting_id);
+      }
 
       res.status(200).json({
         success: true,
