@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import apiService from "../../services/api";
 import PostJobModal from "./PostJobModal";
-import { Plus, Search, Filter, Eye, Edit, Trash2, CheckCircle, CheckCircle2, XCircle, Clock, FileText, PlayCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, CheckCircle, CheckCircle2, XCircle, Clock, FileText, PlayCircle } from "lucide-react";
 
 const PostedJobsTab = ({ employerId }) => {
   const [jobPostings, setJobPostings] = useState([]);
   const [filteredPostings, setFilteredPostings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // Status filter removed - Posted Jobs only shows active/draft jobs
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ const PostedJobsTab = ({ employerId }) => {
 
   useEffect(() => {
     filterPostings();
-  }, [jobPostings, searchTerm, statusFilter]);
+  }, [jobPostings, searchTerm]);
 
   const fetchJobPostings = async () => {
     if (!employerId) return;
@@ -38,18 +38,16 @@ const PostedJobsTab = ({ employerId }) => {
   };
 
   const filterPostings = () => {
-    let filtered = [...jobPostings];
+    // Only show active and draft jobs (jobs still recruiting)
+    let filtered = jobPostings.filter((posting) =>
+      posting.status === "active" || posting.status === "draft"
+    );
 
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter((posting) =>
         posting.title?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((posting) => posting.status === statusFilter);
     }
 
     setFilteredPostings(filtered);
@@ -145,24 +143,8 @@ const PostedJobsTab = ({ employerId }) => {
           />
         </div>
 
-        {/* Filter & Post Button */}
+        {/* Post Button */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="closed">Closed</option>
-            </select>
-          </div>
-
           <button
             onClick={() => setIsPostModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d88542] transition-colors"
@@ -178,14 +160,14 @@ const PostedJobsTab = ({ employerId }) => {
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">
-            {searchTerm || statusFilter !== "all" ? "No matching job postings" : "No job postings yet"}
+            {searchTerm ? "No matching job postings" : "No active job postings"}
           </h3>
           <p className="text-sm text-gray-600 mb-4">
-            {searchTerm || statusFilter !== "all"
-              ? "Try adjusting your search or filters"
-              : "Create your first job posting from a template"}
+            {searchTerm
+              ? "Try adjusting your search"
+              : "Create a new job posting to start recruiting"}
           </p>
-          {!searchTerm && statusFilter === "all" && (
+          {!searchTerm && (
             <button
               onClick={() => setIsPostModalOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d88542] transition-colors"

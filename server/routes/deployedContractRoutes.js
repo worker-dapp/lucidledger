@@ -12,6 +12,7 @@ router.get('/', verifyToken, DeployedContractController.getDeployedContractsByEm
 router.post('/', verifyToken, DeployedContractController.createDeployedContract);
 router.patch('/:id/mediator', verifyToken, verifyAdmin, DeployedContractController.assignMediatorToDeployedContract);
 router.patch('/:id/status', verifyToken, DeployedContractController.updateDeployedContractStatus);
+router.post('/:id/complete-with-payment', verifyToken, DeployedContractController.completeContractWithPayment);
 router.put('/:id', verifyToken, DeployedContractController.updateDeployedContract);
 router.get('/:id', verifyToken, DeployedContractController.getDeployedContractById);
 

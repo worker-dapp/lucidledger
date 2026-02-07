@@ -1,6 +1,59 @@
-const { PaymentTransaction } = require('../models');
+const { PaymentTransaction, DeployedContract, JobPosting, Employer } = require('../models');
 
 class PaymentTransactionController {
+  // Get payment transactions for an employee (with job context)
+  static async getPaymentTransactionsByEmployee(req, res) {
+    try {
+      const { employeeId } = req.params;
+
+      if (!employeeId) {
+        return res.status(400).json({
+          success: false,
+          message: 'employeeId is required'
+        });
+      }
+
+      const transactions = await PaymentTransaction.findAll({
+        include: [{
+          model: DeployedContract,
+          as: 'deployedContract',
+          where: { employee_id: employeeId },
+          include: [
+            {
+              model: JobPosting,
+              as: 'jobPosting',
+              attributes: ['id', 'title', 'company_name']
+            },
+            {
+              model: Employer,
+              as: 'employer',
+              attributes: ['id', 'company_name']
+            }
+          ]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+
+      // Calculate total earnings
+      const totalEarnings = transactions
+        .filter(tx => tx.status === 'completed')
+        .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+
+      res.status(200).json({
+        success: true,
+        data: transactions,
+        totalEarnings,
+        count: transactions.length
+      });
+    } catch (error) {
+      console.error('Error fetching payment transactions for employee:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching payment transactions',
+        error: error.message
+      });
+    }
+  }
   // Create a payment transaction record
   static async createPaymentTransaction(req, res) {
     try {

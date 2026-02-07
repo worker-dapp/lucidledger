@@ -19,6 +19,7 @@ const deployedContractRoutes = require('./routes/deployedContractRoutes');
 const oracleVerificationRoutes = require('./routes/oracleVerificationRoutes');
 const paymentTransactionRoutes = require('./routes/paymentTransactionRoutes');
 const mediatorRoutes = require('./routes/mediatorRoutes');
+const disputeHistoryRoutes = require('./routes/disputeHistoryRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -78,6 +79,7 @@ app.use('/api/deployed-contracts', deployedContractRoutes);
 app.use('/api/oracle-verifications', oracleVerificationRoutes);
 app.use('/api/payment-transactions', paymentTransactionRoutes);
 app.use('/api/mediators', mediatorRoutes);
+app.use('/api/dispute-history', disputeHistoryRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -44,7 +44,7 @@ const WorkforceDashboard = () => {
   const [employerId, setEmployerId] = useState(null);
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("active");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedContract, setSelectedContract] = useState(null);
   const [oracleVerifications, setOracleVerifications] = useState([]);
@@ -199,6 +199,7 @@ const WorkforceDashboard = () => {
     setTxStep(TxSteps.IDLE);
 
     try {
+      // Step 1: Execute on-chain payment (requires user signature)
       const result = await approveAndPay({
         user,
         smartWalletClient,
@@ -206,23 +207,38 @@ const WorkforceDashboard = () => {
         onStatusChange: handleTxStatusChange,
       });
 
-      // Update database status
-      await apiService.updateDeployedContract(selectedContract.id, {
-        status: "completed",
-        verification_status: "verified",
-      });
+      // Step 2: Record payment in database (atomic operation with retry)
+      // This single call updates contract status AND creates payment record
+      const maxRetries = 3;
+      let lastError = null;
 
-      // Record payment transaction
-      await apiService.createPaymentTransaction({
-        deployed_contract_id: selectedContract.id,
-        amount: selectedContract.payment_amount,
-        currency: selectedContract.payment_currency || "USDC",
-        payment_type: "final",
-        status: "completed",
-        tx_hash: result.txHash,
-      });
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await apiService.completeContractWithPayment(selectedContract.id, {
+            tx_hash: result.txHash,
+            amount: selectedContract.payment_amount,
+            currency: selectedContract.payment_currency || "USDC",
+          });
+          break; // Success - exit retry loop
+        } catch (apiError) {
+          lastError = apiError;
+          console.error(`Database recording attempt ${attempt} failed:`, apiError);
+          if (attempt < maxRetries) {
+            // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+          }
+        }
+      }
 
-      setActionMessage(`Payment released (gas-free)! View on BaseScan: ${result.basescanUrl}`);
+      if (lastError) {
+        // On-chain payment succeeded but database recording failed after all retries
+        console.error("Failed to record payment after retries:", lastError);
+        setActionMessage(
+          `Payment sent on-chain but recording failed. Transaction: ${result.txHash}. Please contact support.`
+        );
+      } else {
+        setActionMessage(`Payment released (gas-free)! View on BaseScan: ${result.basescanUrl}`);
+      }
 
       // Refresh blockchain state
       const newState = await getContractState(selectedContract.contract_address);
@@ -373,7 +389,7 @@ const WorkforceDashboard = () => {
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            {["active", "completed", "disputed", "terminated"].map((status) => (
+            {["all", "active", "completed", "disputed", "terminated"].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -383,7 +399,7 @@ const WorkforceDashboard = () => {
                     : "border-gray-200 text-gray-600 bg-white hover:border-gray-300"
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === "all" ? "All Contracts" : status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
           </div>
@@ -409,7 +425,9 @@ const WorkforceDashboard = () => {
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-[#0D3B66]">Active Contracts</h2>
+                <h2 className="text-lg font-semibold text-[#0D3B66]">
+                  {statusFilter === "all" ? "All Contracts" : `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Contracts`}
+                </h2>
                 <p className="text-sm text-gray-500">Showing {filteredContracts.length} contracts</p>
               </div>
             </div>
