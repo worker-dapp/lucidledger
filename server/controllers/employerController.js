@@ -159,11 +159,30 @@ class EmployerController {
   static async updateEmployer(req, res) {
     try {
       const { id } = req.params;
-      const [updatedRowsCount, updatedEmployer] = await Employer.update(req.body, {
+
+      // First fetch the current employer to check status
+      const currentEmployer = await Employer.findByPk(id);
+      if (!currentEmployer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employer not found'
+        });
+      }
+
+      // Prepare update data
+      let updateData = { ...req.body };
+
+      // If employer was rejected and is updating their profile, reset to pending for re-review
+      if (currentEmployer.approval_status === 'rejected') {
+        updateData.approval_status = 'pending';
+        updateData.rejection_reason = null;
+      }
+
+      const [updatedRowsCount, updatedEmployer] = await Employer.update(updateData, {
         where: { id },
         returning: true
       });
-      
+
       if (updatedRowsCount === 0) {
         return res.status(404).json({
           success: false,

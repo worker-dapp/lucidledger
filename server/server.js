@@ -20,6 +20,7 @@ const oracleVerificationRoutes = require('./routes/oracleVerificationRoutes');
 const paymentTransactionRoutes = require('./routes/paymentTransactionRoutes');
 const mediatorRoutes = require('./routes/mediatorRoutes');
 const disputeHistoryRoutes = require('./routes/disputeHistoryRoutes');
+const adminEmployerRoutes = require('./routes/adminEmployerRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -80,6 +81,7 @@ app.use('/api/oracle-verifications', oracleVerificationRoutes);
 app.use('/api/payment-transactions', paymentTransactionRoutes);
 app.use('/api/mediators', mediatorRoutes);
 app.use('/api/dispute-history', disputeHistoryRoutes);
+app.use('/api/admin/employers', adminEmployerRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -125,7 +127,8 @@ async function runMigrationsOnStartup() {
       '008-create-oracle-verifications.sql',
       '009-create-payment-transactions.sql',
       '010-create-mediators.sql',
-      '011-add-mediator-to-deployed-contracts.sql'
+      '011-add-mediator-to-deployed-contracts.sql',
+      '013-add-employer-approval.sql'
     ];
 
     for (const file of migrationFiles) {

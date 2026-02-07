@@ -55,10 +55,24 @@ class JobPostingController {
 
       // Get employer info to populate company fields
       const employer = await Employer.findByPk(employer_id);
-      if (employer) {
-        postingData.company_name = postingData.company_name || employer.company_name;
-        postingData.company_description = postingData.company_description || employer.company_description;
+      if (!employer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Employer not found'
+        });
       }
+
+      // Check employer approval status
+      if (employer.approval_status !== 'approved') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your employer account is pending approval. You cannot create job postings until approved.',
+          approval_status: employer.approval_status
+        });
+      }
+
+      postingData.company_name = postingData.company_name || employer.company_name;
+      postingData.company_description = postingData.company_description || employer.company_description;
 
       const jobPosting = await JobPosting.create(postingData);
 
@@ -275,6 +289,16 @@ class JobPostingController {
         return res.status(404).json({
           success: false,
           message: 'Job posting not found'
+        });
+      }
+
+      // Check employer approval status before activating
+      const employer = await Employer.findByPk(jobPosting.employer_id);
+      if (!employer || employer.approval_status !== 'approved') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your employer account is pending approval. You cannot activate job postings until approved.',
+          approval_status: employer?.approval_status || 'unknown'
         });
       }
 

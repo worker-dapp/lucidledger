@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { Clock, XCircle, AlertTriangle } from "lucide-react";
 import StepIndicator from "../components/StepIndicator";
 import JobBasics from "../Form/JobBasics";
 import EmploymentType from "../Form/EmploymentType";
@@ -16,6 +17,8 @@ export default function Job() {
   const { user, smartWalletAddress } = useAuth();
   const navigate = useNavigate();
   const [employerId, setEmployerId] = useState(null);
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState(null);
   const [step, setStep] = useState(1);
   const totalSteps = 6;
   const [hasPrefilledData, setHasPrefilledData] = useState(false);
@@ -117,6 +120,10 @@ export default function Job() {
             setEmployerId(employer.id);
           }
 
+          // Set approval status
+          setApprovalStatus(employer.approval_status);
+          setRejectionReason(employer.rejection_reason);
+
           setFormData((prev) => ({
             ...prev,
             companyName: prev.companyName || employer.company_name || "",
@@ -182,6 +189,65 @@ export default function Job() {
         return <div>Step {step}</div>;
     }
   };
+
+  // Show blocking overlay if not approved
+  if (approvalStatus && approvalStatus !== 'approved') {
+    return (
+      <EmployerLayout>
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            {approvalStatus === 'pending' ? (
+              <>
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <Clock className="h-8 w-8 text-amber-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                  Account Pending Approval
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Your employer account is currently under review. You'll be able to create
+                  job postings once your account has been approved by our team.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <XCircle className="h-8 w-8 text-red-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                  Account Not Approved
+                </h2>
+                {rejectionReason && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-left">
+                    <p className="text-sm font-medium text-red-800">Reason:</p>
+                    <p className="text-sm text-red-700 mt-1">{rejectionReason}</p>
+                  </div>
+                )}
+                <p className="text-gray-600 mb-6">
+                  Please update your profile to address the issues and your account will be
+                  automatically resubmitted for review.
+                </p>
+              </>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to="/employer-profile"
+                className="px-6 py-2 bg-[#0D3B66] text-white rounded-lg hover:bg-[#0a2d4d] transition-colors"
+              >
+                {approvalStatus === 'rejected' ? 'Update Profile' : 'View Profile'}
+              </Link>
+              <Link
+                to="/contract-factory"
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </EmployerLayout>
+    );
+  }
 
   return (
     <EmployerLayout>
