@@ -13,7 +13,7 @@ import {
   Zap,
   XCircle,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import apiService from "../services/api";
 import { assignMediator } from "../contracts/workContractInteractions";
 import { parseAAError } from "../contracts/aaClient";
@@ -22,6 +22,12 @@ import { useAuth } from "../hooks/useAuth";
 
 const AdminMediators = () => {
   const { user, login, logout, smartWalletClient, smartWalletAddress } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
   const [loading, setLoading] = useState(true);
   const [mediators, setMediators] = useState([]);
   const [disputedContracts, setDisputedContracts] = useState([]);
@@ -311,12 +317,19 @@ const AdminMediators = () => {
           <p className="text-gray-600 mb-4">
             This page is only accessible to platform administrators.
           </p>
-          <div className="bg-gray-50 rounded-lg p-3 text-sm">
+          <div className="bg-gray-50 rounded-lg p-3 text-sm mb-4">
             <p className="text-gray-500 mb-1">Your email:</p>
             <p className="font-mono text-xs text-gray-700 break-all">
               {userEmail || "Not available"}
             </p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out & Try Another Account
+          </button>
         </div>
       </div>
     );
@@ -343,7 +356,7 @@ const AdminMediators = () => {
               </div>
             </div>
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <LogOut className="h-4 w-4" />
@@ -522,6 +535,15 @@ const AdminMediators = () => {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
+              {activeMediators.length === 0 && (
+                <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+                  <p className="text-sm text-amber-800">
+                    <strong>No mediators available for assignment.</strong> Mediators must log in to{" "}
+                    <code className="bg-amber-100 px-1 rounded">/resolve-disputes</code> at least once
+                    to register their wallet address before they can be assigned to disputes.
+                  </p>
+                </div>
+              )}
               {disputedContracts.map((contract) => {
                 const jobTitle = contract.jobPosting?.title || "Untitled role";
                 const employerName = contract.employer?.company_name || "Unknown employer";
@@ -635,20 +657,26 @@ const AdminMediators = () => {
                           : mediator.email}
                       </p>
                       <p className="text-sm text-gray-500">{mediator.email}</p>
-                      {mediator.wallet_address && (
+                      {mediator.wallet_address ? (
                         <p className="text-xs text-gray-400 font-mono">
                           {mediator.wallet_address.slice(0, 10)}...{mediator.wallet_address.slice(-8)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-600">
+                          ⚠ No wallet — mediator must log in to /resolve-disputes first
                         </p>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      mediator.status === "active"
+                      mediator.status === "active" && mediator.wallet_address
                         ? "bg-green-100 text-green-700"
+                        : mediator.status === "active"
+                        ? "bg-amber-100 text-amber-700"
                         : "bg-gray-100 text-gray-600"
                     }`}>
-                      {mediator.status}
+                      {mediator.status === "active" && !mediator.wallet_address ? "needs login" : mediator.status}
                     </span>
                     <button
                       onClick={() => handleToggleStatus(mediator)}

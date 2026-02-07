@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,6 +18,12 @@ const FACTORY_ADDRESS = import.meta.env.VITE_FACTORY_ADDRESS || "";
 
 const AdminDeployFactory = () => {
   const { user, login, logout, smartWalletAddress } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const [onChainAdmin, setOnChainAdmin] = useState(null);
@@ -106,10 +112,17 @@ const AdminDeployFactory = () => {
           <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-800 mb-2">Access Denied</h1>
           <p className="text-gray-600 mb-4">This page is only accessible to platform administrators.</p>
-          <div className="bg-gray-50 rounded-lg p-3 text-sm">
+          <div className="bg-gray-50 rounded-lg p-3 text-sm mb-4">
             <p className="text-gray-500 mb-1">Your email:</p>
             <p className="font-mono text-xs text-gray-700 break-all">{userEmail || "Not available"}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out & Try Another Account
+          </button>
         </div>
       </div>
     );
@@ -131,7 +144,7 @@ const AdminDeployFactory = () => {
               </div>
             </div>
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <LogOut className="h-4 w-4" />

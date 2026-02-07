@@ -5,7 +5,7 @@ import apiService from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 const UserProfile = () => {
-  const { user, smartWalletAddress } = useAuth();
+  const { user, smartWalletAddress, logout } = useAuth();
   const navigate = useNavigate();
   const walletAddress = smartWalletAddress || '';
   const [emailVerified, setEmailVerified] = useState(false);
@@ -233,7 +233,16 @@ const UserProfile = () => {
     <>
       <Navbar />
       <div className="w-2/3 mx-auto m-10 p-10 bg-white rounded shadow-md">
-        <h1 className="text-3xl font-bold text-[#0D3B66] mb-6 text-center">Complete Your Profile</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-[#0D3B66]">Complete Your Profile</h1>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm text-gray-500 hover:text-red-600 underline"
+          >
+            Sign Out
+          </button>
+        </div>
 
         {submitted && (
           <div className="mb-4 p-3 rounded bg-green-50 text-green-700 border border-green-200">

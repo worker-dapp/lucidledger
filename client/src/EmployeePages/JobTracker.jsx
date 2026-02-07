@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
+import { AlertTriangle, Loader2, XCircle, Zap } from "lucide-react";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import { raiseDispute, ContractState, getContractState } from "../contracts/workContractInteractions";
+import { TxSteps, parseAAError } from "../contracts/aaClient";
 
 const JobTracker = () => {
   const navigate = useNavigate();
-  const { user, primaryWallet, smartWalletAddress } = useAuth();
+  const { user, primaryWallet, smartWalletAddress, smartWalletClient } = useAuth();
   const [employeeData, setEmployeeData] = useState(null);
   const [openContracts, setOpenContracts] = useState([]);
   const [completedContracts, setCompletedContracts] = useState([]);
@@ -17,6 +20,19 @@ const JobTracker = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Dispute modal state
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputing, setDisputing] = useState(false);
+  const [disputeMessage, setDisputeMessage] = useState("");
+  const [txStep, setTxStep] = useState(TxSteps.IDLE);
+  const [txMessage, setTxMessage] = useState("");
+
+  const handleTxStatusChange = ({ step, message }) => {
+    setTxStep(step);
+    setTxMessage(message);
+  };
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -42,98 +58,140 @@ const JobTracker = () => {
     fetchEmployeeData();
   }, [user, primaryWallet]);
 
+  const fetchContracts = async () => {
+    if (!employeeData?.id) {
+      setOpenContracts([]);
+      setCompletedContracts([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      // Fetch job applications (for signed contracts pending deployment)
+      const applicationsResponse = await apiService.getAppliedJobs(employeeData.id);
+      const applicationsData = applicationsResponse.data || [];
+
+      // Signed contracts waiting for deployment
+      const pendingContracts = applicationsData
+        .filter(app => app.application_status === "signed")
+        .map(app => ({
+          ...app.job,
+          application_status: app.application_status,
+          application_id: app.id,
+          offer_accepted_at: app.offer_accepted_at,
+          applied_at: app.applied_at,
+          source: "application"
+        }));
+
+      // Fetch deployed contracts from deployed_contracts table
+      const deployedResponse = await apiService.getDeployedContractsByEmployee(employeeData.id);
+      const deployedData = deployedResponse.data || [];
+
+      // Active deployed contracts
+      const activeContracts = deployedData
+        .filter(dc => dc.status === "active")
+        .map(dc => ({
+          ...dc.jobPosting,
+          contract_address: dc.contract_address,
+          payment_amount: dc.payment_amount,
+          payment_currency: dc.payment_currency,
+          deployed_contract_id: dc.id,
+          application_status: "deployed",
+          deployed_at: dc.deployed_at,
+          source: "deployed_contract"
+        }));
+
+      // Completed contracts
+      const completed = deployedData
+        .filter(dc => dc.status === "completed")
+        .map(dc => ({
+          ...dc.jobPosting,
+          contract_address: dc.contract_address,
+          payment_amount: dc.payment_amount,
+          payment_currency: dc.payment_currency,
+          deployed_contract_id: dc.id,
+          application_status: "completed",
+          deployed_at: dc.deployed_at,
+          completed_at: dc.updated_at,
+          source: "deployed_contract"
+        }));
+
+      // Disputed contracts
+      const disputed = deployedData
+        .filter(dc => dc.status === "disputed")
+        .map(dc => ({
+          ...dc.jobPosting,
+          contract_address: dc.contract_address,
+          payment_amount: dc.payment_amount,
+          payment_currency: dc.payment_currency,
+          deployed_contract_id: dc.id,
+          application_status: "disputed",
+          deployed_at: dc.deployed_at,
+          dispute_reason: dc.dispute_reason,
+          mediator_id: dc.mediator_id,
+          mediator: dc.mediator,
+          employer_name: dc.employer?.company_name,
+          source: "deployed_contract"
+        }));
+
+      setOpenContracts([...pendingContracts, ...activeContracts]);
+      setCompletedContracts(completed);
+      setDisputedContracts(disputed);
+    } catch (err) {
+      console.error("Error fetching contracts:", err);
+      setError("Unable to load contracts. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchContracts = async () => {
-      if (!employeeData?.id) {
-        setOpenContracts([]);
-        setCompletedContracts([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError("");
-      try {
-        // Fetch job applications (for signed contracts pending deployment)
-        const applicationsResponse = await apiService.getAppliedJobs(employeeData.id);
-        const applicationsData = applicationsResponse.data || [];
-
-        // Signed contracts waiting for deployment
-        const pendingContracts = applicationsData
-          .filter(app => app.application_status === "signed")
-          .map(app => ({
-            ...app.job,
-            application_status: app.application_status,
-            application_id: app.id,
-            offer_accepted_at: app.offer_accepted_at,
-            applied_at: app.applied_at,
-            source: "application"
-          }));
-
-        // Fetch deployed contracts from deployed_contracts table
-        const deployedResponse = await apiService.getDeployedContractsByEmployee(employeeData.id);
-        const deployedData = deployedResponse.data || [];
-
-        // Active deployed contracts
-        const activeContracts = deployedData
-          .filter(dc => dc.status === "active")
-          .map(dc => ({
-            ...dc.jobPosting,
-            contract_address: dc.contract_address,
-            payment_amount: dc.payment_amount,
-            payment_currency: dc.payment_currency,
-            deployed_contract_id: dc.id,
-            application_status: "deployed",
-            deployed_at: dc.deployed_at,
-            source: "deployed_contract"
-          }));
-
-        // Completed contracts
-        const completed = deployedData
-          .filter(dc => dc.status === "completed")
-          .map(dc => ({
-            ...dc.jobPosting,
-            contract_address: dc.contract_address,
-            payment_amount: dc.payment_amount,
-            payment_currency: dc.payment_currency,
-            deployed_contract_id: dc.id,
-            application_status: "completed",
-            deployed_at: dc.deployed_at,
-            completed_at: dc.updated_at,
-            source: "deployed_contract"
-          }));
-
-        // Disputed contracts
-        const disputed = deployedData
-          .filter(dc => dc.status === "disputed")
-          .map(dc => ({
-            ...dc.jobPosting,
-            contract_address: dc.contract_address,
-            payment_amount: dc.payment_amount,
-            payment_currency: dc.payment_currency,
-            deployed_contract_id: dc.id,
-            application_status: "disputed",
-            deployed_at: dc.deployed_at,
-            dispute_reason: dc.dispute_reason,
-            mediator_id: dc.mediator_id,
-            mediator: dc.mediator,
-            employer_name: dc.employer?.company_name,
-            source: "deployed_contract"
-          }));
-
-        setOpenContracts([...pendingContracts, ...activeContracts]);
-        setCompletedContracts(completed);
-        setDisputedContracts(disputed);
-      } catch (err) {
-        console.error("Error fetching contracts:", err);
-        setError("Unable to load contracts. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchContracts();
   }, [employeeData]);
+
+  // Handle raising a dispute
+  const handleRaiseDispute = async () => {
+    if (!selectedContract?.contract_address || !disputeReason.trim() || !smartWalletClient || !smartWalletAddress) {
+      setDisputeMessage("Unable to file dispute. Please ensure your wallet is connected.");
+      return;
+    }
+
+    setDisputing(true);
+    setDisputeMessage("");
+    setTxStep(TxSteps.IDLE);
+
+    try {
+      // File dispute on-chain
+      const result = await raiseDispute({
+        user,
+        smartWalletClient,
+        contractAddress: selectedContract.contract_address,
+        reason: disputeReason,
+        onStatusChange: handleTxStatusChange,
+      });
+
+      // Update database status
+      await apiService.updateDeployedContract(selectedContract.deployed_contract_id, {
+        status: "disputed",
+      });
+
+      setDisputeMessage(`Dispute filed successfully (gas-free). Funds are now frozen until a mediator resolves the issue.`);
+      setShowDisputeModal(false);
+      setDisputeReason("");
+
+      // Refresh contracts list
+      setSelectedContract(null);
+      fetchContracts();
+    } catch (error) {
+      console.error("Error raising dispute:", error);
+      setDisputeMessage(`Error: ${parseAAError(error)}`);
+    } finally {
+      setDisputing(false);
+      setTxStep(TxSteps.IDLE);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === "open") {
@@ -201,6 +259,23 @@ const JobTracker = () => {
             </button>
           </div>
           
+          {/* Success/Error Message */}
+          {disputeMessage && !showDisputeModal && (
+            <div className={`mb-6 rounded-xl p-4 ${
+              disputeMessage.startsWith("Error")
+                ? "bg-red-50 border border-red-200 text-red-700"
+                : "bg-green-50 border border-green-200 text-green-700"
+            }`}>
+              {disputeMessage}
+              <button
+                onClick={() => setDisputeMessage("")}
+                className="ml-2 text-current opacity-60 hover:opacity-100"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Contracts Section */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
             <h2 className="text-2xl font-bold text-[#0D3B66] mb-6">Contracts</h2>
@@ -354,7 +429,7 @@ const JobTracker = () => {
                         </div>
                       )}
 
-                      {activeTab === "open" && (
+                      {activeTab === "open" && selectedContract.application_status === "deployed" && (
                         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
                           <button
                             onClick={() => setShowCancelModal(true)}
@@ -363,11 +438,23 @@ const JobTracker = () => {
                             Cancel Contract
                           </button>
                           <button
-                            onClick={() => navigate("/support-center")}
-                            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-gray-100 text-[#0D3B66] hover:bg-gray-200"
+                            onClick={() => {
+                              setDisputeMessage("");
+                              setShowDisputeModal(true);
+                            }}
+                            disabled={!smartWalletClient || !smartWalletAddress}
+                            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-yellow-100 text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                           >
+                            <AlertTriangle className="h-4 w-4" />
                             Raise Dispute
                           </button>
+                        </div>
+                      )}
+                      {activeTab === "open" && selectedContract.application_status === "signed" && (
+                        <div className="pt-4 border-t border-gray-200">
+                          <p className="text-sm text-gray-500 text-center">
+                            Waiting for employer to deploy contract on-chain
+                          </p>
                         </div>
                       )}
                     </div>
@@ -452,6 +539,86 @@ const JobTracker = () => {
                 className="flex-1 py-2 px-4 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700"
               >
                 Yes, cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispute Modal */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[#0D3B66]">Raise Dispute</h3>
+              <button
+                onClick={() => setShowDisputeModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Gas Sponsorship Notice */}
+            <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100 mb-4">
+              <Zap className="h-4 w-4 text-green-600" />
+              <span className="text-xs text-green-700">Gas fees sponsored — No ETH required</span>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Raising a dispute will freeze the escrowed funds until a neutral mediator resolves the issue.
+                Please describe the problem clearly.
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason for dispute *
+              </label>
+              <textarea
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                placeholder="Describe the issue (e.g., work completed but payment not approved, unsafe conditions, contract terms not honored...)"
+                className="w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                rows={4}
+              />
+            </div>
+
+            {/* Transaction Status */}
+            {txStep !== TxSteps.IDLE && disputing && (
+              <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700 mb-3">
+                {txMessage || "Processing..."}
+              </div>
+            )}
+
+            {disputeMessage && (
+              <div className={`p-3 rounded-lg text-sm mb-4 ${
+                disputeMessage.startsWith("Error")
+                  ? "bg-red-50 border border-red-200 text-red-700"
+                  : "bg-green-50 border border-green-200 text-green-700"
+              }`}>
+                {disputeMessage}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDisputeModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRaiseDispute}
+                disabled={!disputeReason.trim() || disputing}
+                className="flex-1 bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {disputing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {txStep === TxSteps.SIGNING_USEROP ? "Sign in wallet..." : "Submitting..."}
+                  </>
+                ) : (
+                  "Submit Dispute"
+                )}
               </button>
             </div>
           </div>
