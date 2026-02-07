@@ -1,4 +1,4 @@
-const { DeployedContract, JobPosting, Employee, Employer, Mediator } = require('../models');
+const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 // Terminal contract statuses (contract lifecycle is complete)
@@ -210,8 +210,13 @@ class DeployedContractController {
       }
 
       const whereClause = { employer_id: effectiveEmployerId };
-      if (status) {
-        whereClause.status = status;
+      if (status && status !== 'all') {
+        // "terminated" filter includes both terminated and refunded statuses
+        if (status === 'terminated') {
+          whereClause.status = { [Op.in]: ['terminated', 'refunded'] };
+        } else {
+          whereClause.status = status;
+        }
       }
 
       const deployedContracts = await DeployedContract.findAll({
@@ -266,15 +271,21 @@ class DeployedContractController {
       }
 
       const whereClause = { employee_id: effectiveEmployeeId };
-      if (status) {
-        whereClause.status = status;
+      if (status && status !== 'all') {
+        // "terminated" filter includes both terminated and refunded statuses
+        if (status === 'terminated') {
+          whereClause.status = { [Op.in]: ['terminated', 'refunded'] };
+        } else {
+          whereClause.status = status;
+        }
       }
 
       const deployedContracts = await DeployedContract.findAll({
         where: whereClause,
         include: [
           { model: JobPosting, as: 'jobPosting' },
-          { model: Employee, as: 'employee' }
+          { model: Employee, as: 'employee' },
+          { model: Employer, as: 'employer' }
         ],
         order: [['created_at', 'DESC']]
       });
@@ -755,6 +766,127 @@ class DeployedContractController {
       res.status(500).json({
         success: false,
         message: 'Error updating deployed contract',
+        error: error.message
+      });
+    }
+  }
+
+  // Complete contract and record payment atomically
+  // This ensures both the contract status update and payment record are created together
+  static async completeContractWithPayment(req, res) {
+    const transaction = await sequelize.transaction();
+
+    try {
+      const { id } = req.params;
+      const { tx_hash, amount, currency, from_address, to_address, block_number } = req.body;
+
+      if (!tx_hash) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'tx_hash is required to record payment'
+        });
+      }
+
+      // Get requesting user's wallet address for authorization
+      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
+
+      // Fetch contract with related records
+      const deployedContract = await DeployedContract.findByPk(id, {
+        include: [
+          { model: Employee, as: 'employee' },
+          { model: Employer, as: 'employer' }
+        ],
+        transaction
+      });
+
+      if (!deployedContract) {
+        await transaction.rollback();
+        return res.status(404).json({
+          success: false,
+          message: 'Deployed contract not found'
+        });
+      }
+
+      // Authorization check
+      const isAdmin = isAdminWallet(walletAddress);
+      const isEmployer = walletAddress && deployedContract.employer?.wallet_address?.toLowerCase() === walletAddress.toLowerCase();
+
+      if (!isAdmin && !isEmployer) {
+        await transaction.rollback();
+        return res.status(403).json({
+          success: false,
+          message: 'Only the employer or admin can complete a contract'
+        });
+      }
+
+      // Prevent completing already completed contracts
+      if (deployedContract.status === 'completed') {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Contract is already completed'
+        });
+      }
+
+      // Check if payment transaction already exists (idempotency)
+      const existingPayment = await PaymentTransaction.findOne({
+        where: { tx_hash },
+        transaction
+      });
+
+      if (existingPayment) {
+        await transaction.rollback();
+        return res.status(200).json({
+          success: true,
+          message: 'Payment already recorded',
+          data: {
+            contract: deployedContract,
+            payment: existingPayment
+          }
+        });
+      }
+
+      // Update contract status to completed
+      await deployedContract.update({
+        status: 'completed',
+        verification_status: 'verified'
+      }, { transaction });
+
+      // Create payment transaction record
+      const paymentTransaction = await PaymentTransaction.create({
+        deployed_contract_id: deployedContract.id,
+        amount: amount || deployedContract.payment_amount,
+        currency: currency || deployedContract.payment_currency || 'USDC',
+        payment_type: 'final',
+        status: 'completed',
+        tx_hash,
+        from_address,
+        to_address,
+        block_number,
+        processed_at: new Date()
+      }, { transaction });
+
+      // Commit the transaction
+      await transaction.commit();
+
+      // Update job status if all contracts are complete (non-critical, outside transaction)
+      await updateJobStatusIfAllContractsComplete(deployedContract.job_posting_id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Contract completed and payment recorded successfully',
+        data: {
+          contract: deployedContract,
+          payment: paymentTransaction
+        }
+      });
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Error completing contract with payment:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error completing contract',
         error: error.message
       });
     }

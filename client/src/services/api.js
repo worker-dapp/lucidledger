@@ -263,6 +263,13 @@ class ApiService {
     });
   }
 
+  async completeContractWithPayment(id, paymentData) {
+    return this.request(`/deployed-contracts/${id}/complete-with-payment`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
   async getAllDisputedContracts() {
     return this.request('/deployed-contracts?status=disputed');
   }
@@ -310,6 +317,10 @@ class ApiService {
 
   async getPendingPaymentTransactions() {
     return this.request('/payment-transactions/pending');
+  }
+
+  async getPaymentTransactionsByEmployee(employeeId) {
+    return this.request(`/payment-transactions/employee/${employeeId}`);
   }
 
   // Legacy Job API methods - DEPRECATED, use Job Posting methods instead
@@ -405,6 +416,29 @@ class ApiService {
   async deleteMediator(id) {
     return this.request(`/mediators/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Dispute History API methods
+  async createDisputeRecord(disputeData) {
+    return this.request('/dispute-history', {
+      method: 'POST',
+      body: JSON.stringify(disputeData),
+    });
+  }
+
+  async getDisputesByEmployer(employerId) {
+    return this.request(`/dispute-history/employer/${employerId}`);
+  }
+
+  async getDisputesByContract(contractId) {
+    return this.request(`/dispute-history/contract/${contractId}`);
+  }
+
+  async updateDisputeRecord(id, disputeData) {
+    return this.request(`/dispute-history/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(disputeData),
     });
   }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Loader2, XCircle, Zap } from "lucide-react";
+import { AlertTriangle, Loader2, XCircle, Zap, ExternalLink, HandCoins } from "lucide-react";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
@@ -14,12 +14,18 @@ const JobTracker = () => {
   const [employeeData, setEmployeeData] = useState(null);
   const [openContracts, setOpenContracts] = useState([]);
   const [completedContracts, setCompletedContracts] = useState([]);
+  const [closedContracts, setClosedContracts] = useState([]);
   const [disputedContracts, setDisputedContracts] = useState([]);
-  const [activeTab, setActiveTab] = useState("open");
+  const [activeTab, setActiveTab] = useState("earnings");
   const [selectedContract, setSelectedContract] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Earnings state
+  const [earnings, setEarnings] = useState([]);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [earningsLoading, setEarningsLoading] = useState(true);
 
   // Dispute modal state
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -136,8 +142,25 @@ const JobTracker = () => {
           source: "deployed_contract"
         }));
 
+      // Closed contracts (refunded/terminated - no payment received)
+      const closed = deployedData
+        .filter(dc => dc.status === "refunded" || dc.status === "terminated")
+        .map(dc => ({
+          ...dc.jobPosting,
+          contract_address: dc.contract_address,
+          payment_amount: dc.payment_amount,
+          payment_currency: dc.payment_currency,
+          deployed_contract_id: dc.id,
+          application_status: dc.status,
+          deployed_at: dc.deployed_at,
+          closed_at: dc.updated_at,
+          employer_name: dc.employer?.company_name,
+          source: "deployed_contract"
+        }));
+
       setOpenContracts([...pendingContracts, ...activeContracts]);
       setCompletedContracts(completed);
+      setClosedContracts(closed);
       setDisputedContracts(disputed);
     } catch (err) {
       console.error("Error fetching contracts:", err);
@@ -147,8 +170,32 @@ const JobTracker = () => {
     }
   };
 
+  const fetchEarnings = async () => {
+    if (!employeeData?.id) {
+      setEarnings([]);
+      setTotalEarnings(0);
+      setEarningsLoading(false);
+      return;
+    }
+
+    setEarningsLoading(true);
+    try {
+      const response = await apiService.getPaymentTransactionsByEmployee(employeeData.id);
+      setEarnings(response.data || []);
+      setTotalEarnings(response.totalEarnings || 0);
+    } catch (err) {
+      console.error("Error fetching earnings:", err);
+      // Don't set error state - just show empty earnings
+      setEarnings([]);
+      setTotalEarnings(0);
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchContracts();
+    fetchEarnings();
   }, [employeeData]);
 
   // Handle raising a dispute
@@ -196,10 +243,13 @@ const JobTracker = () => {
   useEffect(() => {
     if (activeTab === "open") {
       setSelectedContract(openContracts[0] || null);
-    } else {
+    } else if (activeTab === "completed") {
       setSelectedContract(completedContracts[0] || null);
+    } else if (activeTab === "closed") {
+      setSelectedContract(closedContracts[0] || null);
     }
-  }, [activeTab, openContracts, completedContracts]);
+    // No selection needed for earnings tab
+  }, [activeTab, openContracts, completedContracts, closedContracts]);
 
   const formatDate = (value) => {
     if (!value) return "Not specified";
@@ -229,17 +279,17 @@ const JobTracker = () => {
             
             <div className="grid md:grid-cols-3 gap-6 mb-8">
               <div className="flex items-start gap-3">
+                <HandCoins className="h-6 w-6 text-emerald-600" />
+                <div>
+                  <h3 className="font-semibold text-[#0D3B66]">Check Your Earnings</h3>
+                  <p className="text-sm text-gray-600">See how much you have earned.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
                 <span className="text-2xl">📋</span>
                 <div>
                   <h3 className="font-semibold text-[#0D3B66]">Track Your Contracts</h3>
                   <p className="text-sm text-gray-600">View jobs you've applied for, those in progress, and contracts you've completed.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">📊</span>
-                <div>
-                  <h3 className="font-semibold text-[#0D3B66]">Check Your Status</h3>
-                  <p className="text-sm text-gray-600">See the stage of each job and stay on top of next steps.</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -276,12 +326,22 @@ const JobTracker = () => {
             </div>
           )}
 
-          {/* Contracts Section */}
+          {/* Contracts & Earnings Section */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
-            <h2 className="text-2xl font-bold text-[#0D3B66] mb-6">Contracts</h2>
-            
+            <h2 className="text-2xl font-bold text-[#0D3B66] mb-6">Contracts & Earnings</h2>
+
             {/* Tabs */}
             <div className="flex gap-4 mb-6 border-b border-gray-200">
+              <button
+                onClick={() => setActiveTab("earnings")}
+                className={`px-4 py-2 border-b-2 font-semibold ${
+                  activeTab === "earnings"
+                    ? "border-[#EE964B] text-[#EE964B]"
+                    : "border-transparent text-gray-500 hover:text-[#0D3B66]"
+                }`}
+              >
+                Earnings
+              </button>
               <button
                 onClick={() => setActiveTab("open")}
                 className={`px-4 py-2 border-b-2 font-semibold ${
@@ -302,9 +362,104 @@ const JobTracker = () => {
               >
                 Completed Contracts
               </button>
+              <button
+                onClick={() => setActiveTab("closed")}
+                className={`px-4 py-2 border-b-2 font-semibold ${
+                  activeTab === "closed"
+                    ? "border-[#EE964B] text-[#EE964B]"
+                    : "border-transparent text-gray-500 hover:text-[#0D3B66]"
+                }`}
+              >
+                Closed Contracts
+              </button>
             </div>
 
-            {loading ? (
+            {activeTab === "earnings" ? (
+              earningsLoading ? (
+                <div className="text-center py-12 text-gray-500">Loading earnings...</div>
+              ) : earnings.length === 0 ? (
+                <div className="text-center py-12">
+                  <HandCoins className="h-16 w-16 text-emerald-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-[#0D3B66] mb-2">No earnings yet</h3>
+                  <p className="text-gray-600 mb-4">Complete your first contract to see payments here.</p>
+                  <button
+                    onClick={() => setActiveTab("open")}
+                    className="text-[#EE964B] hover:text-[#d97b33] font-semibold"
+                  >
+                    View Open Contracts →
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {/* Total Earnings Summary */}
+                  <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6 mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-emerald-700 mb-1">Total Earnings</p>
+                        <p className="text-3xl font-bold text-emerald-800">
+                          ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-emerald-600 mt-1">USDC</p>
+                      </div>
+                      <HandCoins className="h-12 w-12 text-emerald-600" />
+                    </div>
+                  </div>
+
+                  {/* Transactions List */}
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="p-4 border-b border-gray-200 bg-gray-50 text-sm text-gray-600">
+                      {earnings.length} transaction(s)
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
+                      {earnings.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="p-4 hover:bg-gray-50 transition-all"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-[#0D3B66] truncate">
+                                {tx.deployedContract?.jobPosting?.title || "Contract Payment"}
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                {tx.deployedContract?.employer?.company_name || tx.deployedContract?.jobPosting?.company_name || "—"}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {formatDate(tx.created_at)}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-emerald-600">
+                                +${parseFloat(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                              <p className="text-xs text-gray-500">{tx.currency || "USDC"}</p>
+                              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                tx.status === "completed"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}>
+                                {tx.status === "completed" ? "Paid" : "Pending"}
+                              </span>
+                            </div>
+                          </div>
+                          {tx.tx_hash && (
+                            <a
+                              href={`https://sepolia.basescan.org/tx/${tx.tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              View on BaseScan
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            ) : loading ? (
               <div className="text-center py-12 text-gray-500">Loading contracts...</div>
             ) : error ? (
               <div className="text-center py-12 text-red-600">{error}</div>
@@ -325,6 +480,102 @@ const JobTracker = () => {
                 <div className="text-6xl mb-4">✅</div>
                 <h3 className="text-xl font-semibold text-[#0D3B66] mb-2">No completed contracts yet</h3>
                 <p className="text-gray-600">When contracts finish, they will show up here.</p>
+              </div>
+            ) : activeTab === "closed" && closedContracts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📁</div>
+                <h3 className="text-xl font-semibold text-[#0D3B66] mb-2">No closed contracts</h3>
+                <p className="text-gray-600">Contracts that were cancelled or resolved against you will appear here.</p>
+              </div>
+            ) : activeTab === "closed" ? (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-4 border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="p-4 border-b border-gray-200 bg-gray-50 text-sm text-gray-600">
+                    {closedContracts.length} closed contract(s)
+                  </div>
+                  <div className="max-h-[520px] overflow-y-auto divide-y divide-gray-100">
+                    {closedContracts.map(contract => (
+                      <button
+                        key={contract.deployed_contract_id}
+                        onClick={() => setSelectedContract(contract)}
+                        className={`w-full text-left p-4 hover:bg-gray-50 transition-all ${
+                          selectedContract?.deployed_contract_id === contract.deployed_contract_id
+                            ? "bg-[#FFF9F2]" : "bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-semibold text-[#0D3B66]">{contract.title}</h3>
+                            <p className="text-xs text-gray-500">{contract.company_name || contract.employer_name}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
+                            contract.application_status === "refunded"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {contract.application_status === "refunded" ? "Refunded" : "Terminated"}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-400">
+                          Closed: {formatDate(contract.closed_at)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="lg:col-span-8 border border-gray-200 rounded-xl p-6 bg-white">
+                  {selectedContract ? (
+                    <div className="space-y-5">
+                      <div className="border-b border-gray-200 pb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div>
+                            <h3 className="text-xl font-bold text-[#0D3B66]">{selectedContract.title}</h3>
+                            <p className="text-sm text-gray-500">{selectedContract.company_name || selectedContract.employer_name}</p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            selectedContract.application_status === "refunded"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {selectedContract.application_status === "refunded" ? "Refunded to Employer" : "Terminated"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* No Payment Notice */}
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <p className="text-sm text-orange-800">
+                          <strong>No payment received.</strong> This contract was {selectedContract.application_status === "refunded" ? "refunded to the employer" : "terminated"} and no funds were released to you.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-xs font-semibold text-gray-500 mb-1">Original Amount</p>
+                          <p className="text-sm text-gray-700 line-through">
+                            {selectedContract.payment_currency || "USDC"} {selectedContract.payment_amount}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <p className="text-xs font-semibold text-gray-500 mb-1">Closed Date</p>
+                          <p className="text-sm text-gray-700">{formatDate(selectedContract.closed_at)}</p>
+                        </div>
+                      </div>
+
+                      {selectedContract.description && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#0D3B66] mb-2">Contract Summary</h4>
+                          <p className="text-sm text-gray-600">{selectedContract.description}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      Select a contract to view details.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
