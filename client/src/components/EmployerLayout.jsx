@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { LayoutGrid, Users, AlertTriangle, User, Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -6,6 +6,8 @@ import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
 import BetaBanner from "./BetaBanner";
 import SmartWalletInfo from "./SmartWalletInfo";
+import EmployerApprovalBanner from "./EmployerApprovalBanner";
+import apiService from "../services/api";
 
 const navItems = [
   { to: "/contract-factory", label: "Recruitment Hub", icon: LayoutGrid },
@@ -16,13 +18,44 @@ const navItems = [
 
 const EmployerLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, smartWalletAddress } = useAuth();
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState(null);
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  // Fetch employer approval status
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      try {
+        let employerResponse = null;
+
+        if (smartWalletAddress) {
+          employerResponse = await apiService.getEmployerByWallet(smartWalletAddress);
+        }
+
+        if ((!employerResponse || !employerResponse.data) && user?.email?.address) {
+          employerResponse = await apiService.getEmployerByEmail(user.email.address);
+        }
+
+        if (employerResponse?.data) {
+          setApprovalStatus(employerResponse.data.approval_status);
+          setRejectionReason(employerResponse.data.rejection_reason);
+        }
+      } catch (error) {
+        console.error("Error fetching employer approval status:", error);
+      }
+    };
+
+    if (smartWalletAddress || user?.email?.address) {
+      fetchApprovalStatus();
+    }
+  }, [smartWalletAddress, user?.email?.address]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <BetaBanner />
+      <EmployerApprovalBanner approvalStatus={approvalStatus} rejectionReason={rejectionReason} />
       <header className="bg-[#0D3B66] shadow-md">
         <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
           <div className="flex items-center gap-3">

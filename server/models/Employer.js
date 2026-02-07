@@ -77,6 +77,23 @@ const Employer = sequelize.define('Employer', {
   linkedin: {
     type: DataTypes.STRING(255),
     allowNull: true
+  },
+  approval_status: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'pending'
+  },
+  approved_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  approved_by: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
+  rejection_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: 'employer',

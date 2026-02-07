@@ -23,6 +23,7 @@ import MediatorResolution from "./pages/MediatorResolution";
 import AdminMediators from "./pages/AdminMediators";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminDeployFactory from "./pages/AdminDeployFactory";
+import AdminEmployers from "./pages/AdminEmployers";
 import apiService from "./services/api";
 import { setAuthTokenProvider } from "./services/authToken";
 import { useAuth } from "./hooks/useAuth";
@@ -453,6 +454,7 @@ const App = () => {
 
             {/* Admin Routes - Self-validate via ADMIN_EMAILS */}
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/employers" element={<AdminEmployers />} />
             <Route path="/admin/mediators" element={<AdminMediators />} />
             <Route path="/admin/deploy-factory" element={<AdminDeployFactory />} />
 

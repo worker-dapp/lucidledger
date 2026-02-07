@@ -447,6 +447,29 @@ class ApiService {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');
     return this.request('/health', { baseURL });
   }
+
+  // Admin Employer Management
+  async getPendingEmployers() {
+    return this.request('/admin/employers/pending');
+  }
+
+  async getAllEmployersForAdmin(status = null) {
+    const params = status ? `?status=${status}` : '';
+    return this.request(`/admin/employers${params}`);
+  }
+
+  async approveEmployer(id) {
+    return this.request(`/admin/employers/${id}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectEmployer(id, reason) {
+    return this.request(`/admin/employers/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
 }
 
 export default new ApiService();

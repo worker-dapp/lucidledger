@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  Building2,
   Shield,
   Users,
   Rocket,
@@ -105,6 +106,14 @@ const AdminDashboard = () => {
   }
 
   const cards = [
+    {
+      title: "Manage Employers",
+      description: "Review and approve employer accounts before they can post jobs.",
+      icon: Building2,
+      to: "/admin/employers",
+      color: "text-green-600",
+      bg: "bg-green-50",
+    },
     {
       title: "Manage Mediators",
       description: "Add, remove, and manage approved mediators. Assign mediators to disputed contracts.",
