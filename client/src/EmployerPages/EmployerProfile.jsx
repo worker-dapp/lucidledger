@@ -56,7 +56,6 @@ const EmployerProfile = () => {
   const [industry, setIndustry] = useState('');
   const [companySize, setCompanySize] = useState('');
   const [website, setWebsite] = useState('');
-  const [linkedin, setLinkedin] = useState('');
 
   // Company edit mode
   const [isEditingCompany, setIsEditingCompany] = useState(false);
@@ -141,7 +140,6 @@ const EmployerProfile = () => {
         setIndustry(data.industry || '');
         setCompanySize(data.company_size || '');
         setWebsite(data.website || '');
-        setLinkedin(data.linkedin || '');
       }
     } catch (error) {
       console.error('Error fetching employer details:', error);
@@ -246,8 +244,7 @@ const EmployerProfile = () => {
       company_description: companyDescription,
       industry: industry,
       company_size: companySize,
-      website: website,
-      linkedin: linkedin
+      website: website
     };
     await saveToAPI(companyData, 'Company information saved');
     setIsEditingCompany(false);
@@ -632,17 +629,6 @@ const EmployerProfile = () => {
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm text-gray-600 mb-1">LinkedIn</label>
-                  <input
-                    type="url"
-                    value={linkedin}
-                    onChange={(e) => setLinkedin(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                    placeholder="https://linkedin.com/company/yourcompany"
-                  />
-                </div>
-
                 <div className="mb-6">
                   <label className="block text-sm text-gray-600 mb-1">Company Description</label>
                   <textarea
@@ -695,16 +681,6 @@ const EmployerProfile = () => {
                         </a>
                       ) : '—'}
                     </div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500">LinkedIn</div>
-                  <div className="text-gray-800">
-                    {linkedin ? (
-                      <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-[#EE964B] hover:underline">
-                        {linkedin}
-                      </a>
-                    ) : '—'}
                   </div>
                 </div>
                 {companyDescription && (

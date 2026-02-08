@@ -224,6 +224,18 @@ const JobTracker = () => {
         status: "disputed",
       });
 
+      // Create dispute history record for compliance tracking
+      try {
+        await apiService.createDisputeRecord({
+          deployed_contract_id: selectedContract.deployed_contract_id,
+          raised_by_employee_id: employeeData.id,
+          raised_by_role: "employee",
+          reason: disputeReason,
+        });
+      } catch (err) {
+        console.error("Failed to create dispute history record:", err);
+      }
+
       setDisputeMessage(`Dispute filed successfully (gas-free). Funds are now frozen until a mediator resolves the issue.`);
       setShowDisputeModal(false);
       setDisputeReason("");

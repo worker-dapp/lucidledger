@@ -143,6 +143,7 @@ const MediatorResolution = () => {
     try {
       // For mock contracts, just update the database
       const isMockContract = selectedContract.contract_address.startsWith("0x000000");
+      let txHash = null;
 
       if (!isMockContract) {
         const result = await resolveDispute({
@@ -152,6 +153,7 @@ const MediatorResolution = () => {
           payWorker,
           onStatusChange: handleTxStatusChange,
         });
+        txHash = result.txHash;
         setMessage(
           `Dispute resolved (gas-free)! ${payWorker ? "Worker" : "Employer"} received the funds. ` +
           `View on BaseScan: ${result.basescanUrl}`
@@ -167,6 +169,40 @@ const MediatorResolution = () => {
         status: payWorker ? "completed" : "terminated",
         verification_status: payWorker ? "verified" : "failed",
       });
+
+      // Record payment transaction so worker earnings update
+      if (payWorker) {
+        try {
+          await apiService.createPaymentTransaction({
+            deployed_contract_id: selectedContract.id,
+            amount: selectedContract.payment_amount,
+            currency: selectedContract.payment_currency || "USDC",
+            payment_type: "final",
+            status: "completed",
+            tx_hash: txHash,
+            from_address: selectedContract.contract_address,
+            to_address: selectedContract.employee?.wallet_address,
+            processed_at: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error("Failed to record payment transaction:", err);
+        }
+      }
+
+      // Update dispute history record with resolution
+      try {
+        const disputeResponse = await apiService.getDisputesByContract(selectedContract.id);
+        const openDispute = disputeResponse?.data?.find((d) => !d.resolved_at);
+        if (openDispute) {
+          await apiService.updateDisputeRecord(openDispute.id, {
+            resolution: payWorker ? "worker_paid" : "employer_refunded",
+            resolution_tx_hash: txHash,
+            resolution_notes: `Mediator resolved dispute in favor of ${payWorker ? "worker" : "employer"}.`,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to update dispute history:", err);
+      }
 
       // Refresh blockchain state if real contract
       if (!isMockContract) {

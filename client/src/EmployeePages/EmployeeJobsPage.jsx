@@ -24,6 +24,8 @@ const EmployeeJobsPage = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [offersCount, setOffersCount] = useState(0);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [signing, setSigning] = useState(false);
 
   // Demo mode detection
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -352,22 +354,29 @@ const EmployeeJobsPage = () => {
     }
   };
 
-  const handleSignContract = async () => {
+  const handleSignContract = () => {
     if (!selectedJob?.application_id) {
       alert('Unable to find the application record for this offer.');
       return;
     }
+    setShowSignModal(true);
+  };
 
+  const confirmSignContract = async () => {
+    setSigning(true);
     try {
       await apiService.updateApplicationStatus(selectedJob.application_id, 'signed');
       const remainingJobs = jobs.filter(job => job.application_id !== selectedJob.application_id);
       setJobs(remainingJobs);
       setSelectedJob(remainingJobs[0] || null);
       setOffersCount((prev) => Math.max(prev - 1, 0));
-      alert('Offer signed successfully!');
+      setShowSignModal(false);
+      alert('Contract signed successfully!');
     } catch (err) {
-      console.error('Error signing offer:', err);
-      alert('Failed to sign the offer. Please try again.');
+      console.error('Error signing contract:', err);
+      alert('Failed to sign the contract. Please try again.');
+    } finally {
+      setSigning(false);
     }
   };
 
@@ -815,7 +824,7 @@ const EmployeeJobsPage = () => {
                       onClick={handleSignContract}
                       className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
                     >
-                      Review & Sign Offer
+                      Sign Contract
                     </button>
                   ) : selectedJob.application_status === 'signed' ? (
                     <div className="w-full text-center py-3">
@@ -1020,7 +1029,7 @@ const EmployeeJobsPage = () => {
                       onClick={handleSignContract}
                       className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
                     >
-                      Review & Sign Offer
+                      Sign Contract
                     </button>
                   ) : selectedJob.application_status === 'signed' ? (
                     <div className="w-full text-center py-3">
@@ -1082,6 +1091,51 @@ const EmployeeJobsPage = () => {
                   Posted on {formatDate(selectedJob.created_at)}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Contract Confirmation Modal */}
+      {showSignModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[#0D3B66]">Confirm Signature</h3>
+              <button
+                onClick={() => setShowSignModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                By signing this contract, you confirm that you have read and understood the terms
+                of the offer for <strong>{selectedJob?.title}</strong> with <strong>{selectedJob?.company_name}</strong>.
+              </p>
+              <p className="text-sm text-gray-600">
+                Once signed, the employer will be able to deploy the contract on-chain and fund
+                the escrow. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSignModal(false)}
+                disabled={signing}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSignContract}
+                disabled={signing}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {signing ? 'Signing...' : 'I Agree — Sign Contract'}
+              </button>
             </div>
           </div>
         </div>

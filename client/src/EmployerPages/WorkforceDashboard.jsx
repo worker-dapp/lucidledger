@@ -276,6 +276,18 @@ const WorkforceDashboard = () => {
         status: "disputed",
       });
 
+      // Create dispute history record for compliance tracking
+      try {
+        await apiService.createDisputeRecord({
+          deployed_contract_id: selectedContract.id,
+          raised_by_employer_id: employerId,
+          raised_by_role: "employer",
+          reason: disputeReason,
+        });
+      } catch (err) {
+        console.error("Failed to create dispute history record:", err);
+      }
+
       setActionMessage(`Dispute raised (gas-free). Funds frozen. View on BaseScan: ${result.basescanUrl}`);
       setShowDisputeModal(false);
       setDisputeReason("");
