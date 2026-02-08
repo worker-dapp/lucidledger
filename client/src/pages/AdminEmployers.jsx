@@ -364,17 +364,66 @@ const AdminEmployers = () => {
                   className="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   <div className="flex-1">
-                    <p className="font-medium text-[#0D3B66]">
+                    <p className="font-medium text-[#0D3B66] text-lg">
                       {employer.company_name || "No company name"}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      {employer.first_name} {employer.last_name} · {employer.email}
-                    </p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
+
+                    {/* Contact Info */}
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                      <div>
+                        <span className="text-gray-500">Contact: </span>
+                        <span className="text-gray-700">{employer.first_name} {employer.last_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Email: </span>
+                        <span className="text-gray-700">{employer.email || "Not provided"}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Phone: </span>
+                        <span className="text-gray-700">
+                          {employer.phone_number
+                            ? `${employer.country_code ? `+${employer.country_code} ` : ""}${employer.phone_number}`
+                            : "Not provided"}
+                        </span>
+                      </div>
+                      {employer.website && (
+                        <div>
+                          <span className="text-gray-500">Website: </span>
+                          <span className="text-gray-700">{employer.website}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Address */}
+                    {(employer.street_address || employer.city) && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-gray-500">Address: </span>
+                        <span className="text-gray-700">
+                          {[
+                            employer.street_address,
+                            employer.street_address2,
+                            employer.city,
+                            employer.state,
+                            employer.zip_code,
+                            employer.country,
+                          ].filter(Boolean).join(", ")}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Company Details */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
                       {employer.industry && <span>Industry: {employer.industry}</span>}
                       {employer.company_size && <span>Size: {employer.company_size}</span>}
                       <span>Registered: {formatDate(employer.created_at)}</span>
                     </div>
+
+                    {employer.company_description && (
+                      <p className="mt-2 text-sm text-gray-600 bg-gray-50 rounded px-3 py-2 line-clamp-3">
+                        {employer.company_description}
+                      </p>
+                    )}
+
                     {employer.rejection_reason && (
                       <p className="mt-2 text-sm text-red-600 bg-red-50 rounded px-2 py-1">
                         Rejection reason: {employer.rejection_reason}

@@ -19,10 +19,13 @@ const ApplicationReviewTab = ({ employerId }) => {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [message, setMessage] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [lastSelectedId, setLastSelectedId] = useState(null);
   const isPendingView = statusFilter === "pending";
   const isAllView = statusFilter === "all";
 
   const isPendingStatus = (status) => !status || status === "pending";
+  const isArchivedStatus = (status) => status === "rejected" || status === "deployed";
 
   const fetchApplications = async () => {
     if (!employerId) {
@@ -75,15 +78,36 @@ const ApplicationReviewTab = ({ employerId }) => {
 
   const filteredApplications = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) {
-      return applications;
-    }
     return applications.filter((application) => {
+      const status = application.application_status || "pending";
+      if (!showArchived && isArchivedStatus(status)) {
+        return false;
+      }
       const employeeName = `${application?.employee?.first_name || ""} ${application?.employee?.last_name || ""}`.trim();
       const jobTitle = application?.job?.title || "";
+      if (!term) {
+        return true;
+      }
       return employeeName.toLowerCase().includes(term) || jobTitle.toLowerCase().includes(term);
     });
-  }, [applications, searchTerm]);
+  }, [applications, searchTerm, showArchived]);
+
+  useEffect(() => {
+    if (!selectedApplication) {
+      const fallback = lastSelectedId
+        ? filteredApplications.find((application) => application.id === lastSelectedId)
+        : null;
+      setSelectedApplication(fallback || filteredApplications[0] || null);
+      return;
+    }
+    const stillVisible = filteredApplications.some((application) => application.id === selectedApplication.id);
+    if (!stillVisible) {
+      const fallback = lastSelectedId
+        ? filteredApplications.find((application) => application.id === lastSelectedId)
+        : null;
+      setSelectedApplication(fallback || filteredApplications[0] || null);
+    }
+  }, [filteredApplications, selectedApplication, lastSelectedId]);
 
   const toggleSelect = (id, status) => {
     if (!isPendingStatus(status)) {
@@ -160,7 +184,7 @@ const ApplicationReviewTab = ({ employerId }) => {
           <p className="text-sm text-gray-500">Review applications and issue offers.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {["pending", "accepted", "signed", "rejected", "all"].map((status) => (
+          {["all", "pending", "accepted", "signed", "rejected"].map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -170,7 +194,7 @@ const ApplicationReviewTab = ({ employerId }) => {
                   : "border-gray-200 text-gray-500 bg-white hover:border-gray-300"
               }`}
             >
-              {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
+              {status === "all" ? "All Applications" : status.charAt(0).toUpperCase() + status.slice(1)}
             </button>
           ))}
         </div>
@@ -179,9 +203,18 @@ const ApplicationReviewTab = ({ employerId }) => {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="lg:w-2/5 bg-white rounded-xl border border-gray-200">
           <div className="p-4 border-b border-gray-200 space-y-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center justify-between text-sm text-gray-600">
               <Users className="h-4 w-4" />
               <span>{filteredApplications.length} applications</span>
+              <label className="flex items-center gap-2 text-xs text-gray-500">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(event) => setShowArchived(event.target.checked)}
+                  className="rounded border-gray-300 text-[#EE964B] focus:ring-[#EE964B]"
+                />
+                View archived
+              </label>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -233,7 +266,10 @@ const ApplicationReviewTab = ({ employerId }) => {
               return (
                 <div
                   key={application.id}
-                  onClick={() => setSelectedApplication(application)}
+                  onClick={() => {
+                    setSelectedApplication(application);
+                    setLastSelectedId(application.id);
+                  }}
                   className={`p-4 cursor-pointer hover:bg-gray-50 ${
                     selectedApplication?.id === application.id ? "bg-[#FFF9F2]" : ""
                   }`}
