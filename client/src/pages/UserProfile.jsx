@@ -5,18 +5,28 @@ import apiService from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 const UserProfile = () => {
-  const { user, smartWalletAddress, logout } = useAuth();
+  const [linkMessage, setLinkMessage] = useState('');
+  const { user, smartWalletAddress, logout, linkEmail, linkPhone } = useAuth({
+    onSuccess: ({ user: updatedUser, linkMethod }) => {
+      const method = linkMethod === 'email' ? 'Email' : 'Phone number';
+      setLinkMessage(`${method} linked successfully!`);
+      setTimeout(() => setLinkMessage(''), 3000);
+    },
+    onError: (error) => {
+      console.error('Link account error:', error);
+      setLinkMessage('Failed to link account. It may already be linked to another user.');
+      setTimeout(() => setLinkMessage(''), 5000);
+    },
+  });
   const navigate = useNavigate();
   const walletAddress = smartWalletAddress || '';
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  
+
+  const privyEmail = user?.email?.address || '';
+  const privyPhone = user?.phone?.number || '';
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
-    phoneNumber: '',
-    countryCode: '+1',
     streetAddress: '',
     streetAddress2: '',
     country: '',
@@ -34,19 +44,6 @@ const UserProfile = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
-
-  const countryCodes = [
-    { code: '+1', country: 'US/Canada' },
-    { code: '+44', country: 'UK' },
-    { code: '+91', country: 'India' },
-    { code: '+61', country: 'Australia' },
-    { code: '+86', country: 'China' },
-    { code: '+81', country: 'Japan' },
-    { code: '+49', country: 'Germany' },
-    { code: '+33', country: 'France' },
-    { code: '+39', country: 'Italy' },
-    { code: '+34', country: 'Spain' }
-  ];
 
   const countries = [
     'United States', 'Canada', 'United Kingdom', 'India', 'Australia',
@@ -85,38 +82,10 @@ const UserProfile = () => {
 
   useEffect(() => {
     if (user && !formDataInitialized) {
-      // Only initialize formData once when user first loads
-      let phoneNumber = '';
-      let countryCode = '+1';
-      const phoneValue = user?.phone?.number || '';
-
-      if (phoneValue) {
-        if (phoneValue.startsWith('+')) {
-          const match = phoneValue.match(/^(\+\d{1,3})(.+)$/);
-          if (match) {
-            countryCode = match[1];
-            phoneNumber = match[2].replace(/\D/g, '');
-          } else {
-            phoneNumber = phoneValue.replace(/\D/g, '');
-          }
-        } else {
-          phoneNumber = phoneValue.replace(/\D/g, '');
-        }
-      }
-
-      const hasEmail = !!(user?.email?.address || '');
-      const hasPhone = !!(phoneValue && phoneValue.trim() !== '');
-
-      setEmailVerified(hasEmail);
-      setPhoneVerified(hasPhone);
-
       setFormData(prev => ({
         ...prev,
         firstName: user.first_name || prev.firstName || '',
         lastName: user.last_name || prev.lastName || '',
-        email: user?.email?.address || prev.email || '',
-        phoneNumber: phoneNumber || prev.phoneNumber || '',
-        countryCode: countryCode || prev.countryCode || '+1',
       }));
       setFormDataInitialized(true);
     }
@@ -125,49 +94,25 @@ const UserProfile = () => {
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
-    
-    // Reset verified flags if user changes email or phone after verification
-    if (field === 'email' && emailVerified) {
-      setEmailVerified(false);
-    }
-    if (field === 'phoneNumber' && phoneVerified) {
-      setPhoneVerified(false);
-    }
   };
 
   const validateForm = () => {
     const newErrors = {};
     const role = localStorage.getItem('persistedUserRole') || localStorage.getItem('userRole') || localStorage.getItem('pendingRole');
-    
+
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    
-    // Email is required only if user didn't log in with phone (phoneVerified means they logged in with phone)
-    if (!phoneVerified && !formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    }
-    if (formData.email && !/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = 'Enter a valid email';
-    }
-    
-    // Phone is required only if user didn't log in with email (emailVerified means they logged in with email)
-    if (!emailVerified && !formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Phone number is required';
-    }
-    if (formData.phoneNumber && !/^\d{10,15}$/.test(formData.phoneNumber.replace(/\D/g, ''))) {
-      newErrors.phoneNumber = 'Please enter a valid phone number';
-    }
-    
+
     if (!formData.country.trim()) newErrors.country = 'Country is required';
     if (!formData.zipCode.trim()) newErrors.zipCode = 'Zip code is required';
     if (!formData.state.trim()) newErrors.state = 'State/Province is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
-    
+
     // Employer-specific validation
     if (role === 'employer') {
       if (!formData.companyName.trim()) newErrors.companyName = 'Company name is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -183,12 +128,15 @@ const UserProfile = () => {
       // Same email/phone/wallet can exist in both tables
       // Backend validation will prevent applying to your own jobs
 
+      // Read email/phone from Privy user object (source of truth for verified credentials)
+      const currentEmail = user?.email?.address || '';
+      const currentPhone = user?.phone?.number || '';
+
       const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
-        email: formData.email,
-        phone_number: formData.phoneNumber,
-        country_code: formData.countryCode,
+        email: currentEmail,
+        phone_number: currentPhone,
         street_address: formData.streetAddress,
         street_address2: formData.streetAddress2,
         country: formData.country,
@@ -214,9 +162,6 @@ const UserProfile = () => {
       } else {
         await apiService.createEmployee(payload);
       }
-
-      setEmailVerified(false);
-      setPhoneVerified(false);
 
       setSubmitted(true);
       // Employees go to landing page, employers go to dashboard
@@ -279,48 +224,57 @@ const UserProfile = () => {
 
           {/* Row 2: Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email {!phoneVerified && <span className="text-red-500">*</span>}
-            </label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder="Enter your email"
-              />
-            </div>
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            {privyEmail ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                <span className="text-gray-800">{privyEmail}</span>
+                <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Verified
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={linkEmail}
+                className="px-4 py-2 border border-[#0d3b66] text-[#0d3b66] rounded-md hover:bg-[#0d3b66] hover:text-white transition-colors text-sm"
+              >
+                + Link Email Address
+              </button>
+            )}
           </div>
 
           {/* Row 3: Phone */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone Number {!emailVerified && <span className="text-red-500">*</span>}
-            </label>
-            <div className="flex gap-2 items-center">
-              <select
-                value={formData.countryCode}
-                onChange={(e) => handleInputChange('countryCode', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            {privyPhone ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                <span className="text-gray-800">{privyPhone}</span>
+                <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Verified
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={linkPhone}
+                className="px-4 py-2 border border-[#0d3b66] text-[#0d3b66] rounded-md hover:bg-[#0d3b66] hover:text-white transition-colors text-sm"
               >
-                {countryCodes.map(({ code, country }) => (
-                  <option key={code} value={code}>
-                    {code} ({country})
-                  </option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.phoneNumber ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder="Enter phone number"
-              />
-            </div>
-            {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
+                + Link Phone Number
+              </button>
+            )}
           </div>
+
+          {linkMessage && (
+            <div className={`p-3 rounded text-sm ${linkMessage.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+              {linkMessage}
+            </div>
+          )}
 
 
           {/* Row 4: Street Address */}

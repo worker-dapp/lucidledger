@@ -12,7 +12,20 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 );
 
 const EmployerProfile = () => {
-  const { user, primaryWallet, smartWalletAddress } = useAuth();
+  const [linkMessage, setLinkMessage] = useState('');
+  const accountCallbacks = {
+    onSuccess: ({ user: updatedUser, linkMethod, updateMethod }) => {
+      const method = (linkMethod || updateMethod) === 'email' ? 'Email' : 'Phone number';
+      setLinkMessage(`${method} updated successfully!`);
+      setTimeout(() => setLinkMessage(''), 3000);
+    },
+    onError: (error) => {
+      console.error('Account link/update error:', error);
+      setLinkMessage('Failed to update account. It may already be linked to another user.');
+      setTimeout(() => setLinkMessage(''), 5000);
+    },
+  };
+  const { user, primaryWallet, smartWalletAddress, linkEmail, linkPhone, updateEmail, updatePhone } = useAuth(accountCallbacks, accountCallbacks);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -144,6 +157,27 @@ const EmployerProfile = () => {
 
   // DO NOT use auth user data as fallback - it may contain data from employee account
   // Employer profile must be created separately through /user-profile
+
+  // Sync newly linked Privy credentials to the database
+  const privyEmail = user?.email?.address || '';
+  const privyPhone = user?.phone?.number || '';
+  useEffect(() => {
+    if (!userDetails) return;
+    const dbEmail = userDetails.email || '';
+    const dbPhone = userDetails.phone_number || '';
+    const updates = {};
+    if (privyEmail && privyEmail !== dbEmail) {
+      updates.email = privyEmail;
+      setEmail(privyEmail);
+    }
+    if (privyPhone && privyPhone !== dbPhone) {
+      updates.phone_number = privyPhone;
+      setPhone(privyPhone);
+    }
+    if (Object.keys(updates).length > 0) {
+      saveToAPI(updates, 'Linked account synced');
+    }
+  }, [privyEmail, privyPhone]);
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
 
@@ -281,35 +315,74 @@ const EmployerProfile = () => {
             {isEditingContact ? (
               <>
                 <label className="block text-sm text-gray-600 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                  placeholder="name@example.com"
-                />
+                {privyEmail ? (
+                  <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-800">{privyEmail}</span>
+                      <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={updateEmail}
+                      className="text-sm text-[#0d3b66] hover:text-[#EE964B] underline"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={linkEmail}
+                      className="px-4 py-2 border border-[#0d3b66] text-[#0d3b66] rounded-md hover:bg-[#0d3b66] hover:text-white transition-colors text-sm"
+                    >
+                      + Link Email Address
+                    </button>
+                  </div>
+                )}
 
                 <label className="block text-sm text-gray-600 mb-1">Phone Number</label>
-                <div className="flex gap-2 mb-6">
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                  >
-                    {countryCodes.map(({ code, country }) => (
-                      <option key={code} value={code}>
-                        {code} ({country})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                    placeholder="555 555 5555"
-                  />
-                </div>
+                {privyPhone ? (
+                  <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg mb-6">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-800">{privyPhone}</span>
+                      <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={updatePhone}
+                      className="text-sm text-[#0d3b66] hover:text-[#EE964B] underline"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mb-6">
+                    <button
+                      type="button"
+                      onClick={linkPhone}
+                      className="px-4 py-2 border border-[#0d3b66] text-[#0d3b66] rounded-md hover:bg-[#0d3b66] hover:text-white transition-colors text-sm"
+                    >
+                      + Link Phone Number
+                    </button>
+                  </div>
+                )}
+
+                {linkMessage && (
+                  <div className={`mb-4 p-3 rounded text-sm ${linkMessage.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                    {linkMessage}
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <button
@@ -331,11 +404,31 @@ const EmployerProfile = () => {
               <div className="space-y-3">
                 <div>
                   <div className="text-sm text-gray-500">Email</div>
-                  <div className="text-gray-800">{email || '—'}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-800">{email || '—'}</span>
+                    {privyEmail && (
+                      <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Phone</div>
-                  <div className="text-gray-800">{phone ? `${countryCode} ${phone}` : '—'}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-800">{phone ? `${countryCode} ${phone}` : '—'}</span>
+                    {privyPhone && (
+                      <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
