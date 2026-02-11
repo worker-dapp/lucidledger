@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Building2,
   Shield,
@@ -11,15 +11,10 @@ import {
 } from "lucide-react";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import LogoutButton from "../components/LogoutButton";
 
 const AdminDashboard = () => {
-  const { user, login, logout, smartWalletAddress } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+  const { user, login, smartWalletAddress } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
 
@@ -93,13 +88,10 @@ const AdminDashboard = () => {
               {userEmail || "Not available"}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-          >
+          <LogoutButton className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
             <LogOut className="h-4 w-4" />
             Sign Out & Try Another Account
-          </button>
+          </LogoutButton>
         </div>
       </div>
     );
@@ -144,13 +136,10 @@ const AdminDashboard = () => {
                 <p className="text-sm text-gray-500">Platform administration tools</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+            <LogoutButton className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
               <LogOut className="h-4 w-4" />
               Sign Out
-            </button>
+            </LogoutButton>
           </div>
         </div>
       </header>

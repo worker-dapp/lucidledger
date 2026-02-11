@@ -26,6 +26,8 @@ const EmployeeJobsPage = () => {
   const [offersCount, setOffersCount] = useState(0);
   const [showSignModal, setShowSignModal] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [declining, setDeclining] = useState(false);
 
   // Demo mode detection
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -198,7 +200,7 @@ const EmployeeJobsPage = () => {
           }));
       }
       
-      const visibleJobs = (data || []).filter(job => !['signed', 'deployed'].includes(job.application_status));
+      const visibleJobs = (data || []).filter(job => !['signed', 'deployed', 'declined'].includes(job.application_status));
       setJobs(visibleJobs);
       if (visibleJobs.length > 0) {
         setSelectedJob(visibleJobs[0]);
@@ -319,7 +321,7 @@ const EmployeeJobsPage = () => {
     }
 
     // Check if already applied
-    if (job.application_status === 'pending' || job.application_status === 'applied' || job.application_status === 'accepted' || job.application_status === 'rejected' || job.application_status === 'signed' || job.application_status === 'deployed') {
+    if (job.application_status === 'pending' || job.application_status === 'applied' || job.application_status === 'accepted' || job.application_status === 'rejected' || job.application_status === 'declined' || job.application_status === 'signed' || job.application_status === 'deployed') {
       alert('You have already applied to this job');
       return;
     }
@@ -377,6 +379,45 @@ const EmployeeJobsPage = () => {
       alert('Failed to sign the contract. Please try again.');
     } finally {
       setSigning(false);
+    }
+  };
+
+  const handleDeclineOffer = () => {
+    if (!selectedJob?.application_id) {
+      alert('Unable to find the application record for this offer.');
+      return;
+    }
+    setShowDeclineModal(true);
+  };
+
+  const confirmDeclineOffer = async () => {
+    setDeclining(true);
+    try {
+      await apiService.updateApplicationStatus(selectedJob.application_id, 'declined');
+
+      if (activeFilter === 'offers') {
+        // Remove from offers list
+        const remainingJobs = jobs.filter(job => job.application_id !== selectedJob.application_id);
+        setJobs(remainingJobs);
+        setSelectedJob(remainingJobs[0] || null);
+      } else {
+        // Update status in-place on All/Applied tabs
+        const updatedJobs = jobs.map(job =>
+          job.application_id === selectedJob.application_id
+            ? { ...job, application_status: 'declined' }
+            : job
+        );
+        setJobs(updatedJobs);
+        setSelectedJob({ ...selectedJob, application_status: 'declined' });
+      }
+
+      setOffersCount((prev) => Math.max(prev - 1, 0));
+      setShowDeclineModal(false);
+    } catch (err) {
+      console.error('Error declining offer:', err);
+      alert('Failed to decline the offer. Please try again.');
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -681,17 +722,21 @@ const EmployeeJobsPage = () => {
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             job.application_status === 'accepted' ? 'bg-green-100 text-green-800' :
                             job.application_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            job.application_status === 'declined' ? 'bg-amber-100 text-amber-800' :
                             job.application_status === 'pending' ? 'bg-blue-100 text-blue-800' :
                             job.application_status === 'signed' ? 'bg-purple-100 text-purple-800' :
                             job.application_status === 'deployed' ? 'bg-emerald-100 text-emerald-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {job.application_status === 'accepted' ? 'Accepted' :
-                             job.application_status === 'rejected' ? 'Rejected' :
-                             job.application_status === 'pending' ? 'Applied' :
-                             job.application_status === 'signed' ? 'Signed' :
-                             job.application_status === 'deployed' ? 'Deployed' :
-                             job.application_status}
+                            {job.application_status === 'accepted'
+                              ? (activeFilter === 'applied' ? 'Offer Made' : 'Accepted')
+                              : job.application_status === 'rejected' ? 'Rejected'
+                              : job.application_status === 'declined' ? 'Declined'
+                              : job.application_status === 'pending'
+                              ? (activeFilter === 'applied' ? 'Under Review' : 'Applied')
+                              : job.application_status === 'signed' ? 'Signed'
+                              : job.application_status === 'deployed' ? 'Deployed'
+                              : job.application_status}
                           </span>
                         )}
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -819,13 +864,30 @@ const EmployeeJobsPage = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                   {selectedJob.application_status === 'accepted' ? (
-                    // Accepted: Show Sign Contract button
-                    <button
-                      onClick={handleSignContract}
-                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
-                    >
-                      Sign Contract
-                    </button>
+                    activeFilter === 'applied' ? (
+                      // Applied tab: informational only — show Offer Made badge
+                      <div className="w-full text-center py-3">
+                        <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800">
+                          Offer Made
+                        </span>
+                      </div>
+                    ) : (
+                      // Offers / All tabs: action buttons
+                      <div className="flex gap-3 w-full">
+                        <button
+                          onClick={handleSignContract}
+                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
+                        >
+                          Sign Contract
+                        </button>
+                        <button
+                          onClick={handleDeclineOffer}
+                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base border-2 border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          Decline Offer
+                        </button>
+                      </div>
+                    )
                   ) : selectedJob.application_status === 'signed' ? (
                     <div className="w-full text-center py-3">
                       <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-800">
@@ -838,8 +900,13 @@ const EmployeeJobsPage = () => {
                         Contract Deployed ✓
                       </span>
                     </div>
+                  ) : selectedJob.application_status === 'declined' ? (
+                    <div className="w-full text-center py-3">
+                      <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-800">
+                        Offer Declined
+                      </span>
+                    </div>
                   ) : selectedJob.application_status === 'pending' || selectedJob.application_status === 'rejected' ? (
-                    // Applied or Rejected: Show no buttons, just status message
                     <div className="w-full text-center py-3">
                       <span className={`inline-block px-4 py-2 rounded-lg text-sm font-medium ${
                         selectedJob.application_status === 'rejected'
@@ -848,11 +915,10 @@ const EmployeeJobsPage = () => {
                       }`}>
                         {selectedJob.application_status === 'rejected'
                           ? 'Application Rejected'
-                          : 'Application Submitted ✓'}
+                          : activeFilter === 'applied' ? 'Under Review' : 'Application Submitted ✓'}
                       </span>
                     </div>
                   ) : selectedJob.is_saved ? (
-                    // Saved: Only show Apply button (centered)
                     <button
                       onClick={() => handleApplyToJob(selectedJob)}
                       disabled={processingJobId === selectedJob.id}
@@ -861,7 +927,6 @@ const EmployeeJobsPage = () => {
                       {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
                     </button>
                   ) : (
-                    // Not saved, not applied: Show both buttons
                     <>
                       <button
                         onClick={() => handleApplyToJob(selectedJob)}
@@ -1024,13 +1089,28 @@ const EmployeeJobsPage = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                   {selectedJob.application_status === 'accepted' ? (
-                    // Accepted: Show Sign Contract button
-                    <button
-                      onClick={handleSignContract}
-                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
-                    >
-                      Sign Contract
-                    </button>
+                    activeFilter === 'applied' ? (
+                      <div className="w-full text-center py-3">
+                        <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800">
+                          Offer Made
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3 w-full">
+                        <button
+                          onClick={handleSignContract}
+                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
+                        >
+                          Sign Contract
+                        </button>
+                        <button
+                          onClick={handleDeclineOffer}
+                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base border-2 border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          Decline Offer
+                        </button>
+                      </div>
+                    )
                   ) : selectedJob.application_status === 'signed' ? (
                     <div className="w-full text-center py-3">
                       <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-purple-100 text-purple-800">
@@ -1043,8 +1123,13 @@ const EmployeeJobsPage = () => {
                         Contract Deployed ✓
                       </span>
                     </div>
+                  ) : selectedJob.application_status === 'declined' ? (
+                    <div className="w-full text-center py-3">
+                      <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-800">
+                        Offer Declined
+                      </span>
+                    </div>
                   ) : selectedJob.application_status === 'pending' || selectedJob.application_status === 'rejected' ? (
-                    // Applied or Rejected: Show no buttons, just status message
                     <div className="w-full text-center py-3">
                       <span className={`inline-block px-4 py-2 rounded-lg text-sm font-medium ${
                         selectedJob.application_status === 'rejected'
@@ -1053,11 +1138,10 @@ const EmployeeJobsPage = () => {
                       }`}>
                         {selectedJob.application_status === 'rejected'
                           ? 'Application Rejected'
-                          : 'Application Submitted ✓'}
+                          : activeFilter === 'applied' ? 'Under Review' : 'Application Submitted ✓'}
                       </span>
                     </div>
                   ) : selectedJob.is_saved ? (
-                    // Saved: Only show Apply button (centered)
                     <button
                       onClick={() => handleApplyToJob(selectedJob)}
                       disabled={processingJobId === selectedJob.id}
@@ -1066,7 +1150,6 @@ const EmployeeJobsPage = () => {
                       {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
                     </button>
                   ) : (
-                    // Not saved, not applied: Show both buttons
                     <>
                       <button
                         onClick={() => handleApplyToJob(selectedJob)}
@@ -1135,6 +1218,49 @@ const EmployeeJobsPage = () => {
                 className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {signing ? 'Signing...' : 'I Agree — Sign Contract'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Offer Confirmation Modal */}
+      {showDeclineModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[#0D3B66]">Decline Offer</h3>
+              <button
+                onClick={() => setShowDeclineModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Are you sure you want to decline the offer for <strong>{selectedJob?.title}</strong> with <strong>{selectedJob?.company_name}</strong>?
+              </p>
+              <p className="text-sm text-red-600 font-medium">
+                This action cannot be undone. The offer will be moved to the employer's rejected archive.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeclineModal(false)}
+                disabled={declining}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeclineOffer}
+                disabled={declining}
+                className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {declining ? 'Declining...' : 'Decline Offer'}
               </button>
             </div>
           </div>

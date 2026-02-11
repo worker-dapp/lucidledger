@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle,
@@ -19,17 +18,12 @@ import {
 } from "../contracts/workContractInteractions";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 import { useAuth } from "../hooks/useAuth";
+import LogoutButton from "../components/LogoutButton";
 
-const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
 
 const MediatorResolution = () => {
-  const { user, isAuthenticated, login, logout, smartWalletClient, smartWalletAddress } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+  const { user, isAuthenticated, login, smartWalletClient, smartWalletAddress } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [mediatorData, setMediatorData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -156,7 +150,7 @@ const MediatorResolution = () => {
         txHash = result.txHash;
         setMessage(
           `Dispute resolved (gas-free)! ${payWorker ? "Worker" : "Employer"} received the funds. ` +
-          `View on BaseScan: ${result.basescanUrl}`
+          `View on-chain: ${result.basescanUrl}`
         );
       } else {
         setMessage(
@@ -273,13 +267,10 @@ const MediatorResolution = () => {
               {userEmail || "Not available"}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 mb-4"
-          >
+          <LogoutButton className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 mb-4">
             <LogOut className="h-4 w-4" />
             Sign Out & Try Another Account
-          </button>
+          </LogoutButton>
           <p className="text-sm text-gray-500">
             If you believe you should have access, please contact a platform administrator.
           </p>
@@ -305,13 +296,10 @@ const MediatorResolution = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+            <LogoutButton className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
               <LogOut className="h-4 w-4" />
               Sign Out
-            </button>
+            </LogoutButton>
           </div>
         </div>
       </header>

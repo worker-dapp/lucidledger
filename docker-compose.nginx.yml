@@ -22,16 +22,10 @@ services:
               nginx -g 'daemon off;'"
 
   frontend:
-    build: 
+    build:
       context: ./client
       dockerfile: Dockerfile.prod
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-        VITE_DYNAMIC_ENV_ID: ${VITE_DYNAMIC_ENV_ID}
-        VITE_DEMO_MODE: ${VITE_DEMO_MODE}
     container_name: lucidledger-frontend
-    env_file:
-      - ./client/.env
     restart: unless-stopped
     networks:
       - app-network
@@ -50,7 +44,6 @@ services:
       - app-network
     environment:
       - NODE_ENV=production
-      - DEMO_MODE=${DEMO_MODE}
 
   certbot:
     image: certbot/certbot

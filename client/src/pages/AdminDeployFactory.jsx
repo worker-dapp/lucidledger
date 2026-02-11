@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,17 +13,12 @@ import {
 import apiService from "../services/api";
 import { getOnChainAdminAddress } from "../contracts/adminUtils";
 import { useAuth } from "../hooks/useAuth";
+import LogoutButton from "../components/LogoutButton";
 
 const FACTORY_ADDRESS = import.meta.env.VITE_FACTORY_ADDRESS || "";
 
 const AdminDeployFactory = () => {
-  const { user, login, logout, smartWalletAddress } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+  const { user, login, smartWalletAddress } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const [onChainAdmin, setOnChainAdmin] = useState(null);
@@ -116,13 +111,10 @@ const AdminDeployFactory = () => {
             <p className="text-gray-500 mb-1">Your email:</p>
             <p className="font-mono text-xs text-gray-700 break-all">{userEmail || "Not available"}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-          >
+          <LogoutButton className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
             <LogOut className="h-4 w-4" />
             Sign Out & Try Another Account
-          </button>
+          </LogoutButton>
         </div>
       </div>
     );
@@ -143,13 +135,10 @@ const AdminDeployFactory = () => {
                 <p className="text-sm text-gray-500">Deploy a new WorkContractFactory contract</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+            <LogoutButton className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
               <LogOut className="h-4 w-4" />
               Sign Out
-            </button>
+            </LogoutButton>
           </div>
         </div>
       </header>

@@ -49,7 +49,7 @@ export const isOnChainAdmin = async (walletAddress) => {
 };
 
 const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || 'https://sepolia.basescan.org';
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || 'https://base-sepolia.blockscout.com';
 
 /**
  * Deploys a new WorkContractFactory via sponsored transaction.

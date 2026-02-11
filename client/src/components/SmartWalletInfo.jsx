@@ -94,7 +94,7 @@ const SmartWalletInfo = ({ compact = false }) => {
   };
 
   const getBasescanUrl = (address) => {
-    const basescanBase = import.meta.env.VITE_BASESCAN_URL || 'https://sepolia.basescan.org';
+    const basescanBase = import.meta.env.VITE_BASESCAN_URL || 'https://base-sepolia.blockscout.com';
     return `${basescanBase}/address/${address}`;
   };
 
@@ -196,7 +196,7 @@ const SmartWalletInfo = ({ compact = false }) => {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-white/60 hover:text-white p-1"
-                  title="View on BaseScan"
+                  title="View on-chain"
                 >
                   🔗
                 </a>
@@ -240,7 +240,7 @@ const SmartWalletInfo = ({ compact = false }) => {
                 rel="noopener noreferrer"
                 className="flex-1 text-sm text-center text-white bg-[#1a4a7a] hover:bg-[#2a5a8a] px-3 py-2 rounded transition-colors"
               >
-                🔗 View on BaseScan
+                🔗 View on-chain
               </a>
             </div>
           </div>

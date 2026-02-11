@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from "../components/Navbar";
 import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import apiService from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
@@ -79,6 +80,52 @@ const UserProfile = () => {
 
   const [formDataInitialized, setFormDataInitialized] = useState(false);
 
+  // Skills & experience state (employee only, optional)
+  const [skills, setSkills] = useState([]);
+  const [skillInput, setSkillInput] = useState('');
+  const [skillSearch, setSkillSearch] = useState('');
+  const [openCategories, setOpenCategories] = useState({});
+  const skillCategories = {
+    'Agriculture & Farming': ['Harvesting', 'Planting', 'Irrigation', 'Animal Care', 'Fishing', 'Beekeeping'],
+    'Construction & Trades': ['Carpentry', 'Masonry', 'Welding', 'Plumbing', 'Electrical', 'Painting', 'Roofing', 'Tiling'],
+    'Manufacturing & Repair': ['Auto Repair', 'Machine Repair', 'Assembly', 'Quality Inspection', 'CNC/Machining', 'Sewing', 'Packaging'],
+    'Transportation & Equipment': ['Driving', 'Forklift', 'Motorcycle', 'Boat Operation', 'Heavy Equipment'],
+    'Food & Hospitality': ['Cooking', 'Baking', 'Food Prep', 'Serving', 'Housekeeping', 'Cleaning'],
+    'Care & Services': ['Child Care', 'Elder Care', 'First Aid', 'Security', 'Laundry'],
+    'Technical & Office': ['Data Entry', 'Mobile Phones', 'Customer Service', 'Retail', 'Inventory'],
+    'Outdoor & Physical': ['Landscaping', 'Logging', 'Mining', 'Loading/Unloading', 'Waste Collection'],
+  };
+  const toggleCategory = (cat) => setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+  const addSkill = (value) => {
+    const v = value.trim();
+    if (!v || skills.includes(v)) return;
+    setSkills(prev => [...prev, v]);
+    setSkillInput('');
+  };
+  const removeSkill = (value) => setSkills(prev => prev.filter(s => s !== value));
+  const handleSkillKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addSkill(skillInput); }
+  };
+
+  const [experiences, setExperiences] = useState([{ title: '', description: '', startDate: '', endDate: '' }]);
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: currentYear - 1999 }, (_, i) => currentYear - i);
+  const getMonth = (d) => d ? (d.split('-')[1] || '') : '';
+  const getYear = (d) => d ? (d.split('-')[0] || '') : '';
+  const setDatePart = (idx, field, part, value) => {
+    setExperiences(prev => prev.map((row, i) => {
+      if (i !== idx) return row;
+      const cur = row[field] || '';
+      const m = part === 'month' ? value : getMonth(cur);
+      const y = part === 'year' ? value : getYear(cur);
+      return { ...row, [field]: (y && m) ? `${y}-${m}` : y ? y : m ? `-${m}` : '' };
+    }));
+  };
+  const addExperienceRow = () => setExperiences(prev => [...prev, { title: '', description: '', startDate: '', endDate: '' }]);
+  const removeExperienceRow = (idx) => setExperiences(prev => prev.filter((_, i) => i !== idx));
+  const updateExperienceField = (idx, field, value) => setExperiences(prev => prev.map((row, i) => i === idx ? { ...row, [field]: value } : row));
+
   useEffect(() => {
     if (user && !formDataInitialized) {
       setFormData(prev => ({
@@ -153,6 +200,17 @@ const UserProfile = () => {
         wallet_address: walletAddress,
       };
 
+      // Add employee-specific optional fields
+      if (!employer) {
+        if (skills.length > 0) payload.skills = JSON.stringify(skills);
+        const filledExperiences = experiences.filter(e => e.title.trim()).map(e => ({
+          ...e,
+          startDate: e.startDate?.includes('-') && e.startDate.split('-')[0] ? e.startDate : '',
+          endDate: e.endDate?.includes('-') && e.endDate.split('-')[0] ? e.endDate : '',
+        }));
+        if (filledExperiences.length > 0) payload.work_experience = filledExperiences;
+      }
+
       // Add employer-specific fields
       if (employer) {
         payload.company_name = formData.companyName;
@@ -188,10 +246,11 @@ const UserProfile = () => {
           <h1 className="text-3xl font-bold text-[#0D3B66]">Complete Your Profile</h1>
           <button
             type="button"
-            onClick={logout}
-            className="text-sm text-gray-500 hover:text-red-600 underline"
+            onClick={async () => { await logout(); navigate('/', { replace: true }); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-800 transition-colors"
           >
-            Sign Out
+            <LogOut className="h-4 w-4" />
+            Exit
           </button>
         </div>
 
@@ -440,6 +499,164 @@ const UserProfile = () => {
                   placeholder="Describe your company, its mission, and what makes it unique..."
                 />
                 {errors.companyDescription && <p className="text-red-500 text-sm mt-1">{errors.companyDescription}</p>}
+              </div>
+            </>
+          )}
+
+          {/* Skills & Work Experience - Optional, Employee Only */}
+          {!isEmployerRole() && (
+            <>
+              <div className="col-span-full">
+                <h2 className="text-xl font-semibold text-[#0D3B66] mt-6 mb-1 border-t pt-6">Skills & Work Experience</h2>
+                <p className="text-sm text-gray-500 mb-4">Optional — you can fill this in later from your profile page.</p>
+              </div>
+
+              {/* Skills */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Skills</label>
+
+                {/* Selected skills */}
+                {skills.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {skills.map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1.5 bg-[#EE964B] text-white px-3 py-1 rounded-full text-sm font-medium">
+                        {s}
+                        <button type="button" onClick={() => removeSkill(s)} className="hover:text-orange-200" aria-label={`Remove ${s}`}>&times;</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search */}
+                <input
+                  type="text"
+                  value={skillSearch}
+                  onChange={(e) => setSkillSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Search skills..."
+                />
+
+                {/* Accordion categories */}
+                <div className="space-y-1">
+                  {Object.entries(skillCategories).map(([category, items]) => {
+                    const searchLower = skillSearch.toLowerCase();
+                    const filtered = searchLower ? items.filter(s => s.toLowerCase().includes(searchLower)) : items;
+                    if (filtered.length === 0) return null;
+                    const isOpen = openCategories[category] || !!skillSearch;
+                    const selectedCount = items.filter(s => skills.includes(s)).length;
+                    return (
+                      <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(category)}
+                          className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                        >
+                          <span className="text-sm font-medium text-[#0D3B66]">
+                            {category}
+                            {selectedCount > 0 && (
+                              <span className="ml-2 text-xs bg-[#EE964B] text-white px-2 py-0.5 rounded-full">{selectedCount}</span>
+                            )}
+                          </span>
+                          <svg className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {isOpen && (
+                          <div className="px-4 py-3 flex flex-wrap gap-2">
+                            {filtered.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => skills.includes(s) ? removeSkill(s) : addSkill(s)}
+                                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                  skills.includes(s) ? 'bg-[#EE964B] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Custom skill input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={handleSkillKeyDown}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Add a custom skill and press Enter"
+                  />
+                  <button type="button" onClick={() => addSkill(skillInput)} className="px-4 py-2 bg-[#0D3B66] text-white rounded-md hover:bg-[#0a2f52] transition-colors text-sm">Add</button>
+                </div>
+              </div>
+
+              {/* Work Experience */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">Work Experience</label>
+                {experiences.map((row, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm text-gray-600 mb-1">Job Title</label>
+                        <input
+                          type="text"
+                          value={row.title}
+                          onChange={(e) => updateExperienceField(idx, 'title', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Farm Worker"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm text-gray-600 mb-1">Description / Duties</label>
+                        <input
+                          type="text"
+                          value={row.description || ''}
+                          onChange={(e) => updateExperienceField(idx, 'description', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Managed daily harvest operations"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+                        <div className="flex gap-2">
+                          <select value={getMonth(row.startDate)} onChange={(e) => setDatePart(idx, 'startDate', 'month', e.target.value)} className="flex-1 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Month</option>
+                            {monthNames.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                          </select>
+                          <select value={getYear(row.startDate)} onChange={(e) => setDatePart(idx, 'startDate', 'year', e.target.value)} className="flex-1 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Year</option>
+                            {yearOptions.map((y) => <option key={y} value={String(y)}>{y}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">End Date</label>
+                        <div className="flex gap-2">
+                          <select value={getMonth(row.endDate)} onChange={(e) => setDatePart(idx, 'endDate', 'month', e.target.value)} className="flex-1 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Month</option>
+                            {monthNames.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                          </select>
+                          <select value={getYear(row.endDate)} onChange={(e) => setDatePart(idx, 'endDate', 'year', e.target.value)} className="flex-1 px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Year</option>
+                            {yearOptions.map((y) => <option key={y} value={String(y)}>{y}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    {experiences.length > 1 && (
+                      <div className="flex justify-end">
+                        <button type="button" onClick={() => removeExperienceRow(idx)} className="text-red-600 hover:text-red-700 text-sm">Remove</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addExperienceRow} className="text-[#0D3B66] hover:text-[#EE964B] font-medium text-sm">+ Add Another Job</button>
               </div>
             </>
           )}

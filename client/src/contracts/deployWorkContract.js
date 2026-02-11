@@ -26,7 +26,7 @@ import {
 // Base Sepolia testnet configuration
 const BASE_SEPOLIA_CHAIN_ID = parseInt(import.meta.env.VITE_BASE_SEPOLIA_CHAIN_ID || "84532");
 const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
-const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
 const DEFAULT_MEDIATOR_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // USDC has 6 decimals

@@ -14,7 +14,7 @@ import ContractFactory from "./EmployerPages/ContractFactory";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import JobTracker from "./EmployeePages/JobTracker";
 import SupportCenter from "./EmployeePages/SupportCenter";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import UserProfile from "./pages/UserProfile";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import MediatorResolution from "./pages/MediatorResolution";
@@ -25,6 +25,8 @@ import AdminEmployers from "./pages/AdminEmployers";
 import apiService from "./services/api";
 import { setAuthTokenProvider } from "./services/authToken";
 import { useAuth } from "./hooks/useAuth";
+import { useIdleTimeout } from "./hooks/useIdleTimeout";
+import IdleTimeoutWarning from "./components/IdleTimeoutWarning";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -37,6 +39,7 @@ const AppContent = () => {
     getAccessToken,
     primaryWallet,
     smartWalletAddress,
+    logout,
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,58 +152,30 @@ const AppContent = () => {
       // Check if user already has a profile in backend (works for both email and phone login)
       const checkProfileAndRedirect = async () => {
         try {
-          // AIRBNB-STYLE DUAL-ROLE LOGIC:
-          // 1. Check if profile exists for intended role
-          // 2. Also check if user has the OTHER role (for role switcher UI)
-          // 3. Persist intended role to localStorage
-          // 4. Redirect to appropriate dashboard
+          // DUAL-ROLE LOGIC:
+          // 1. Check if profile exists for intended role (by wallet address)
+          // 2. If not found, check other role — only redirect there if no explicit pendingRole
+          // 3. If pendingRole is set and no profile for that role, send to onboarding (dual-role creation)
+          // 4. Persist intended role to localStorage and redirect
 
           let profileExists = false;
-          let foundProfileId = null; // Track found profile for wallet sync
-          let foundProfileWallet = null;
-          let hasOtherRole = false; // Track if user has both profiles
+          let hasOtherRole = false;
           const walletAddress = smartWalletAddress || primaryWallet?.address;
-          const userEmail = user?.email?.address || user?.email || '';
+          const hasPendingRole = !!localStorage.getItem('pendingRole');
 
-          // Extract phone number from Privy user object
-          let phoneNumber = '';
-          let phoneValue = user?.phone?.number || user?.phone?.phoneNumber || user?.phoneNumber || '';
-
-          // Normalize phone number - database stores phone_number without country code
-          // Country code is stored separately in country_code field
-          if (phoneValue) {
-            // Extract just the phone number digits (without country code)
-            // Database stores phone_number as just the number, not with country code
-            if (phoneValue.startsWith('+')) {
-              // Remove country code - keep only the number part
-              const match = phoneValue.match(/^\+\d{1,3}(.+)$/);
-              if (match) {
-                phoneNumber = match[1].replace(/\D/g, ''); // Just the number part
-              } else {
-                phoneNumber = phoneValue.replace(/\D/g, '');
-              }
-            } else {
-              phoneNumber = phoneValue.replace(/\D/g, '');
-            }
-          }
-
-          // Step 1: Check by wallet address (if available)
-          // Check ONLY the intended role's table - dual roles are supported
-          if (walletAddress && !profileExists) {
+          // Check intended role's table by wallet address
+          // Wallet is the primary identity key — every Privy user has one
+          if (walletAddress) {
             try {
               if (intendedRole === 'employer') {
                 const response = await apiService.getEmployerByWallet(walletAddress);
                 if (response?.data) {
                   profileExists = true;
-                  foundProfileId = response.data.id;
-                  foundProfileWallet = response.data.wallet_address;
                 }
               } else {
                 const response = await apiService.getEmployeeByWallet(walletAddress);
                 if (response?.data) {
                   profileExists = true;
-                  foundProfileId = response.data.id;
-                  foundProfileWallet = response.data.wallet_address;
                 }
               }
             } catch (err) {
@@ -208,85 +183,46 @@ const AppContent = () => {
             }
           }
 
-          // Step 2: Check by email if wallet not found
-          if (!profileExists && userEmail) {
+          // If no profile for intended role, check the other role's table
+          // Only redirect to the other role if the user didn't explicitly choose a role
+          // (i.e., no pendingRole — they're a returning user who may have landed on the wrong side)
+          // If pendingRole IS set, the user explicitly chose this role via a landing page,
+          // so we respect their choice and send them to onboarding for a new profile
+          let otherRoleExists = false;
+          if (!profileExists && walletAddress) {
+            const otherRole = intendedRole === 'employer' ? 'employee' : 'employer';
             try {
-              if (intendedRole === 'employer') {
-                const response = await apiService.getEmployerByEmail(userEmail);
-                if (response?.data) {
+              const response = otherRole === 'employer'
+                ? await apiService.getEmployerByWallet(walletAddress)
+                : await apiService.getEmployeeByWallet(walletAddress);
+              if (response?.data) {
+                otherRoleExists = true;
+                if (!hasPendingRole) {
+                  // No explicit role intent — redirect to existing profile
+                  intendedRole = otherRole;
                   profileExists = true;
-                  foundProfileId = response.data.id;
-                  foundProfileWallet = response.data.wallet_address;
                 }
-              } else {
-                const response = await apiService.getEmployeeByEmail(userEmail);
-                if (response?.data) {
-                  profileExists = true;
-                  foundProfileId = response.data.id;
-                  foundProfileWallet = response.data.wallet_address;
-                }
+              }
+            } catch (err) { /* 404 expected */ }
+          }
+
+          // Check if user has both roles (for role switcher UI)
+          if (profileExists && !otherRoleExists && walletAddress) {
+            try {
+              const response = intendedRole === 'employer'
+                ? await apiService.getEmployeeByWallet(walletAddress)
+                : await apiService.getEmployerByWallet(walletAddress);
+              if (response?.data) {
+                hasOtherRole = true;
               }
             } catch (err) {
               // Ignore 404s
             }
           }
-
-          // Step 3: Check by phone if still not found
-          if (!profileExists && phoneNumber) {
-            try {
-              if (intendedRole === 'employer') {
-                const response = await apiService.getEmployerByPhone(phoneNumber);
-                if (response?.data) {
-                  profileExists = true;
-                  foundProfileId = response.data.id;
-                  foundProfileWallet = response.data.wallet_address;
-                }
-              } else {
-                const response = await apiService.getEmployeeByPhone(phoneNumber);
-                if (response?.data) {
-                  profileExists = true;
-                  foundProfileId = response.data.id;
-                  foundProfileWallet = response.data.wallet_address;
-                }
-              }
-            } catch (err) {
-              // Ignore 404s
-            }
-          }
-
-          // Step 3.5: Sync wallet address if profile found by email/phone but wallet differs
-          // This handles users who created accounts before Privy wallet integration
-          if (profileExists && foundProfileId && walletAddress && foundProfileWallet !== walletAddress) {
-            try {
-              if (intendedRole === 'employer') {
-                await apiService.updateEmployer(foundProfileId, { wallet_address: walletAddress });
-              } else {
-                await apiService.updateEmployee(foundProfileId, { wallet_address: walletAddress });
-              }
-              console.log('Synced wallet address for profile:', foundProfileId);
-            } catch (err) {
-              console.error('Failed to sync wallet address:', err);
-              // Continue anyway - profile exists, wallet sync failed but user can still proceed
-            }
-          }
-
-          // Step 4: Check if user has the OTHER role (for role switcher UI)
-          if (walletAddress) {
-            try {
-              if (intendedRole === 'employer') {
-                const response = await apiService.getEmployeeByWallet(walletAddress);
-                if (response?.data) {
-                  hasOtherRole = true;
-                }
-              } else {
-                const response = await apiService.getEmployerByWallet(walletAddress);
-                if (response?.data) {
-                  hasOtherRole = true;
-                }
-              }
-            } catch (err) {
-              // Ignore 404s
-            }
+          // If we found the other role but didn't redirect (pendingRole was set),
+          // mark hasOtherRole so the UI knows this user has a profile on the other side
+          if (otherRoleExists && !profileExists) {
+            hasOtherRole = true;
           }
 
           // Persist roles to localStorage
@@ -296,7 +232,7 @@ const AppContent = () => {
           localStorage.setItem('hasOtherRole', hasOtherRole ? 'true' : 'false');
 
           if (profileExists) {
-            // User has a profile for intended role → redirect to dashboard
+            // User has a profile → redirect to dashboard for their role
             if (intendedRole === 'employer') {
               navigate('/contract-factory', { replace: true });
             } else {
@@ -320,8 +256,10 @@ const AppContent = () => {
               setHasRedirected(true);
             }
           } else {
-            // No profile exists for intended role → redirect to onboarding
+            // No profile exists for either role → redirect to onboarding
             // Keep pendingRole for onboarding page to know which profile to create
+            // Mediators/admins who land here by mistake can use the Exit button
+            // to log out and follow the correct link from the landing page
             navigate('/user-profile', { replace: true });
           }
         } catch (error) {
@@ -339,7 +277,25 @@ const AppContent = () => {
     }
   }, [isLoading, isAuthenticated, user, primaryWallet, smartWalletAddress, location.pathname, navigate, hasRedirected, checkingProfile, initialLoadComplete]);
 
-  return null;
+  // Idle timeout — auto-logout after 15 min of inactivity (13 min idle + 2 min warning)
+  const handleIdleTimeout = useCallback(async () => {
+    await logout();
+    navigate('/');
+  }, [logout, navigate]);
+
+  const { showWarning, stayLoggedIn } = useIdleTimeout({
+    enabled: isAuthenticated === true,
+    onTimeout: handleIdleTimeout,
+  });
+
+  if (!showWarning) return null;
+
+  return (
+    <IdleTimeoutWarning
+      onStayLoggedIn={stayLoggedIn}
+      onLogOut={handleIdleTimeout}
+    />
+  );
 };
 
 const App = () => {

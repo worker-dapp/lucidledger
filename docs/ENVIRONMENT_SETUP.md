@@ -14,7 +14,7 @@ NODE_ENV=development
 # Base Sepolia Configuration
 VITE_BASE_SEPOLIA_CHAIN_ID=84532
 VITE_BASE_SEPOLIA_RPC=https://sepolia.base.org
-VITE_BASESCAN_URL=https://sepolia.basescan.org
+VITE_BASESCAN_URL=https://base-sepolia.blockscout.com
 # Note: BaseScan API keys are issued via your Etherscan account (BaseScan uses Etherscan's key system).
 VITE_USDC_ADDRESS=0x_your_usdc_address
 
@@ -92,7 +92,7 @@ NODE_ENV=production
 # Base (production)
 VITE_BASE_SEPOLIA_CHAIN_ID=84532
 VITE_BASE_SEPOLIA_RPC=https://sepolia.base.org
-VITE_BASESCAN_URL=https://sepolia.basescan.org
+VITE_BASESCAN_URL=https://base-sepolia.blockscout.com
 VITE_USDC_ADDRESS=0x_production_usdc_address
 VITE_FACTORY_ADDRESS=0x_production_factory_address
 ```

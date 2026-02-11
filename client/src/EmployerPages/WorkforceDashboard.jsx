@@ -24,7 +24,7 @@ import { getBasescanUrl } from "../contracts/deployWorkContract";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 import { useAuth } from "../hooks/useAuth";
 
-const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
 
 const statusStyles = {
   active: "bg-green-100 text-green-700",
@@ -237,7 +237,7 @@ const WorkforceDashboard = () => {
           `Payment sent on-chain but recording failed. Transaction: ${result.txHash}. Please contact support.`
         );
       } else {
-        setActionMessage(`Payment released (gas-free)! View on BaseScan: ${result.basescanUrl}`);
+        setActionMessage(`Payment released (gas-free)! View on-chain: ${result.basescanUrl}`);
       }
 
       // Refresh blockchain state
@@ -288,7 +288,7 @@ const WorkforceDashboard = () => {
         console.error("Failed to create dispute history record:", err);
       }
 
-      setActionMessage(`Dispute raised (gas-free). Funds frozen. View on BaseScan: ${result.basescanUrl}`);
+      setActionMessage(`Dispute raised (gas-free). Funds frozen. View on-chain: ${result.basescanUrl}`);
       setShowDisputeModal(false);
       setDisputeReason("");
 
