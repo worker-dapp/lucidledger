@@ -53,6 +53,14 @@ const Employee = sequelize.define('Employee', {
   country_code: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  skills: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  work_experience: {
+    type: DataTypes.JSONB,
+    allowNull: true
   }
 }, {
   tableName: 'employee',
