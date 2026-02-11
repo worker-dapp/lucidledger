@@ -7,7 +7,17 @@ const statusBadgeStyles = {
   accepted: "bg-green-100 text-green-800",
   signed: "bg-purple-100 text-purple-800",
   rejected: "bg-red-100 text-red-800",
+  declined: "bg-amber-100 text-amber-800",
   deployed: "bg-gray-100 text-gray-700",
+};
+
+const statusDisplayLabels = {
+  pending: "Pending",
+  accepted: "Accepted",
+  signed: "Signed",
+  rejected: "Rejected",
+  declined: "Declined by worker",
+  deployed: "Deployed",
 };
 
 const ApplicationReviewTab = ({ employerId }) => {
@@ -25,7 +35,7 @@ const ApplicationReviewTab = ({ employerId }) => {
   const isAllView = statusFilter === "all";
 
   const isPendingStatus = (status) => !status || status === "pending";
-  const isArchivedStatus = (status) => status === "rejected" || status === "deployed";
+  const isArchivedStatus = (status) => status === "rejected" || status === "declined" || status === "deployed";
 
   const fetchApplications = async () => {
     if (!employerId) {
@@ -184,7 +194,7 @@ const ApplicationReviewTab = ({ employerId }) => {
           <p className="text-sm text-gray-500">Review applications and issue offers.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {["all", "pending", "accepted", "signed", "rejected"].map((status) => (
+          {["all", "pending", "accepted", "signed", "rejected", "declined"].map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -194,7 +204,7 @@ const ApplicationReviewTab = ({ employerId }) => {
                   : "border-gray-200 text-gray-500 bg-white hover:border-gray-300"
               }`}
             >
-              {status === "all" ? "All Applications" : status.charAt(0).toUpperCase() + status.slice(1)}
+              {status === "all" ? "All Applications" : status === "declined" ? "Declined" : status.charAt(0).toUpperCase() + status.slice(1)}
             </button>
           ))}
         </div>
@@ -293,11 +303,14 @@ const ApplicationReviewTab = ({ employerId }) => {
                           {employee?.first_name || "Unknown"} {employee?.last_name || ""}
                         </p>
                         <p className="text-xs text-gray-500">{employee?.email || ""}</p>
+                        {employee?.phone_number && (
+                          <p className="text-xs text-gray-500">{employee.phone_number}</p>
+                        )}
                         <p className="text-xs text-gray-500">{job?.title || "Job role"}</p>
                       </div>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusBadgeStyles[status] || "bg-gray-100 text-gray-600"}`}>
-                      {status}
+                      {statusDisplayLabels[status] || status}
                     </span>
                   </div>
                 </div>
@@ -342,9 +355,12 @@ const ApplicationReviewTab = ({ employerId }) => {
                     {selectedApplication.employee?.first_name || "Unknown"} {selectedApplication.employee?.last_name || ""}
                   </p>
                   <p className="text-sm text-gray-500">{selectedApplication.employee?.email || ""}</p>
+                  {selectedApplication.employee?.phone_number && (
+                    <p className="text-sm text-gray-500">{selectedApplication.employee.phone_number}</p>
+                  )}
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadgeStyles[selectedApplication.application_status || "pending"] || "bg-gray-100 text-gray-600"}`}>
-                  {selectedApplication.application_status || "pending"}
+                  {statusDisplayLabels[selectedApplication.application_status || "pending"] || selectedApplication.application_status || "pending"}
                 </span>
               </div>
 

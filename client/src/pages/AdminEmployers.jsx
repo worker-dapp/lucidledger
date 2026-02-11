@@ -10,18 +10,13 @@ import {
   Shield,
   XCircle,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import LogoutButton from "../components/LogoutButton";
 
 const AdminEmployers = () => {
-  const { user, login, logout, smartWalletAddress } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+  const { user, login, smartWalletAddress } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [employers, setEmployers] = useState([]);
@@ -216,13 +211,10 @@ const AdminEmployers = () => {
               {userEmail || "Not available"}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-          >
+          <LogoutButton className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
             <LogOut className="h-4 w-4" />
             Sign Out & Try Another Account
-          </button>
+          </LogoutButton>
         </div>
       </div>
     );
@@ -248,13 +240,10 @@ const AdminEmployers = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+            <LogoutButton className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
               <LogOut className="h-4 w-4" />
               Sign Out
-            </button>
+            </LogoutButton>
           </div>
         </div>
       </header>

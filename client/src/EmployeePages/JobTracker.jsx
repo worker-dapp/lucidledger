@@ -8,6 +8,8 @@ import { useAuth } from "../hooks/useAuth";
 import { raiseDispute, ContractState, getContractState } from "../contracts/workContractInteractions";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
+
 const JobTracker = () => {
   const navigate = useNavigate();
   const { user, primaryWallet, smartWalletAddress, smartWalletClient } = useAuth();
@@ -456,12 +458,12 @@ const JobTracker = () => {
                           </div>
                           {tx.tx_hash && (
                             <a
-                              href={`https://sepolia.basescan.org/tx/${tx.tx_hash}`}
+                              href={`${BASESCAN_URL}/tx/${tx.tx_hash}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800"
                             >
-                              View on BaseScan
+                              View on-chain
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           )}

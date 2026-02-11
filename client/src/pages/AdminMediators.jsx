@@ -13,21 +13,16 @@ import {
   Zap,
   XCircle,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import apiService from "../services/api";
 import { assignMediator } from "../contracts/workContractInteractions";
 import { parseAAError } from "../contracts/aaClient";
 import { getOnChainAdminAddress } from "../contracts/adminUtils";
 import { useAuth } from "../hooks/useAuth";
+import LogoutButton from "../components/LogoutButton";
 
 const AdminMediators = () => {
-  const { user, login, logout, smartWalletClient, smartWalletAddress } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
+  const { user, login, smartWalletClient, smartWalletAddress } = useAuth();
   const [loading, setLoading] = useState(true);
   const [mediators, setMediators] = useState([]);
   const [disputedContracts, setDisputedContracts] = useState([]);
@@ -323,13 +318,10 @@ const AdminMediators = () => {
               {userEmail || "Not available"}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-          >
+          <LogoutButton className="flex items-center gap-2 px-4 py-2 mx-auto text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
             <LogOut className="h-4 w-4" />
             Sign Out & Try Another Account
-          </button>
+          </LogoutButton>
         </div>
       </div>
     );
@@ -355,13 +347,10 @@ const AdminMediators = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+            <LogoutButton className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
               <LogOut className="h-4 w-4" />
               Sign Out
-            </button>
+            </LogoutButton>
           </div>
         </div>
       </header>

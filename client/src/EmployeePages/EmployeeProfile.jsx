@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import img from '../assets/profile.webp';
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import { useAuth } from "../hooks/useAuth";
@@ -49,6 +49,7 @@ const EmployeeProfile = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [userDetails, setUserDetails] = useState(null);
+  const initialLoadDone = useRef(false);
 
   // Constants for dropdowns
   const countryCodes = [
@@ -88,12 +89,19 @@ const EmployeeProfile = () => {
   // Skills state
   const [skills, setSkills] = useState([]);
   const [skillInput, setSkillInput] = useState('');
-  const skillSuggestions = [
-    'Fishing','Driving','Harvesting','Carpentry','Plumbing','Cooking','Masonry','Welding','First Aid','Security','Cleaning','Child Care','Data Entry','Retail','Customer Service','Electrical','Painting','Landscaping','Construction','Forklift'
-  ];
-  const filteredSuggestions = skillInput
-    ? skillSuggestions.filter(s => s.toLowerCase().includes(skillInput.toLowerCase()) && !skills.includes(s))
-    : [];
+  const [skillSearch, setSkillSearch] = useState('');
+  const [openCategories, setOpenCategories] = useState({});
+  const skillCategories = {
+    'Agriculture & Farming': ['Harvesting', 'Planting', 'Irrigation', 'Animal Care', 'Fishing', 'Beekeeping'],
+    'Construction & Trades': ['Carpentry', 'Masonry', 'Welding', 'Plumbing', 'Electrical', 'Painting', 'Roofing', 'Tiling'],
+    'Manufacturing & Repair': ['Auto Repair', 'Machine Repair', 'Assembly', 'Quality Inspection', 'CNC/Machining', 'Sewing', 'Packaging'],
+    'Transportation & Equipment': ['Driving', 'Forklift', 'Motorcycle', 'Boat Operation', 'Heavy Equipment'],
+    'Food & Hospitality': ['Cooking', 'Baking', 'Food Prep', 'Serving', 'Housekeeping', 'Cleaning'],
+    'Care & Services': ['Child Care', 'Elder Care', 'First Aid', 'Security', 'Laundry'],
+    'Technical & Office': ['Data Entry', 'Mobile Phones', 'Customer Service', 'Retail', 'Inventory'],
+    'Outdoor & Physical': ['Landscaping', 'Logging', 'Mining', 'Loading/Unloading', 'Waste Collection'],
+  };
+  const toggleCategory = (cat) => setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
 
   // Experience state
   const [experiences, setExperiences] = useState([
@@ -127,6 +135,21 @@ const EmployeeProfile = () => {
         setStateRegion(data.state || '');
         setPostalCode(data.zip_code || '');
         setCountry(data.country || '');
+
+        // Load skills from DB
+        if (data.skills) {
+          try {
+            const parsed = typeof data.skills === 'string' ? JSON.parse(data.skills) : data.skills;
+            if (Array.isArray(parsed)) setSkills(parsed);
+          } catch (e) { /* ignore parse errors */ }
+        }
+
+        // Load work experience from DB
+        if (Array.isArray(data.work_experience) && data.work_experience.length > 0) {
+          setExperiences(data.work_experience);
+        }
+
+        initialLoadDone.current = true;
       }
     } catch (error) {
       console.error('Error fetching user details:', error);
@@ -266,18 +289,52 @@ const EmployeeProfile = () => {
 
   // Debounced auto-save for skills
   useEffect(() => {
-    if (!skills || !userDetails) return; // Only auto-save if user already exists in DB
+    if (!initialLoadDone.current || !userDetails) return;
+    // Compare with what's already in DB to avoid save loops from re-fetch
+    let dbSkills = [];
+    if (userDetails.skills) {
+      try {
+        dbSkills = typeof userDetails.skills === 'string' ? JSON.parse(userDetails.skills) : userDetails.skills;
+      } catch (e) { /* ignore */ }
+    }
+    if (JSON.stringify(skills) === JSON.stringify(dbSkills)) return;
     const t = setTimeout(() => {
-      if (skills.length >= 0) {
-        saveToAPI({ skills: skills }, 'Skills saved');
-      }
+      saveToAPI({ skills: JSON.stringify(skills) }, 'Skills saved');
     }, 800);
     return () => clearTimeout(t);
   }, [skills, userDetails]);
 
+  // Month/year helpers
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1999 }, (_, i) => currentYear - i);
+
+  const getMonth = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    return parts.length >= 2 ? parts[1] : '';
+  };
+  const getYear = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    return parts[0] || '';
+  };
+  const setDatePart = (idx, field, part, value) => {
+    setExperiences(prev => prev.map((row, i) => {
+      if (i !== idx) return row;
+      const current = row[field] || '';
+      const curMonth = getMonth(current);
+      const curYear = getYear(current);
+      const newMonth = part === 'month' ? value : curMonth;
+      const newYear = part === 'year' ? value : curYear;
+      const newDate = (newYear && newMonth) ? `${newYear}-${newMonth}` : newYear ? newYear : newMonth ? `-${newMonth}` : '';
+      return { ...row, [field]: newDate };
+    }));
+  };
+
   // Experience handlers
   const addExperienceRow = () => {
-    setExperiences(prev => [...prev, { title: '', startDate: '', endDate: '' }]);
+    setExperiences(prev => [...prev, { title: '', description: '', startDate: '', endDate: '' }]);
   };
 
   const removeExperienceRow = (idx) => {
@@ -289,7 +346,12 @@ const EmployeeProfile = () => {
   };
 
   const saveExperiences = async () => {
-    await saveToAPI({ work_experience: experiences }, 'Work experience saved');
+    const cleaned = experiences.map(e => ({
+      ...e,
+      startDate: e.startDate?.includes('-') && e.startDate.split('-')[0] ? e.startDate : '',
+      endDate: e.endDate?.includes('-') && e.endDate.split('-')[0] ? e.endDate : '',
+    }));
+    await saveToAPI({ work_experience: cleaned }, 'Work experience saved');
   };
 
   if (loading) {
@@ -593,130 +655,236 @@ const EmployeeProfile = () => {
           </div>
         </div>
 
-        {/* Skills & Work Experience */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          {/* Skills */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#0D3B66] mb-4">Skills</h2>
+        {/* Work Experience */}
+        <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-[#0D3B66] mb-4">Work Experience</h2>
 
-            {/* Tag input */}
-            <div className="relative mb-3">
+          <div className="space-y-4">
+            {experiences.map((row, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm text-gray-600 mb-1">Job Title</label>
+                    <input
+                      type="text"
+                      value={row.title}
+                      onChange={(e) => updateExperienceField(idx, 'title', e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                      placeholder="e.g., Farm Worker"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm text-gray-600 mb-1">Description / Duties</label>
+                    <input
+                      type="text"
+                      value={row.description || ''}
+                      onChange={(e) => updateExperienceField(idx, 'description', e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                      placeholder="e.g., Managed daily harvest operations"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Start Date</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={getMonth(row.startDate)}
+                        onChange={(e) => setDatePart(idx, 'startDate', 'month', e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                      >
+                        <option value="">Month</option>
+                        {months.map((m, i) => (
+                          <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={getYear(row.startDate)}
+                        onChange={(e) => setDatePart(idx, 'startDate', 'year', e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                      >
+                        <option value="">Year</option>
+                        {years.map((y) => (
+                          <option key={y} value={String(y)}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">End Date</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={getMonth(row.endDate)}
+                        onChange={(e) => setDatePart(idx, 'endDate', 'month', e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                      >
+                        <option value="">Month</option>
+                        {months.map((m, i) => (
+                          <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={getYear(row.endDate)}
+                        onChange={(e) => setDatePart(idx, 'endDate', 'year', e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                      >
+                        <option value="">Year</option>
+                        {years.map((y) => (
+                          <option key={y} value={String(y)}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end mt-3">
+                  {experiences.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeExperienceRow(idx)}
+                      className="text-red-600 hover:text-red-700 text-sm"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between mt-4">
+            <button
+              type="button"
+              onClick={addExperienceRow}
+              className="text-[#0D3B66] hover:text-[#EE964B] font-medium"
+            >
+              + Add Job
+            </button>
+
+            <button
+              type="button"
+              onClick={saveExperiences}
+              className="bg-[#EE964B] text-white px-4 py-2 rounded-lg hover:bg-[#d97b33]"
+            >
+              Save Experience
+            </button>
+          </div>
+        </div>
+
+        {/* Skills */}
+        <div className="mt-6 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-[#0D3B66] mb-4">Skills</h2>
+
+          {/* Selected skills summary */}
+          {skills.length > 0 && (
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2">
+                {skills.map((s) => (
+                  <span key={s} className="inline-flex items-center gap-1.5 bg-[#EE964B] text-white px-3 py-1 rounded-full text-sm font-medium">
+                    {s}
+                    <button
+                      type="button"
+                      onClick={() => removeSkill(s)}
+                      className="hover:text-orange-200"
+                      aria-label={`Remove ${s}`}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Search */}
+          <div className="mb-4">
+            <input
+              type="text"
+              value={skillSearch}
+              onChange={(e) => setSkillSearch(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+              placeholder="Search skills..."
+            />
+          </div>
+
+          {/* Accordion categories */}
+          <div className="space-y-1">
+            {Object.entries(skillCategories).map(([category, items]) => {
+              const searchLower = skillSearch.toLowerCase();
+              const filtered = searchLower
+                ? items.filter(s => s.toLowerCase().includes(searchLower))
+                : items;
+              if (filtered.length === 0) return null;
+              const isOpen = openCategories[category] || !!skillSearch;
+              const selectedCount = items.filter(s => skills.includes(s)).length;
+
+              return (
+                <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                  >
+                    <span className="text-sm font-medium text-[#0D3B66]">
+                      {category}
+                      {selectedCount > 0 && (
+                        <span className="ml-2 text-xs bg-[#EE964B] text-white px-2 py-0.5 rounded-full">
+                          {selectedCount}
+                        </span>
+                      )}
+                    </span>
+                    <svg
+                      className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 py-3 flex flex-wrap gap-2">
+                      {filtered.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => skills.includes(s) ? removeSkill(s) : addSkill(s)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                            skills.includes(s)
+                              ? 'bg-[#EE964B] text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Custom skill input */}
+          <div className="mt-4">
+            <label className="block text-sm text-gray-500 mb-1">Add a custom skill</label>
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
                 onKeyDown={handleSkillKeyDown}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                placeholder="Add a skill"
+                className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                placeholder="Type and press Enter"
               />
-              {/* Suggestions */}
-              {filteredSuggestions.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
-                  {filteredSuggestions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => addSkill(s)}
-                      className="w-full text-left px-4 py-2 hover:bg-orange-50"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Selected skills as pills */}
-            <div className="flex flex-wrap gap-2">
-              {skills.map((s) => (
-                <span key={s} className="inline-flex items-center gap-2 bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm">
-                  {s}
-                  <button
-                    type="button"
-                    onClick={() => removeSkill(s)}
-                    className="text-orange-700 hover:text-orange-900"
-                    aria-label={`Remove ${s}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              {skills.length === 0 && (
-                <span className="text-gray-400 text-sm">No skills added yet</span>
-              )}
-            </div>
-          </div>
-
-          {/* Work Experience */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#0D3B66] mb-4">Work Experience</h2>
-
-            <div className="space-y-4">
-              {experiences.map((row, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div className="md:col-span-1">
-                      <label className="block text-sm text-gray-600 mb-1">Job Title</label>
-                      <input
-                        type="text"
-                        value={row.title}
-                        onChange={(e) => updateExperienceField(idx, 'title', e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                        placeholder="e.g., Farm Worker"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        value={row.startDate}
-                        onChange={(e) => updateExperienceField(idx, 'startDate', e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">End Date</label>
-                      <input
-                        type="date"
-                        value={row.endDate}
-                        onChange={(e) => updateExperienceField(idx, 'endDate', e.target.value)}
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-3">
-                    {experiences.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeExperienceRow(idx)}
-                        className="text-red-600 hover:text-red-700 text-sm"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between mt-4">
               <button
                 type="button"
-                onClick={addExperienceRow}
-                className="text-[#0D3B66] hover:text-[#EE964B] font-medium"
+                onClick={() => addSkill(skillInput)}
+                className="px-4 py-2 bg-[#0D3B66] text-white rounded-lg hover:bg-[#0a2f52] transition-colors"
               >
-                + Add Job
-              </button>
-
-              <button
-                type="button"
-                onClick={saveExperiences}
-                className="bg-[#EE964B] text-white px-4 py-2 rounded-lg hover:bg-[#d97b33]"
-              >
-                Save Experience
+                Add
               </button>
             </div>
           </div>
+
+          {skills.length === 0 && (
+            <p className="mt-3 text-gray-400 text-sm">No skills selected yet. Search or expand a category above, or add your own.</p>
+          )}
         </div>
 
         {message && (

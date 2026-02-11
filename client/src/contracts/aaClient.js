@@ -9,7 +9,7 @@ import { createPublicClient, http, encodeFunctionData, parseUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 
 const BASE_SEPOLIA_RPC = import.meta.env.VITE_BASE_SEPOLIA_RPC || "https://sepolia.base.org";
-const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://sepolia.basescan.org";
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
 
 const chain = baseSepolia;
 

@@ -4,6 +4,8 @@ import EmployerLayout from "../components/EmployerLayout";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
+
 const getStatusBadge = (dispute) => {
   if (dispute.resolved_at) {
     const isWorkerPaid = dispute.resolution === "worker_paid";
@@ -250,7 +252,7 @@ const Dispute = () => {
                   {dispute.resolution_tx_hash && (
                     <div className="mt-3">
                       <a
-                        href={`https://sepolia.basescan.org/tx/${dispute.resolution_tx_hash}`}
+                        href={`${BASESCAN_URL}/tx/${dispute.resolution_tx_hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"

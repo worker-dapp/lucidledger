@@ -35,7 +35,7 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_URL: https://lucidledger.co
+          VITE_API_BASE_URL: https://lucidledger.co/api
         run: npm run build
 
   server:

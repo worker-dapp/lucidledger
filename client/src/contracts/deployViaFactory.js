@@ -18,7 +18,7 @@ import ERC20ABI from './ERC20.json';
 // Configuration from environment variables
 const FACTORY_ADDRESS = import.meta.env.VITE_FACTORY_ADDRESS;
 const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
-const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || 'https://sepolia.basescan.org';
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || 'https://base-sepolia.blockscout.com';
 
 // USDC has 6 decimals
 const USDC_DECIMALS = 6;

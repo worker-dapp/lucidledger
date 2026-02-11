@@ -218,7 +218,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
           workerName: `${deployment.employee?.first_name || ""} ${deployment.employee?.last_name || ""}`.trim(),
           contractAddress,
           txHash: result.txHash,
-          basescanUrl: `https://sepolia.basescan.org/address/${contractAddress}`,
+          basescanUrl: `${import.meta.env.VITE_BASESCAN_URL || 'https://base-sepolia.blockscout.com'}/address/${contractAddress}`,
         });
       }
 
@@ -367,7 +367,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
                     >
-                      View on BaseScan
+                      View on-chain
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
