@@ -8,13 +8,17 @@
 
 ## General Auth
 
-- [ ] **Add logout to Navbar for all roles** — Ensure there's a visible logout option in the user dropdown/menu for employees, employers, and mediators.
+- [x] **Add logout to Navbar for all roles** — `LogoutButton` component added to `EmployerNavbar.jsx`, `EmployeeNavbar.jsx`, and `EmployerLayout.jsx`. Mediator page also has its own Sign Out button.
 - [x] **Add login button to Mediator page** — The `/resolve-disputes` page now shows a login button when user is not authenticated.
 - [x] **Add logout to Mediator page** — The `/resolve-disputes` page now has a Sign Out button in the header.
 
 ## Job Tracker (Worker Side)
 
-- [ ] **Display disputes in Job Tracker** — The Disputes field/section should show active disputes when a worker files one. Currently may not display anything after dispute is filed.
+- [x] **Display disputes in Job Tracker** — Full dispute section added: filters for `status === "disputed"`, shows dispute reason, includes "Raise Dispute" modal with on-chain filing via `raiseDispute()` and dispute history records.
+
+## Employer Navigation
+
+- [ ] **Update EmployerLayout nav link** — When Compliance Hub is built, change the "Compliance" nav link in `EmployerLayout.jsx` from `/dispute` to `/compliance`.
 
 ## Future Considerations
 

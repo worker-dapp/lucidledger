@@ -367,6 +367,59 @@ const ApplicationReviewTab = ({ employerId }) => {
                 </div>
               </div>
 
+              {(() => {
+                const emp = selectedApplication.employee;
+                const location = [emp?.city, emp?.country].filter(Boolean).join(", ");
+                let skills = [];
+                try {
+                  skills = emp?.skills ? JSON.parse(emp.skills) : [];
+                } catch {
+                  skills = [];
+                }
+                const experience = Array.isArray(emp?.work_experience) ? emp.work_experience : [];
+                const hasProfile = location || skills.length > 0 || experience.length > 0;
+
+                return hasProfile ? (
+                  <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+                    <p className="font-semibold text-[#0D3B66] mb-3">Worker Profile</p>
+                    {location && (
+                      <div className="mb-3">
+                        <p className="text-xs uppercase text-gray-400 mb-1">Location</p>
+                        <p>{location}</p>
+                      </div>
+                    )}
+                    {skills.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs uppercase text-gray-400 mb-1">Skills</p>
+                        <div className="flex flex-wrap gap-1">
+                          {skills.map((skill, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-[#FFF4E6] text-[#EE964B] rounded-full text-xs font-medium">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {experience.length > 0 && (
+                      <div>
+                        <p className="text-xs uppercase text-gray-400 mb-1">Work Experience</p>
+                        <div className="space-y-1">
+                          {experience.map((exp, i) => (
+                            <div key={i} className="flex justify-between">
+                              <span className="font-medium text-[#0D3B66]">{exp.title}</span>
+                              <span className="text-xs text-gray-400">
+                                {exp.startDate || ""}
+                                {exp.endDate ? ` – ${exp.endDate}` : exp.startDate ? " – Present" : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+
               <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
                 <p className="font-semibold text-[#0D3B66] mb-2">Offer Letter</p>
                 <p className="mb-1">

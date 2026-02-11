@@ -2,68 +2,18 @@
 
 ## Current State
 
-The employee profile page (`client/src/EmployeePages/EmployeeProfile.jsx`) has **Skills** and **Work Experience** UI sections that are fully built on the frontend but **not wired to the database**:
+**Skills and Work Experience are wired to the database and visible to employers.**
 
-- **Skills**: Tag input with autocomplete from a hardcoded suggestion list, auto-saves via debounce
-- **Work Experience**: Dynamic rows with Job Title, Start Date, End Date, manual save button
+- **Database**: Migration `014-add-employee-profile-fields.sql` adds `skills TEXT` and `work_experience JSONB` to the `employee` table. Model updated in `server/models/Employee.js`.
+- **Employee Profile** (`EmployeeProfile.jsx`): Skills tag input and Work Experience rows save correctly via `PUT /employees/:id`.
+- **Employer Application Review** (`ApplicationReviewTab.jsx`): Worker Profile section shows location, skills (as pill tags), and work experience (title + date range) between the info grid and Offer Letter box. Only renders if the worker has data — otherwise hidden.
 
-Both sections call the generic `PUT /employees/:id` endpoint, but the `employee` table and Sequelize model have no `skills` or `work_experience` columns. Sequelize silently drops the fields — data is lost on page reload. No errors are thrown.
+## What's Done
 
-The employer's application review UI (`ApplicationReviewTab.jsx`) only shows applicant name, email, job title, and dates. Even if profile data were stored, employers can't see it.
+- [x] Database migration + model update (skills TEXT, work_experience JSONB)
+- [x] Employer-side Worker Profile display in ApplicationReviewTab
 
-## What Needs to Happen
-
-### 1. Database & Model (required)
-- Add migration: `skills TEXT` and `work_experience JSONB` columns on `employee` table
-- Update `server/models/Employee.js` to include both fields
-- `skills` as TEXT (comma-separated or JSON array)
-- `work_experience` as JSONB (array of `{ title, startDate, endDate, description }`)
-- No controller changes needed — the generic `Employee.update(req.body)` will pass them through once the model recognizes the fields
-
-### 2. Employer Application Review UI (required)
-
-The right-hand "Applicant Detail" panel in `ApplicationReviewTab.jsx` (lines 295-355) currently shows:
-- Name, email, status badge
-- Role, Applied On, Offer Sent, Offer Signed (2x2 grid)
-- Offer Letter summary (position, compensation)
-
-The API already returns the full Employee record via the Sequelize include — no backend changes needed. Add the following **between** the existing 2x2 info grid and the Offer Letter box:
-
-#### a) Worker Profile Section
-```
-┌─────────────────────────────────────────────────┐
-│  Worker Profile                                 │
-│                                                 │
-│  Location        Languages                      │
-│  Nairobi, Kenya  Swahili, English               │
-│                                                 │
-│  Availability                                   │
-│  Full-time, Weekends                            │
-│                                                 │
-│  Skills                                         │
-│  [First Aid] [Child Care] [Data Entry]          │
-│                                                 │
-│  About                                          │
-│  "Experienced caregiver with 3 years..."        │
-│                                                 │
-│  Work Experience                                │
-│  ├─ Farm Worker    Jan 2023 – Dec 2024          │
-│  └─ Shop Assistant Mar 2021 – Nov 2022          │
-│                                                 │
-│  Profile: ████████░░ 80%                        │
-└─────────────────────────────────────────────────┘
-```
-
-#### b) Implementation Details
-- Render as a `<div>` with the same `bg-gray-50 rounded-lg p-4` styling as the Offer Letter box
-- **Skills**: Render as pill/badge tags (same style as EmployeeProfile) — read-only
-- **Work experience**: Simple list — job title + date range, no description needed in this view
-- **Location**: `city, country` from existing employee fields (already in DB)
-- **Languages, availability, bio**: Will display once those fields are added (Tier 2 fields)
-- **Profile completeness**: Small progress bar or percentage — helps employers gauge how seriously the worker has engaged with the platform
-- Show "No profile information provided" placeholder if all fields are empty
-- All fields are **read-only** in this view — employer cannot edit worker profile
-- Consider making the section collapsible (chevron toggle) so it doesn't overwhelm the panel for employers who just want to accept/reject quickly
+## What Remains
 
 ### 3. Profile form improvements (see recommendations below)
 

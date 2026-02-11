@@ -49,29 +49,23 @@ const ReviewCompletedContracts = () => {
   // FETCH CLOSED JOBS USING EMPLOYER ID
   // --------------------------------------------------------------------------
   useEffect(() => {
-    const fetchClosedJobs = async () => {
+    const fetchCompletedContracts = async () => {
       if (!employerId) return;
 
       try {
         setLoading(true);
-        
-        // Fetch all jobs for this employer
-        const response = await apiService.getJobsByEmployer(employerId);
-        const data = response.data || [];
-        
-        // Filter only closed jobs
-        const closedJobs = data.filter(job => job.status === 'closed');
-        
-        setContracts(closedJobs);
+
+        const response = await apiService.getDeployedContracts(employerId, 'completed');
+        setContracts(response.data || []);
       } catch (error) {
-        console.error("Error fetching closed jobs:", error);
+        console.error("Error fetching completed contracts:", error);
       } finally {
         setLoading(false);
       }
     };
-    
+
     if (employerId) {
-      fetchClosedJobs();
+      fetchCompletedContracts();
     }
   }, [employerId]);
 

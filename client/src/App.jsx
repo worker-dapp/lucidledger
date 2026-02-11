@@ -7,7 +7,6 @@ import EmployerLandingPage from "./pages/EmployerLandingPage";
 import AboutPage from "./pages/NewAbout";
 import WorkforceDashboard from "./EmployerPages/WorkforceDashboard";
 import Dispute from "./EmployerPages/Dispute";
-import JobDetails from "./pages/JobDetails";
 import EmployerProfile from "./EmployerPages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
 import ReviewCompletedContracts from "./EmployerPages/ReviewCompletedContracts";
@@ -17,7 +16,6 @@ import JobTracker from "./EmployeePages/JobTracker";
 import SupportCenter from "./EmployeePages/SupportCenter";
 import { useEffect, useState, useRef } from "react";
 import UserProfile from "./pages/UserProfile";
-import ClosedContracts from "./EmployerPages/ClosedContracts";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import MediatorResolution from "./pages/MediatorResolution";
 import AdminMediators from "./pages/AdminMediators";
@@ -385,11 +383,6 @@ const App = () => {
                 <UserProfile />
               </ProtectedRoute>
             } />
-            <Route path="/job-details/:id" element={
-              <ProtectedRoute>
-                <JobDetails />
-              </ProtectedRoute>
-            } />
 
             {/* Employee Routes - New Routes */}
             <Route path="/job-search" element={<EmployeeJobsPage />} />
@@ -436,11 +429,6 @@ const App = () => {
             <Route path="/dispute" element={
               <ProtectedRoute requiredRole="employer">
                 <Dispute />
-              </ProtectedRoute>
-            } />
-            <Route path="/closed-contracts" element={
-              <ProtectedRoute requiredRole="employer">
-                <ClosedContracts />
               </ProtectedRoute>
             } />
             <Route path="/employer-support" element={

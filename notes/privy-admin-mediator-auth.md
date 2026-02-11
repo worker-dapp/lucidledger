@@ -94,6 +94,33 @@ Store the Privy DID in the database and link it to user records. This is tracked
 
 **Long-term:** Implement Option 3 (Privy user ID storage) as part of GitHub issue #31 to properly handle the identity model.
 
+## Implementation Status (As of 2026-02-08)
+
+**Implemented:**
+1. Backend can look up Privy user email by DID in token verification.
+2. `verifyAdmin` uses Privy API + `ADMIN_EMAILS` (email-based admin auth).
+3. Some wallet-based admin gating exists in deployed contract controller using `ADMIN_WALLETS`.
+
+**Not yet implemented (relative to Option 1):**
+1. `verifyAdmin` still uses email; it does not read `x-wallet-address`.
+2. `ADMIN_WALLETS` is not documented in env example; `ADMIN_EMAILS` remains the configured path.
+3. Mediator auth/lookup still uses email (and token email extraction is Dynamic Labs style in mediator controller).
+4. Frontend still references admin email-based validation in comments.
+
+## Chicken-and-Egg Concern (Mediator Approval)
+
+Wallet-based auth does **not** require a chicken-and-egg problem as long as mediator *approval* is based on a stable identifier that exists **before** wallet login (e.g., email), and wallet is attached **after** first login.
+
+**Recommended flow (hybrid, no deadlock):**
+1. Admin approves mediator **by email** (existing `mediators.email`).
+2. Mediator logs in once and the system **attaches wallet_address** to that approved mediator record.
+3. Ongoing mediator authorization can use **wallet_address** checks.
+
+**If you want pure wallet-based approval (no email):**
+- Admin must add mediator wallets out-of-band, or
+- Mediator submits a “claim” request after first login; admin approves it from a pending list, or
+- Require mediator to sign a message to prove wallet ownership before approval.
+
 ## Related
 
 - GitHub Issue #31: Implement Privy user ID storage
