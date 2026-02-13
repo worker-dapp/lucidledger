@@ -38,9 +38,11 @@ const PostedJobsTab = ({ employerId }) => {
   };
 
   const filterPostings = () => {
-    // Only show active and draft jobs (jobs still recruiting)
+    // Show active, draft, and in_progress jobs that still have open positions
     let filtered = jobPostings.filter((posting) =>
-      posting.status === "active" || posting.status === "draft"
+      posting.status === "active" ||
+      posting.status === "draft" ||
+      (posting.status === "in_progress" && (posting.positions_filled || 0) < posting.positions_available)
     );
 
     // Filter by search term

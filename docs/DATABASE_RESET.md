@@ -12,7 +12,7 @@ Run the reset script inside the Docker container:
 docker compose exec backend npm run db:reset
 ```
 
-This will truncate all tables (`employees`, `employers`, `jobs`, `job_applications`, `saved_jobs`) and reset auto-increment IDs.
+This will truncate all tables and reset auto-increment IDs.
 
 ### 2. Clear Browser Storage
 
@@ -50,11 +50,18 @@ Hard refresh the page (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows) to ensure al
 ## What Gets Cleared
 
 ### Database Tables
-- `employees` - Employee profiles
-- `employers` - Employer profiles  
-- `jobs` - Job listings
+- `employee` - Employee profiles
+- `employer` - Employer profiles
+- `job_postings` - Job postings (current)
+- `jobs` - Job listings (legacy)
 - `job_applications` - Applications to jobs
 - `saved_jobs` - Saved/bookmarked jobs
+- `deployed_contracts` - On-chain contract records
+- `payment_transactions` - Payment history
+- `oracle_verifications` - Oracle verification records
+- `dispute_history` - Dispute resolution records
+- `mediators` - Mediator accounts
+- `contract_templates` - Reusable contract templates
 
 ### Browser localStorage
 - `userRole` - Current active role (employee/employer)

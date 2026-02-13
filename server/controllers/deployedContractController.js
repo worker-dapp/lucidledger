@@ -26,11 +26,24 @@ const updateJobStatusIfAllContractsComplete = async (jobPostingId) => {
     // If no contracts, nothing to do
     if (allContracts.length === 0) return;
 
+    // Get the job to check positions_available
+    const job = await JobPosting.findByPk(jobPostingId, {
+      attributes: ['id', 'status', 'positions_available']
+    });
+    if (!job) return;
+
+    const allPositionsFilled = allContracts.length >= (job.positions_available || 1);
+
     // Check if ALL contracts are in terminal states
     const allTerminal = allContracts.every(c => TERMINAL_CONTRACT_STATUSES.includes(c.status));
 
+    if (!allPositionsFilled) {
+      // Still open positions — keep job active so more applicants can apply
+      return;
+    }
+
     if (!allTerminal) {
-      // Some contracts still in progress - ensure job is 'in_progress'
+      // All positions filled but some contracts still active — mark in_progress
       await JobPosting.update(
         { status: 'in_progress' },
         { where: { id: jobPostingId, status: 'active' } }
@@ -38,7 +51,7 @@ const updateJobStatusIfAllContractsComplete = async (jobPostingId) => {
       return;
     }
 
-    // All contracts are terminal - determine final job status
+    // All positions filled and all contracts terminal — determine final job status
     const allRefundedOrTerminated = allContracts.every(c =>
       c.status === 'refunded' || c.status === 'terminated'
     );

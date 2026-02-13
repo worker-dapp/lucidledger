@@ -20,6 +20,24 @@
 
 - [ ] **Update EmployerLayout nav link** — When Compliance Hub is built, change the "Compliance" nav link in `EmployerLayout.jsx` from `/dispute` to `/compliance`.
 
+## Employer Landing Page
+
+- [x] **Oracle advert** Reordered to: Manual, Time Clock, Image, Weight, GPS, Custom.
+
+## Admin Employer Review
+
+- [x] **Profile display size** -- Replaced `line-clamp-3` with scrollable container (`max-h-40 overflow-y-auto`) on company description in AdminEmployers.jsx.
+
+## Positions to Fill
+
+- [x] **Enter 1 for single hire, or 50+ for bulk hiring** -- Changed to "Enter the number of workers you need for this role".
+
+## Worker Contract Rejection
+
+- [ ] **Worker rejects contract, gets warning?** -- What happens when the worker rejects an offer. Does a modal appear warning them that they are about to reject the contract? Could be good as a failsafe. 
+
 ## Future Considerations
 
-- [ ] **Session timeout** — Consider adding automatic logout after inactivity period for security.
+- [x] **Session timeout** — Idle timeout exists (`useIdleTimeout` hook). Logout-on-expiry bug fixed in `fix/bugs-and-quick-wins` branch.
+
+
