@@ -119,45 +119,29 @@ Self-dealing becomes harder with automated oracles:
 - **Time Clock Oracle**: Tracks actual time spent
 - **Manual Verification**: Still requires employer approval (but less trustworthy for self-dealing)
 
-## Demo Mode for Testing
-
-For development and demonstration purposes, self-dealing can be enabled via environment variable:
-
-**Server** (`server/.env`):
-```bash
-DEMO_MODE=true  # Allows self-dealing for testing (DISABLE IN PRODUCTION!)
-```
+## Demo Mode
 
 **Client** (`client/.env`):
 ```bash
 VITE_DEMO_MODE=true  # Shows demo mode warnings and info banners
 ```
 
-### How Demo Mode Works
+**Server** (`server/.env`):
+```bash
+DEMO_MODE=true  # Controls demo-related backend features
+```
 
-**Backend Behavior**:
-- Self-dealing attempts are logged with warnings in server console
-- Transactions proceed (not blocked)
-- Clear console messages: `⚠️ [DEMO MODE] Self-dealing detected but ALLOWED for testing`
+### Self-Dealing Is Always Blocked
 
-**Frontend Behavior**:
-- Blue info banner on job search page explains demo mode is active
-- Users can test full workflow: create job → apply to own job → complete contract
-- Banner is dismissible
+Self-dealing prevention is **always enforced** regardless of demo mode. The backend returns HTTP 403 "You cannot sign your own contract" if employee and employer wallet addresses match. This aligns with the on-chain `require(_worker != msg.sender)` check in `ManualWorkContract.sol`.
 
-**Important**: Always set `DEMO_MODE=false` before deploying to production!
+To test the full workflow (employer → worker → mediator), use **separate email addresses** for each role.
 
-### Future: Contract Test Mode
+### Demo Mode Effects
 
-For production environments where demo mode is disabled, a future feature will allow employers to test individual contracts before deployment. See: `../.github/ISSUE_TEMPLATES/contract-test-mode.md`
+**Frontend**: Shows warning banners on authenticated pages and job search page informing users this is a demo/beta site.
 
-**Proposed Feature**: Per-contract test mode toggle
-- Employers can mark specific contracts as "test mode"
-- Test contracts allow self-dealing for that contract only
-- Test contracts not visible to real workers
-- Can be converted to "live" mode when ready
-
-This provides a production-safe way to test without enabling global demo mode.
+**Backend**: Controls demo-related features (banners, notices). Does NOT affect self-dealing enforcement.
 
 ## Recommendations
 
@@ -177,10 +161,10 @@ For additional security in production:
 - Third-party dispute resolution for manual verification
 - Insurance/escrow for large payments
 
-## Contract Examples
+## Contract Source
 
-See deployed contracts:
-- **GPSBasedPayment**: `client/src/contracts/GPSBasedPayment.json`
-- **GPSOracle**: `client/src/contracts/GPSOracle.json`
+See deployed contracts in `contracts/src/`:
+- **ManualWorkContract.sol** — USDC escrow contract between employer and worker with mediator dispute resolution
+- **WorkContractFactory.sol** — Factory for deploying ManualWorkContract instances
 
-Both contracts should be updated to include wallet validation before deployment to production networks.
+Both contracts enforce `require(_worker != msg.sender)` to prevent self-dealing at the smart contract level.
