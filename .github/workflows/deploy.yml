@@ -56,7 +56,7 @@ jobs:
     - name: Deploy to EC2
       run: |
         # Create deployment script
-        # Note: ${{ }} expressions are resolved by GitHub Actions before
+        # Note: GitHub Actions expressions are resolved before
         # the script is sent to EC2 via SSH, so secrets are never stored on disk.
         cat > deploy.sh << 'DEPLOY_EOF'
         #!/bin/bash
