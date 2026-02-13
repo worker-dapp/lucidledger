@@ -18,7 +18,7 @@ You need to add these secrets in your GitHub repository:
 
 **Go to:** `Settings` → `Secrets and variables` → `Actions`
 
-#### **Required Secrets:**
+#### **Required Secrets** (sensitive values):
 ```
 # EC2 Access
 EC2_HOST          - Your EC2 instance public IP or domain
@@ -32,11 +32,31 @@ DB_NAME           - Database name
 DB_USER           - Database username
 DB_PASSWORD       - Database password
 
-# Application Configuration
-VITE_PRIVY_APP_ID - Privy app ID
-PRIVY_APP_ID - Privy app ID (server)
-PRIVY_JWKS_URL - Privy JWKS URL
-PRIVY_ISSUER - privy.io
+# Privy (server-side)
+PRIVY_APP_SECRET  - Privy app secret
+```
+
+#### **Required Variables** (non-sensitive config):
+```
+# Privy
+VITE_PRIVY_APP_ID       - Privy app ID (used by client and server)
+PRIVY_JWKS_URL          - Privy JWKS URL for JWT verification
+PRIVY_ISSUER            - privy.io
+
+# Demo Mode
+VITE_DEMO_MODE          - true/false (client)
+DEMO_MODE               - true/false (server)
+
+# Blockchain
+VITE_BASE_SEPOLIA_CHAIN_ID - 84532
+VITE_BASE_SEPOLIA_RPC      - Base Sepolia RPC URL
+VITE_BASESCAN_URL          - Block explorer URL
+VITE_USDC_ADDRESS          - USDC contract address
+VITE_FACTORY_ADDRESS       - WorkContractFactory address
+
+# Admin
+VITE_ADMIN_EMAILS       - Admin emails (client-side)
+ADMIN_EMAILS            - Admin emails (server-side)
 ```
 
 #### **Optional Secrets (for staging deployments):**
