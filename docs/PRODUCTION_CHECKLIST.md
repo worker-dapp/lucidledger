@@ -105,28 +105,41 @@ DB_PASSWORD=your_production_password
 # Server configuration
 PORT=5001
 NODE_ENV=production
+DEMO_MODE=false
 
 # CORS configuration
 CORS_ORIGIN=https://lucidledger.co
 
 # Privy JWT verification
 PRIVY_APP_ID=your_production_privy_app_id
+PRIVY_APP_SECRET=your_production_privy_app_secret
 PRIVY_JWKS_URL=your_production_privy_jwks_url
 PRIVY_ISSUER=privy.io
+
+# Admin
+ADMIN_EMAILS=admin@lucidledger.co
 ```
 
-#### GitHub Secrets (for CI/CD)
+#### GitHub Configuration (for CI/CD)
 
-Verify these secrets are set in GitHub repository settings:
+Verify these are set in GitHub repository settings (`Settings > Secrets and variables > Actions`).
 
+**Secrets** (sensitive):
 - `EC2_HOST` - Production server IP/domain
 - `EC2_USER` - SSH username
 - `SSH_PRIVATE_KEY` - SSH private key for deployment
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` - Production database
-- `VITE_PRIVY_APP_ID` - Privy production app ID
-- `PRIVY_APP_ID` - Privy production app ID (server)
+- `PRIVY_APP_SECRET` - Privy app secret
+
+**Variables** (non-sensitive):
+- `VITE_PRIVY_APP_ID` - Privy app ID (used by both client and server)
 - `PRIVY_JWKS_URL` - Privy JWKS URL
-- `PRIVY_ISSUER` - privy.io
+- `PRIVY_ISSUER` - `privy.io`
+- `VITE_DEMO_MODE` - `false` for production
+- `DEMO_MODE` - `false` for production
+- `VITE_BASE_SEPOLIA_CHAIN_ID`, `VITE_BASE_SEPOLIA_RPC`, `VITE_BASESCAN_URL` - Blockchain config
+- `VITE_USDC_ADDRESS`, `VITE_FACTORY_ADDRESS` - Contract addresses
+- `VITE_ADMIN_EMAILS`, `ADMIN_EMAILS` - Admin email addresses
 
 ---
 
@@ -344,8 +357,6 @@ git push origin main
 - [Docker Setup Guide](./DOCKER_SETUP.md) - Container management
 - [Environment Configuration](./ENVIRONMENT_SETUP.md) - Environment variables
 - [Nginx Reverse Proxy](./NGINX_SETUP.md) - SSL and proxy configuration
-- [Beta Access Gate](./beta-access-gate-implementation-plan.md) - Future access control
-
 ---
 
 ## Success Criteria
