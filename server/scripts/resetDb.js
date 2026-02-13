@@ -15,10 +15,17 @@ async function resetDatabase() {
     // Order matters due to foreign key constraints - CASCADE handles this
     // Note: table names are singular (employee, employer) per Sequelize model config
     await sequelize.query(`
-      TRUNCATE TABLE 
+      TRUNCATE TABLE
+        dispute_history,
+        payment_transactions,
+        oracle_verifications,
+        deployed_contracts,
         job_applications,
         saved_jobs,
+        job_postings,
         jobs,
+        contract_templates,
+        mediators,
         employee,
         employer
       RESTART IDENTITY CASCADE
@@ -43,7 +50,12 @@ async function resetDatabase() {
       try {
         // Try truncating tables individually, ignoring errors
         // Note: table names are singular (employee, employer) per Sequelize model config
-        const tables = ['job_applications', 'saved_jobs', 'jobs', 'employee', 'employer'];
+        const tables = [
+          'dispute_history', 'payment_transactions', 'oracle_verifications',
+          'deployed_contracts', 'job_applications', 'saved_jobs',
+          'job_postings', 'jobs', 'contract_templates',
+          'mediators', 'employee', 'employer'
+        ];
         for (const table of tables) {
           try {
             await sequelize.query(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`);

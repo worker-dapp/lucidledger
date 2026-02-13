@@ -22,6 +22,10 @@ export const useIdleTimeout = ({
   const showWarningRef = useRef(false);
   const idleTimerRef = useRef(null);
   const warnTimerRef = useRef(null);
+  const onTimeoutRef = useRef(onTimeout);
+
+  // Keep ref current without triggering re-renders or effect re-runs
+  onTimeoutRef.current = onTimeout;
 
   const clearTimers = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -29,12 +33,12 @@ export const useIdleTimeout = ({
   }, []);
 
   const startWarnTimer = useCallback(() => {
-    warnTimerRef.current = setTimeout(() => {
+    warnTimerRef.current = setTimeout(async () => {
+      await onTimeoutRef.current?.();
       showWarningRef.current = false;
       setShowWarning(false);
-      onTimeout?.();
     }, warnMs);
-  }, [warnMs, onTimeout]);
+  }, [warnMs]);
 
   const startIdleTimer = useCallback(() => {
     clearTimers();

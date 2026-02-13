@@ -408,7 +408,7 @@ const AdminEmployers = () => {
                     </div>
 
                     {employer.company_description && (
-                      <p className="mt-2 text-sm text-gray-600 bg-gray-50 rounded px-3 py-2 line-clamp-3">
+                      <p className="mt-2 text-sm text-gray-600 bg-gray-50 rounded px-3 py-2 max-h-40 overflow-y-auto">
                         {employer.company_description}
                       </p>
                     )}

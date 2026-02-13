@@ -268,9 +268,14 @@ const EmployerLandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                name: "GPS Oracle",
-                description: "Verify workers arrived at the correct location before releasing payment.",
-                icon: "📍"
+                name: "Manual Verification",
+                description: "Traditional supervisor approval when automated methods aren't suitable.",
+                icon: "✅"
+              },
+              {
+                name: "Time Clock Oracle",
+                description: "Automated time tracking for hourly work with built-in verification.",
+                icon: "⏰"
               },
               {
                 name: "Image Oracle",
@@ -283,14 +288,9 @@ const EmployerLandingPage = () => {
                 icon: "⚖️"
               },
               {
-                name: "Time Clock Oracle",
-                description: "Automated time tracking for hourly work with built-in verification.",
-                icon: "⏰"
-              },
-              {
-                name: "Manual Verification",
-                description: "Traditional supervisor approval when automated methods aren't suitable.",
-                icon: "✅"
+                name: "GPS Oracle",
+                description: "Verify workers arrived at the correct location before releasing payment.",
+                icon: "📍"
               },
               {
                 name: "Custom Oracles",
