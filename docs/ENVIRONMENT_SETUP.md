@@ -43,8 +43,9 @@ DEMO_MODE=true
 # CORS Configuration
 CORS_ORIGIN=http://localhost:5173
 
-# JWT Verification (REQUIRED for security)
+# Privy JWT Verification (REQUIRED for security)
 PRIVY_APP_ID=your_privy_app_id
+PRIVY_APP_SECRET=your_privy_app_secret
 PRIVY_JWKS_URL=your_privy_jwks_url
 PRIVY_ISSUER=privy.io
 
@@ -69,17 +70,33 @@ https://api.developer.coinbase.com/rpc/v1/base/your_client_api_key
 
 ## Production Environment
 
-### 1. GitHub Secrets
-Set these in your GitHub repository settings:
-- `VITE_PRIVY_APP_ID`: Your production Privy app ID
-- `PRIVY_APP_ID`: Same as above (for backend JWT verification)
-- `PRIVY_JWKS_URL`: Privy JWKS URL
-- `PRIVY_ISSUER`: `privy.io`
+### 1. GitHub Configuration
+Set these in your GitHub repository settings (`Settings > Secrets and variables > Actions`).
+
+**Secrets** (sensitive values):
+- `SSH_PRIVATE_KEY`: SSH key for EC2 access
+- `EC2_HOST`: Production server IP/domain
+- `EC2_USER`: SSH username
 - `DB_HOST`: Production database host
 - `DB_PORT`: Database port (usually 5432)
 - `DB_NAME`: Production database name
 - `DB_USER`: Production database user
 - `DB_PASSWORD`: Production database password
+- `PRIVY_APP_SECRET`: Privy app secret (server-side)
+
+**Variables** (non-sensitive config):
+- `VITE_PRIVY_APP_ID`: Privy app ID (used by both client and server)
+- `PRIVY_JWKS_URL`: Privy JWKS URL
+- `PRIVY_ISSUER`: `privy.io`
+- `VITE_DEMO_MODE`: `true` or `false`
+- `DEMO_MODE`: `true` or `false` (server-side)
+- `VITE_BASE_SEPOLIA_CHAIN_ID`: `84532`
+- `VITE_BASE_SEPOLIA_RPC`: Base Sepolia RPC URL
+- `VITE_BASESCAN_URL`: Block explorer URL
+- `VITE_USDC_ADDRESS`: USDC contract address
+- `VITE_FACTORY_ADDRESS`: WorkContractFactory address
+- `VITE_ADMIN_EMAILS`: Admin email addresses (client-side gating)
+- `ADMIN_EMAILS`: Admin email addresses (server-side verification)
 
 ### 2. Manual Production Setup (if not using GitHub Actions)
 Create `client/.env` on production server:
@@ -111,6 +128,7 @@ DEMO_MODE=false
 
 CORS_ORIGIN=https://lucidledger.co
 PRIVY_APP_ID=your_production_privy_app_id
+PRIVY_APP_SECRET=your_production_privy_app_secret
 PRIVY_JWKS_URL=your_production_privy_jwks_url
 PRIVY_ISSUER=privy.io
 ADMIN_EMAILS=admin@lucidledger.co
