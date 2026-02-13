@@ -492,7 +492,7 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Enter 1 for single hire, or 50+ for bulk hiring
+            Enter the number of workers you need for this role
           </p>
         </div>
       </div>
