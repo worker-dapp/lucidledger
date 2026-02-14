@@ -161,7 +161,7 @@ jobs:
 
         # Stop existing services
         echo "Stopping existing services..."
-        docker-compose -f docker-compose.nginx.yml down || true
+        docker compose -f docker-compose.nginx.yml down || true
 
         # Clean up Docker to free memory
         echo "Cleaning up Docker..."
@@ -180,15 +180,13 @@ jobs:
           chmod +x ~/.docker/cli-plugins/docker-buildx
           docker buildx install || true
         fi
-        # Use default builder with docker driver (works with docker-compose v1)
         docker buildx use default || docker buildx create --use --name default --driver docker || true
 
         # Rebuild and start services
         echo "Rebuilding and starting services..."
         # Enable BuildKit for faster builds with cache mounts
         export DOCKER_BUILDKIT=1
-        export COMPOSE_DOCKER_CLI_BUILD=1
-        docker-compose -f docker-compose.nginx.yml up -d --build
+        docker compose -f docker-compose.nginx.yml up -d --build
 
         # Wait for services to be ready (longer wait for build process)
         echo "Waiting for services to be ready..."
@@ -200,7 +198,7 @@ jobs:
 
         # Check service status
         echo "Checking service status..."
-        docker-compose -f docker-compose.nginx.yml ps
+        docker compose -f docker-compose.nginx.yml ps
 
         # Test deployment with retries
         echo "Testing deployment..."
@@ -268,13 +266,13 @@ jobs:
         if [ "$DEPLOYMENT_SUCCESS" = "false" ]; then
           echo "Deployment test failed after $MAX_RETRIES attempts"
           echo "Checking service status..."
-          docker-compose -f docker-compose.nginx.yml ps
+          docker compose -f docker-compose.nginx.yml ps
           echo "Checking nginx configuration..."
           docker exec nginx-proxy nginx -t 2>&1 || echo "Nginx config test failed"
           echo "Checking SSL certificate mount..."
           docker exec nginx-proxy ls -la /etc/letsencrypt/live/$DOMAIN/ 2>&1 || echo "SSL directory not found"
           echo "Checking service logs..."
-          docker-compose -f docker-compose.nginx.yml logs --tail=100 nginx
+          docker compose -f docker-compose.nginx.yml logs --tail=100 nginx
           echo "Testing connectivity from container..."
           docker exec nginx-proxy curl -s -o /dev/null -w "nginx->frontend: %{http_code}\n" http://frontend:80 || echo "Cannot reach frontend from nginx"
           docker exec nginx-proxy curl -s -o /dev/null -w "nginx->backend: %{http_code}\n" http://backend:5001/api/health || echo "Cannot reach backend from nginx"
