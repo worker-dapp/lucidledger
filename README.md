@@ -1,16 +1,39 @@
 # Lucid Ledger
 
-A decentralized job marketplace with blockchain-backed smart contracts, automated oracle verification, and gas-free USDC payments on Base.
+**Verifiable employment. Trusted contracts. Fair pay.**
 
-## Features
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
-- **Job Marketplace** — Employers post jobs, workers browse and apply, with full application lifecycle management
-- **Smart Contract Payments** — USDC escrow via on-chain `ManualWorkContract` deployed through a `WorkContractFactory`
-- **Oracle Verification** — Multiple verification methods (Manual, Time Clock, Image, Weight, GPS) to confirm work completion before payment release
-- **Gas-Free Transactions** — Account abstraction with Coinbase Smart Wallets and sponsored UserOps (users never need ETH)
-- **Dispute Resolution** — On-chain dispute filing with mediator assignment and resolution tracking
-- **Admin Dashboard** — Employer approval workflow, mediator management, and contract factory deployment
-- **Dual-Role System** — Users can be both employer and worker with the same account; self-dealing prevented on-chain and in backend
+[Live Site](https://lucidledger.co) | [White Paper](client/public/assets/luicid-ledger-whitepaper.pdf)
+
+## Overview
+
+Wage theft and labor exploitation persist across global supply chains because employment relationships lack transparency, verification, and enforcement. Workers face systematic underpayment, illegal deductions, and debt bondage, particularly in informal settings where traditional oversight fails. Voluntary compliance models have proven insufficient. Audits can be gamed, records falsified, and workers coached before inspections. The relationships between workers, intermediaries, and employers remain poorly documented and difficult to verify.
+
+Lucid Ledger creates verifiable, enforceable work agreements that shift compliance upstream and alter the balance of power at the point of payment. Escrow-backed smart contracts secure wages upfront, so employers cannot unilaterally withhold earnings. Automated oracle verification provides objective, on-chain proof of work completion while structured dispute resolution with independent mediators ensures accountability when disagreements arise. The platform uses blockchain and smart contracts as the enforcement mechanism behind these guarantees.
+
+The result serves two audiences equally. For workers, Lucid Ledger provides protection against exploitation in that wages are secured before work begins, and every agreement is documented on an immutable ledger. For employers, institutional stakeholders, and brands, it provides a due diligence and compliance infrastructure with verifiable audit trails, transparent labor practices, and enforceable standards across supply chains. Lucid Ledger creates natural incentives for all stakeholders to participate in more equitable labor arrangements by making previously invisible transactions transparent and enforceable.
+
+For the full vision, read the [white paper](client/public/assets/luicid-ledger-whitepaper.pdf).
+
+## How It Works
+
+An employer creates a job posting through the **Contract Factory**, configuring payment terms, compliance rules, and verification methods tailored to the work: GPS tracking for location-based jobs, image verification for agricultural output, weight oracles for catches, time clocks for shift work, or manual approval for other arrangements.
+
+Workers browse available positions through the **Job Search** interface, apply directly without intermediaries or broker fees, and undergo a screening process. When an employer accepts an application, a formal **Work Contract** is deployed on-chain. At this point, the employer's USDC payment is locked in escrow. The worker knows funds are secured before beginning work.
+
+During the work period, the **Oracle Network** feeds objective verification of work performance on-chain. A GPS oracle might confirm a worker reached a job site; an image oracle might verify the volume of a harvest; a time clock oracle tracks hours worked. This verification is recorded immutably, creating an auditable trail that replaces the easily falsified paper records common in exploitative labor arrangements.
+
+When oracles confirm work completion, **payment releases automatically** to the worker. If either party raises a dispute, the contract enters mediation. An independent mediator reviews the evidence and resolves the matter, with the ruling enforced on-chain. Every step is recorded, creating a transparent history that regulators, buyers, and certification bodies can audit.
+
+## Key Features
+
+- **Gas-free transactions**: Account abstraction with smart wallets means users never need ETH; all gas is sponsored by the platform
+- **USDC payments on Base**: Stablecoin escrow on a low-cost L2, avoiding cryptocurrency volatility
+- **Dual-role system**: The same account can operate as both employer and worker, with self-dealing prevention enforced on-chain and in the backend
+- **Multiple oracle types**: GPS, image, weight, time clock, and manual verification methods adaptable to diverse work environments
+- **Structured dispute resolution**: Independent mediator assignment with conflict-of-interest checks and on-chain enforcement
+- **Admin dashboard**: Employer approval workflows, mediator management, and factory contract deployment
 
 ## Tech Stack
 
@@ -41,14 +64,14 @@ A decentralized job marketplace with blockchain-backed smart contracts, automate
 - AWS RDS PostgreSQL
 - Let's Encrypt SSL via Certbot
 
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 - Node.js 18+
-- Docker & Docker Compose
+- Docker & Docker Compose (optional)
 - Git
 
-### Local Development
+### Setup
 
 1. Clone the repository:
 ```bash
@@ -56,12 +79,40 @@ git clone <repository-url>
 cd lucidledger
 ```
 
-2. Create environment files (see [Environment Variables](#environment-variables) below):
+2. Create environment files. Copy the examples below and fill in your values. See [`docs/ENVIRONMENT_SETUP.md`](docs/ENVIRONMENT_SETUP.md) for a full reference of all variables.
+
+**`server/.env`**
 ```bash
-# Create server/.env and client/.env with required variables
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=lucidledger_dev
+DB_USER=your_username
+DB_PASSWORD=your_password
+PORT=5001
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+PRIVY_APP_ID=your_privy_app_id
+PRIVY_APP_SECRET=your_privy_app_secret
+PRIVY_JWKS_URL=https://auth.privy.io/api/v1/apps/YOUR_APP_ID/.well-known/jwks.json
+PRIVY_ISSUER=privy.io
+ADMIN_EMAILS=admin@example.com
+DEMO_MODE=true
 ```
 
-3. Install dependencies and start:
+**`client/.env`**
+```bash
+VITE_PRIVY_APP_ID=your_privy_app_id
+VITE_API_BASE_URL=http://localhost:5001/api
+VITE_BASE_SEPOLIA_CHAIN_ID=84532
+VITE_BASE_SEPOLIA_RPC=https://sepolia.base.org
+VITE_BASESCAN_URL=https://sepolia.basescan.org
+VITE_USDC_ADDRESS=0x...
+VITE_FACTORY_ADDRESS=0x...
+VITE_ADMIN_EMAILS=admin@example.com
+VITE_DEMO_MODE=true
+```
+
+3. Install and run:
 ```bash
 # Backend
 cd server && npm install && npm run dev
@@ -70,9 +121,9 @@ cd server && npm install && npm run dev
 cd client && npm install && npm run dev
 ```
 
-The app will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:5001
+The app will be available at http://localhost:5173 (frontend) and http://localhost:5001 (API).
+
+Database migrations run automatically on server startup.
 
 ### Using Docker
 
@@ -80,62 +131,9 @@ The app will be available at:
 docker compose up --build
 ```
 
-For production deployment with Nginx + SSL:
+For production with Nginx + SSL:
 ```bash
 docker compose -f docker-compose.nginx.yml up -d --build
-```
-
-## Environment Variables
-
-### Client (`client/.env`)
-```bash
-# Privy
-VITE_PRIVY_APP_ID=your_privy_app_id
-
-# API
-VITE_API_BASE_URL=http://localhost:5001/api
-
-# Blockchain
-VITE_BASE_SEPOLIA_CHAIN_ID=84532
-VITE_BASE_SEPOLIA_RPC=https://sepolia.base.org
-VITE_BASESCAN_URL=https://sepolia.basescan.org
-
-# Contract Addresses
-VITE_USDC_ADDRESS=0x...
-VITE_FACTORY_ADDRESS=0x...
-
-# Admin
-VITE_ADMIN_EMAILS=admin@example.com
-
-# Demo Mode (shows warning banners for testing)
-VITE_DEMO_MODE=true
-```
-
-### Server (`server/.env`)
-```bash
-# Database (PostgreSQL / AWS RDS)
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=lucidledger_dev
-DB_USER=your_username
-DB_PASSWORD=your_password
-
-# Server
-PORT=5001
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
-
-# Privy JWT Verification
-PRIVY_APP_ID=your_privy_app_id
-PRIVY_APP_SECRET=your_privy_app_secret
-PRIVY_JWKS_URL=https://auth.privy.io/api/v1/apps/YOUR_APP_ID/.well-known/jwks.json
-PRIVY_ISSUER=privy.io
-
-# Admin
-ADMIN_EMAILS=admin@example.com
-
-# Demo Mode
-DEMO_MODE=true
 ```
 
 ## Project Structure
@@ -143,18 +141,16 @@ DEMO_MODE=true
 ```
 lucidledger/
 ├── client/                     # React frontend (Vite)
-│   ├── src/
-│   │   ├── components/         # Shared components (Navbar, Footer, ProtectedRoute)
-│   │   ├── contracts/          # ABI files, AA client, contract interaction helpers
-│   │   ├── EmployeePages/      # Worker pages (dashboard, job search, tracker, earnings)
-│   │   ├── EmployerPages/      # Employer pages (dashboard, contract factory, disputes)
-│   │   │   └── ContractFactory/ # Job posting, application review, contract deployment
-│   │   ├── Form/               # Multi-step job creation wizard
-│   │   ├── hooks/              # Custom hooks (useAuth, useIdleTimeout)
-│   │   ├── pages/              # Shared pages (landing, about, profile, admin)
-│   │   └── services/           # API client (apiService singleton)
-│   ├── Dockerfile.prod
-│   └── package.json
+│   └── src/
+│       ├── components/         # Shared components (Navbar, Footer, ProtectedRoute)
+│       ├── contracts/          # ABI files, AA client, contract interaction helpers
+│       ├── EmployeePages/      # Worker pages (job search, tracker, profile, support)
+│       ├── EmployerPages/      # Employer pages (contract factory, workforce, disputes)
+│       │   └── ContractFactory/ # Job posting, application review, contract deployment
+│       ├── Form/               # Multi-step job creation wizard
+│       ├── hooks/              # Custom hooks (useAuth, useIdleTimeout)
+│       ├── pages/              # Shared pages (landing, about, profile, admin)
+│       └── services/           # API client (apiService singleton)
 ├── server/                     # Express backend
 │   ├── config/                 # Database configuration
 │   ├── controllers/            # Route handlers (class-based, static methods)
@@ -162,75 +158,34 @@ lucidledger/
 │   ├── migrations/             # SQL migration files (auto-run on startup)
 │   ├── models/                 # Sequelize models
 │   ├── routes/                 # Express route definitions
-│   ├── scripts/                # DB reset, migration runner, contract sync
-│   ├── Dockerfile.prod
-│   └── package.json
+│   └── scripts/                # DB reset, migration runner, contract sync
 ├── contracts/                  # Solidity smart contracts (Foundry)
 │   └── src/
 │       ├── ManualWorkContract.sol
 │       └── WorkContractFactory.sol
 ├── docs/                       # Documentation
-├── notes/                      # Development notes and TODOs
 ├── docker-compose.yml          # Development Docker config
 ├── docker-compose.nginx.yml    # Production Docker config (Nginx + SSL)
-├── nginx.conf                  # Nginx configuration
 └── .github/workflows/deploy.yml # CI/CD pipeline
 ```
 
-## API Endpoints
+## API Reference
 
-All routes are prefixed with `/api` and protected by Privy JWT authentication.
+All routes are prefixed with `/api` and protected by Privy JWT authentication. See route files in `server/routes/` for full endpoint details.
 
-### Employees
-- `POST /api/employees` — Create employee profile
-- `GET /api/employees/email/:email` — Lookup by email
-- `GET /api/employees/wallet/:address` — Lookup by wallet address
-- `GET /api/employees/phone/:phone` — Lookup by phone
-
-### Employers
-- `POST /api/employers` — Create employer profile
-- `GET /api/employers/email/:email` — Lookup by email
-- `GET /api/employers/wallet/:address` — Lookup by wallet
-- `PUT /api/employers/:id` — Update employer profile
-
-### Job Postings
-- `POST /api/job-postings` — Create job posting
-- `GET /api/job-postings` — List job postings (with filters)
-- `GET /api/job-postings/:id` — Get job details
-- `PUT /api/job-postings/:id` — Update job posting
-- `PUT /api/job-postings/:id/status` — Update job status
-
-### Job Applications
-- `POST /api/job-applications/apply` — Apply to job
-- `POST /api/job-applications/save` — Save job for later
-- `GET /api/job-applications/employee/:id` — Get employee's applications
-- `GET /api/job-applications/job/:id` — Get applications for a job
-- `PUT /api/job-applications/:id/status` — Update application status
-
-### Deployed Contracts
-- `POST /api/deployed-contracts` — Record deployed contract
-- `GET /api/deployed-contracts/employer/:id` — Get employer's contracts
-- `GET /api/deployed-contracts/employee/:walletAddress` — Get worker's contracts
-- `PUT /api/deployed-contracts/:id` — Update contract state
-
-### Mediators
-- `POST /api/mediators` — Register mediator
-- `GET /api/mediators` — List mediators
-
-### Dispute History
-- `POST /api/dispute-history` — Create dispute record
-- `GET /api/dispute-history/contract/:address` — Get disputes for contract
-
-### Admin
-- `GET /api/admin/employers` — List all employers
-- `GET /api/admin/employers/pending` — List employers pending approval
-- `POST /api/admin/employers/:id/approve` — Approve employer
-- `POST /api/admin/employers/:id/reject` — Reject employer
-
-### Other
-- `GET /api/contract-templates` — List contract templates
-- `POST /api/oracle-verifications` — Record oracle verification
-- `POST /api/payment-transactions` — Record payment transaction
+| Resource | Description | Route Prefix |
+|---|---|---|
+| Employees | Worker profile CRUD and lookup | `/api/employees` |
+| Employers | Employer profile CRUD and lookup | `/api/employers` |
+| Job Postings | Create, list, update, and manage job status | `/api/job-postings` |
+| Job Applications | Apply, save, and manage application status | `/api/job-applications` |
+| Deployed Contracts | Record and query on-chain contracts | `/api/deployed-contracts` |
+| Contract Templates | Reusable contract template library | `/api/contract-templates` |
+| Oracle Verifications | Record oracle verification events | `/api/oracle-verifications` |
+| Payment Transactions | Record payment history | `/api/payment-transactions` |
+| Mediators | Mediator registration and listing | `/api/mediators` |
+| Dispute History | Dispute records per contract | `/api/dispute-history` |
+| Admin: Employers | Employer approval/rejection workflow | `/api/admin/employers` |
 
 ## Smart Contract Architecture
 
@@ -258,14 +213,26 @@ The pipeline:
 1. SSHs into EC2 instance
 2. Pulls latest code
 3. Generates `.env` files from GitHub Secrets/Variables
-4. Rebuilds Docker containers (`docker-compose -f docker-compose.nginx.yml up -d --build`)
+4. Rebuilds Docker containers (`docker compose -f docker-compose.nginx.yml up -d --build`)
 5. Runs health checks against the live domain
 
-Required GitHub configuration:
-- **Secrets**: `SSH_PRIVATE_KEY`, `EC2_HOST`, `EC2_USER`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `PRIVY_APP_SECRET`
-- **Variables**: `VITE_PRIVY_APP_ID`, `VITE_DEMO_MODE`, `VITE_BASE_SEPOLIA_CHAIN_ID`, `VITE_BASE_SEPOLIA_RPC`, `VITE_BASESCAN_URL`, `VITE_USDC_ADDRESS`, `VITE_FACTORY_ADDRESS`, `VITE_ADMIN_EMAILS`, `ADMIN_EMAILS`, `DEMO_MODE`, `PRIVY_JWKS_URL`, `PRIVY_ISSUER`
-
 Manual deploys can be triggered via `workflow_dispatch` with environment and branch selection.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -m 'Add your feature'`)
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
+
+Please note that this project is licensed under AGPL-3.0. Any modifications, including those deployed as a network service, must be released under the same license.
+
+## License
+
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE), the strongest copyleft license, ensuring all modifications (including those used over a network) remain open source.
+
+Copyright (C) 2025 Lucid Ledger
 
 ## Support
 
