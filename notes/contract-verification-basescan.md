@@ -1,8 +1,8 @@
-# Contract Verification on BaseScan
+# Contract Verification on BaseScan and BlockScout
 
 ## Problem
 
-Deployed contracts (ManualWorkContract, WorkContractFactory) show only bytecode on BaseScan. Without verification, you can't use the "Read Contract" and "Write Contract" buttons to inspect state or call functions directly.
+Deployed contracts (ManualWorkContract, WorkContractFactory) show only bytecode on BaseScan and BlockScout. Without verification, you can't use the "Read Contract" and "Write Contract" buttons to inspect state or call functions directly.
 
 ## Why This Happens
 

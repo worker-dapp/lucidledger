@@ -2,19 +2,6 @@ const { Mediator } = require('../models');
 const { Op } = require('sequelize');
 
 /**
- * Extracts user email from the JWT token payload.
- * Handles different token formats from Dynamic Labs.
- */
-const getUserEmail = (user) => {
-  return (
-    user?.email ||
-    user?.verified_credentials?.[0]?.email ||
-    user?.verifiedCredentials?.[0]?.email ||
-    ''
-  );
-};
-
-/**
  * Checks if the given email is an admin email.
  * Admin emails are configured via ADMIN_EMAILS environment variable.
  */
@@ -262,8 +249,8 @@ class MediatorController {
         });
       }
 
-      // Authorization check: verify requesting user's identity
-      const userEmail = getUserEmail(req.user);
+      // Authorization check: email is set by verifyToken middleware via Privy API
+      const userEmail = req.user?.email;
       if (!userEmail) {
         return res.status(403).json({
           success: false,

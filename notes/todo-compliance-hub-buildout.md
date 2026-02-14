@@ -961,6 +961,12 @@ exportOracleVerifications: (params) => api.get('/reports/oracle-verifications', 
 
 ---
 
+## Pre-Requisite: Update Employer Nav Link
+
+When the Compliance Hub is built, update the "Compliance" nav link in `EmployerLayout.jsx` from `/dispute` to `/compliance`.
+
+---
+
 ## Notes
 
 - **No breaking changes** - All existing functionality preserved
