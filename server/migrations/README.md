@@ -1,64 +1,18 @@
 # Database Migrations
 
-## Running Migrations
+Migrations run automatically on server startup via `runMigrationsOnStartup()` in `server.js`.
 
-### For Existing Databases
+## Migration Order
 
-If you have an existing database that needs the new fields, run:
+1. `create-all-tables.sql` — Base tables: `employee`, `employer`, `job_applications`, `saved_jobs`, and legacy `jobs`
+2. `001` through `014` — Numbered migrations that build the rest of the schema (contract templates, job postings, deployed contracts, mediators, dispute history, etc.)
 
-```bash
-# Connect to your PostgreSQL database and run:
-psql -U your_username -d your_database -f server/migrations/add-missing-fields.sql
-```
+Migration `005` drops the legacy `jobs` table in favor of `job_postings` (created in `002`).
 
-Or using Node.js migration script:
+## Adding New Migrations
 
-```bash
-cd server
-node scripts/run-migration.js add-missing-fields.sql
-```
+1. Create a new file: `0XX-description.sql`
+2. Use `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` for idempotency
+3. Add the filename to the `migrationFiles` array in `server.js`
 
-### For New Databases
-
-For new database setups, simply run the main migration file which now includes all fields:
-
-```bash
-psql -U your_username -d your_database -f server/migrations/create-all-tables.sql
-```
-
-Or using Node.js:
-
-```bash
-cd server
-node scripts/run-migration.js create-all-tables.sql
-```
-
-## New Fields Added
-
-### Employee Table
-- `street_address2` - Secondary address line (apartment, suite, unit, etc.)
-
-### Employer Table
-- `street_address2` - Secondary address line (apartment, suite, unit, etc.)
-- `company_name` - Name of the company
-- `company_description` - Description of the company, its mission, and what makes it unique
-- `industry` - Industry sector of the company
-- `company_size` - Size of the company (number of employees)
-- `website` - Company website URL
-- `linkedin` - Company LinkedIn profile URL
-
-## Existing Fields (No Action Needed)
-- `country_code` - Already exists in both tables
-
-## Verification
-
-After running the migration, verify the changes:
-
-```sql
--- Check employee table structure
-\d public.employee
-
--- Check employer table structure
-\d public.employer
-```
-
+All migrations are idempotent and safe to re-run.
