@@ -115,8 +115,6 @@ async function runMigrationsOnStartup() {
     // Get all SQL migration files in order
     const migrationFiles = [
       'create-all-tables.sql',
-      'add-employer-id-to-jobs.sql',
-      'add-missing-fields.sql',
       '001-create-contract-templates.sql',
       '002-create-job-postings.sql',
       '003-update-job-applications.sql',
