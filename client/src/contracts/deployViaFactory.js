@@ -79,6 +79,7 @@ export const getUSDCBalance = async (address) => {
  * @param {string} params.workerAddress - Worker's wallet address
  * @param {number} params.paymentAmountUSD - Payment amount in USD
  * @param {number} params.jobId - Database ID of the job posting
+ * @param {string[]} [params.oracleTypes] - Oracle type strings (e.g. ["manual"]), defaults to []
  * @param {function} [params.onStatusChange] - Callback for status updates
  * @returns {Promise<{contractAddress: string, txHash: string, basescanUrl: string}>}
  */
@@ -87,6 +88,7 @@ export const deploySingleViaFactory = async ({
   workerAddress,
   paymentAmountUSD,
   jobId,
+  oracleTypes = [],
   onStatusChange,
 }) => {
   const config = checkFactoryConfiguration();
@@ -114,7 +116,7 @@ export const deploySingleViaFactory = async ({
       data: encodeFunctionData({
         abi: WorkContractFactoryABI.abi,
         functionName: 'deployContract',
-        args: [validatedWorker, mediatorAddress, amountUnits, BigInt(jobId)],
+        args: [validatedWorker, mediatorAddress, amountUnits, BigInt(jobId), oracleTypes],
       }),
     },
   ];
@@ -140,7 +142,7 @@ export const deploySingleViaFactory = async ({
  *
  * @param {object} params - Batch parameters
  * @param {object} params.smartWalletClient - Privy smart wallet client
- * @param {Array<{workerAddress: string, paymentAmountUSD: number, jobId: number}>} params.deployments - Array of deployment configs
+ * @param {Array<{workerAddress: string, paymentAmountUSD: number, jobId: number, oracleTypes?: string[]}>} params.deployments - Array of deployment configs
  * @param {function} [params.onStatusChange] - Callback for status updates
  * @returns {Promise<{contractAddresses: string[], txHash: string, basescanUrl: string}>}
  */
@@ -169,6 +171,7 @@ export const deployBatchViaFactory = async ({
   const mediators = deployments.map(() => getAddress(ZERO_ADDRESS));
   const amounts = deployments.map((d) => parseUnits(d.paymentAmountUSD.toString(), USDC_DECIMALS));
   const jobIds = deployments.map((d) => BigInt(d.jobId));
+  const oracleTypesPerContract = deployments.map((d) => d.oracleTypes || []);
 
   // Build batch transaction: approve total + deployBatch
   const calls = [
@@ -185,7 +188,7 @@ export const deployBatchViaFactory = async ({
       data: encodeFunctionData({
         abi: WorkContractFactoryABI.abi,
         functionName: 'deployBatch',
-        args: [workers, mediators, amounts, jobIds],
+        args: [workers, mediators, amounts, jobIds, oracleTypesPerContract],
       }),
     },
   ];

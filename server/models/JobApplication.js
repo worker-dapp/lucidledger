@@ -44,6 +44,14 @@ const JobApplication = sequelize.define('JobApplication', {
     type: DataTypes.STRING(30),
     defaultValue: 'not_deployed'
     // 'not_deployed', 'pending_deployment', 'deploying', 'confirmed', 'failed'
+  },
+  offer_signature: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  offer_signed_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   tableName: 'job_applications',

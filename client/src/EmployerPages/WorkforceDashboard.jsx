@@ -20,7 +20,7 @@ import {
   ContractState,
   StateNames,
 } from "../contracts/workContractInteractions";
-import { getBasescanUrl } from "../contracts/deployWorkContract";
+import { getBasescanUrl } from "../contracts/aaClient";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 import { useAuth } from "../hooks/useAuth";
 
@@ -70,6 +70,7 @@ const WorkforceDashboard = () => {
     setTxStep(step);
     setTxMessage(message);
   };
+
 
   // Set wallet address for API requests when it changes
   useEffect(() => {
@@ -569,6 +570,7 @@ const WorkforceDashboard = () => {
                           <span className="text-gray-500">State:</span>
                           <span className={`font-medium ${
                             blockchainState.state === ContractState.Funded ? "text-green-600" :
+                            blockchainState.state === ContractState.Active ? "text-blue-600" :
                             blockchainState.state === ContractState.Completed ? "text-blue-600" :
                             blockchainState.state === ContractState.Disputed ? "text-yellow-600" :
                             "text-gray-600"
@@ -608,6 +610,20 @@ const WorkforceDashboard = () => {
                     {txStep !== TxSteps.IDLE && (approving || disputing) && (
                       <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700">
                         {txMessage || "Processing..."}
+                      </div>
+                    )}
+
+                    {/* Oracle status */}
+                    {permissions.oracleCount > 0 && (blockchainState?.state === ContractState.Funded || blockchainState?.state === ContractState.Active) && (
+                      <div className={`p-3 rounded-lg text-sm ${permissions.oraclesPassing ? "bg-green-50 border border-green-200" : "bg-yellow-50 border border-yellow-200"}`}>
+                        <p className={`font-medium ${permissions.oraclesPassing ? "text-green-800" : "text-yellow-800"}`}>
+                          {permissions.oraclesPassing ? "Oracle verification passed" : "Oracle verification pending"}
+                        </p>
+                        <p className={`text-xs mt-1 ${permissions.oraclesPassing ? "text-green-700" : "text-yellow-700"}`}>
+                          {permissions.oraclesPassing
+                            ? "All oracles verified. You can now approve and release payment."
+                            : "You must verify work before payment can be released."}
+                        </p>
                       </div>
                     )}
 

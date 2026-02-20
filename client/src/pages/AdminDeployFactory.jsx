@@ -11,19 +11,27 @@ import {
   XCircle,
 } from "lucide-react";
 import apiService from "../services/api";
-import { getOnChainAdminAddress } from "../contracts/adminUtils";
+import { getOnChainAdminAddress, registerOracle, getRegisteredOracle } from "../contracts/adminUtils";
 import { useAuth } from "../hooks/useAuth";
+import { parseAAError } from "../contracts/aaClient";
 import LogoutButton from "../components/LogoutButton";
 
 const FACTORY_ADDRESS = import.meta.env.VITE_FACTORY_ADDRESS || "";
 
 const AdminDeployFactory = () => {
-  const { user, login, smartWalletAddress } = useAuth();
+  const { user, login, smartWalletAddress, smartWalletClient } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   const [onChainAdmin, setOnChainAdmin] = useState(null);
   const [walletMismatch, setWalletMismatch] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Oracle registration state
+  const [oracleAddress, setOracleAddress] = useState("");
+  const [registering, setRegistering] = useState(false);
+  const [registerResult, setRegisterResult] = useState(null);
+  const [registerError, setRegisterError] = useState(null);
+  const [manualOracleStatus, setManualOracleStatus] = useState(null);
 
   const userEmail = user?.email?.address?.toLowerCase() || "";
 
@@ -55,6 +63,39 @@ const AdminDeployFactory = () => {
     };
     fetchOnChainAdmin();
   }, []);
+
+  // Check oracle registry status
+  useEffect(() => {
+    const checkOracles = async () => {
+      const addr = await getRegisteredOracle("manual");
+      setManualOracleStatus(addr);
+    };
+    checkOracles();
+  }, [registerResult]);
+
+  const handleRegisterOracle = async () => {
+    if (!oracleAddress || !smartWalletClient) return;
+
+    setRegistering(true);
+    setRegisterResult(null);
+    setRegisterError(null);
+
+    try {
+      const result = await registerOracle({
+        smartWalletClient,
+        oracleAddress,
+        onStatusChange: ({ step, message }) => {
+          console.log(`Register oracle: ${step} - ${message}`);
+        },
+      });
+      setRegisterResult(result);
+      setOracleAddress("");
+    } catch (error) {
+      setRegisterError(parseAAError(error));
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   // Wallet mismatch detection
   useEffect(() => {
@@ -240,6 +281,82 @@ npx hardhat run scripts/deployFactory.js --network baseSepolia`}
           <p className="text-xs text-gray-500 mt-4">
             See <code>docs/DEPLOYING_FACTORY.md</code> for full instructions.
           </p>
+        </div>
+
+        {/* Oracle Registry */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
+          <h2 className="text-lg font-semibold text-[#0D3B66] mb-2">Oracle Registry</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Register oracle contracts with the factory. This calls <code>registerOracle()</code> from your admin smart wallet.
+          </p>
+
+          {/* Current status */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <p className="text-xs text-gray-500 mb-2">Registered Oracles:</p>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-600">manual:</span>
+              {manualOracleStatus ? (
+                <span className="font-mono text-xs text-green-700 flex items-center gap-1">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  {manualOracleStatus}
+                </span>
+              ) : (
+                <span className="text-amber-600 flex items-center gap-1 text-xs">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Not registered
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Register form */}
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Oracle Contract Address</label>
+              <input
+                type="text"
+                value={oracleAddress}
+                onChange={(e) => setOracleAddress(e.target.value)}
+                placeholder="0x..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              onClick={handleRegisterOracle}
+              disabled={registering || !oracleAddress || !smartWalletClient}
+              className="px-4 py-2 bg-[#0D3B66] text-white text-sm rounded-lg hover:bg-[#0a2d4d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {registering && <Loader2 className="h-4 w-4 animate-spin" />}
+              {registering ? "Registering..." : "Register Oracle"}
+            </button>
+          </div>
+
+          {registerResult && (
+            <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-800 flex items-center gap-1">
+                <CheckCircle className="h-4 w-4" />
+                Oracle registered successfully!
+              </p>
+              <a
+                href={registerResult.basescanUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-green-600 underline mt-1 block"
+              >
+                View transaction
+              </a>
+            </div>
+          )}
+
+          {registerError && (
+            <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800 flex items-center gap-1">
+                <XCircle className="h-4 w-4" />
+                Registration failed
+              </p>
+              <p className="text-xs text-red-600 mt-1">{registerError}</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
