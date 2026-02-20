@@ -120,6 +120,7 @@ jobs:
         # Contract Addresses
         VITE_USDC_ADDRESS=${{ vars.VITE_USDC_ADDRESS }}
         VITE_FACTORY_ADDRESS=${{ vars.VITE_FACTORY_ADDRESS }}
+        VITE_MANUAL_ORACLE_ADDRESS=${{ vars.VITE_MANUAL_ORACLE_ADDRESS }}
 
         # Admin Configuration
         VITE_ADMIN_EMAILS=${{ vars.VITE_ADMIN_EMAILS }}
