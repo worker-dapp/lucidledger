@@ -31,6 +31,7 @@ const MediatorResolution = () => {
   const [selectedContract, setSelectedContract] = useState(null);
   const [blockchainState, setBlockchainState] = useState(null);
   const [resolving, setResolving] = useState(false);
+  const [workerPercentage, setWorkerPercentage] = useState(100);
   const [message, setMessage] = useState("");
   const [txStep, setTxStep] = useState(TxSteps.IDLE);
   const [txMessage, setTxMessage] = useState("");
@@ -101,6 +102,11 @@ const MediatorResolution = () => {
     fetchDisputedContracts();
   }, [isAuthorized, mediatorData?.id]);
 
+  // Reset percentage slider when a new contract is selected
+  useEffect(() => {
+    setWorkerPercentage(100);
+  }, [selectedContract?.id]);
+
   // Fetch blockchain state for selected contract
   useEffect(() => {
     const fetchBlockchainState = async () => {
@@ -127,12 +133,17 @@ const MediatorResolution = () => {
     fetchBlockchainState();
   }, [selectedContract?.contract_address]);
 
-  const handleResolve = async (payWorker) => {
+  const handleResolve = async () => {
     if (!selectedContract?.contract_address || !smartWalletClient || !smartWalletAddress) return;
 
     setResolving(true);
     setMessage("");
     setTxStep(TxSteps.IDLE);
+
+    const pct = Number(workerPercentage);
+    const escrow = parseFloat(blockchainState?.balance || selectedContract.payment_amount || 0);
+    const workerAmount = ((escrow * pct) / 100).toFixed(2);
+    const employerAmount = (escrow - parseFloat(workerAmount)).toFixed(2);
 
     try {
       // For mock contracts, just update the database
@@ -144,32 +155,32 @@ const MediatorResolution = () => {
           user,
           smartWalletClient,
           contractAddress: selectedContract.contract_address,
-          workerPercentage: payWorker ? 100 : 0,
+          workerPercentage: pct,
           onStatusChange: handleTxStatusChange,
         });
         txHash = result.txHash;
-        setMessage(
-          `Dispute resolved (gas-free)! ${payWorker ? "Worker" : "Employer"} received the funds. ` +
-          `View on-chain: ${result.basescanUrl}`
-        );
+        const summary = pct === 100
+          ? "Worker received full payment."
+          : pct === 0
+          ? "Employer received full refund."
+          : `Worker: ${workerAmount} USDC / Employer: ${employerAmount} USDC.`;
+        setMessage(`Dispute resolved (gas-free)! ${summary} View on-chain: ${result.basescanUrl}`);
       } else {
-        setMessage(
-          `Dispute resolved (mock contract)! ${payWorker ? "Worker" : "Employer"} would receive the funds.`
-        );
+        setMessage(`Dispute resolved (mock contract)! Worker: ${workerAmount} USDC / Employer: ${employerAmount} USDC.`);
       }
 
       // Update database status
       await apiService.updateDeployedContract(selectedContract.id, {
-        status: payWorker ? "completed" : "terminated",
-        verification_status: payWorker ? "verified" : "failed",
+        status: pct > 0 ? "completed" : "terminated",
+        verification_status: pct > 0 ? "verified" : "failed",
       });
 
       // Record payment transaction so worker earnings update
-      if (payWorker) {
+      if (pct > 0) {
         try {
           await apiService.createPaymentTransaction({
             deployed_contract_id: selectedContract.id,
-            amount: selectedContract.payment_amount,
+            amount: workerAmount,
             currency: selectedContract.payment_currency || "USDC",
             payment_type: "final",
             status: "completed",
@@ -188,10 +199,11 @@ const MediatorResolution = () => {
         const disputeResponse = await apiService.getDisputesByContract(selectedContract.id);
         const openDispute = disputeResponse?.data?.find((d) => !d.resolved_at);
         if (openDispute) {
+          const resolutionLabel = pct === 100 ? "worker_paid" : pct === 0 ? "employer_refunded" : "split_resolution";
           await apiService.updateDisputeRecord(openDispute.id, {
-            resolution: payWorker ? "worker_paid" : "employer_refunded",
+            resolution: resolutionLabel,
             resolution_tx_hash: txHash,
-            resolution_notes: `Mediator resolved dispute in favor of ${payWorker ? "worker" : "employer"}.`,
+            resolution_notes: `Mediator resolved: worker ${pct}% (${workerAmount} USDC), employer ${100 - pct}% (${employerAmount} USDC).`,
           });
         }
       } catch (err) {
@@ -485,11 +497,61 @@ const MediatorResolution = () => {
                     </div>
                   )}
 
-                  <div className="space-y-3">
+                  {/* Percentage Slider */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Full refund to employer</span>
+                        <span>Full payment to worker</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={workerPercentage}
+                        onChange={(e) => setWorkerPercentage(Number(e.target.value))}
+                        disabled={resolving}
+                        className="w-full accent-[#0D3B66]"
+                      />
+                      <div className="flex justify-between mt-2">
+                        {[0, 25, 50, 75, 100].map((pct) => (
+                          <button
+                            key={pct}
+                            onClick={() => setWorkerPercentage(pct)}
+                            disabled={resolving}
+                            className={`text-xs px-2 py-1 rounded ${
+                              workerPercentage === pct
+                                ? "bg-[#0D3B66] text-white"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Split Preview */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm">
+                      <p className="text-xs font-medium text-gray-500 mb-2">Split preview</p>
+                      <div className="flex justify-between">
+                        <span className="text-gray-700">Worker receives</span>
+                        <span className="font-semibold text-green-700">
+                          {((parseFloat(blockchainState?.balance || selectedContract.payment_amount || 0) * workerPercentage) / 100).toFixed(2)} USDC
+                        </span>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-gray-700">Employer receives</span>
+                        <span className="font-semibold text-blue-700">
+                          {(parseFloat(blockchainState?.balance || selectedContract.payment_amount || 0) * (100 - workerPercentage) / 100).toFixed(2)} USDC
+                        </span>
+                      </div>
+                    </div>
+
                     <button
-                      onClick={() => handleResolve(true)}
+                      onClick={handleResolve}
                       disabled={resolving || !smartWalletClient || !smartWalletAddress || (blockchainState && blockchainState.state !== ContractState.Disputed)}
-                      className="w-full bg-green-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full bg-[#0D3B66] text-white py-3 rounded-lg text-sm font-semibold hover:bg-[#0a2f52] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {resolving ? (
                         <>
@@ -499,25 +561,7 @@ const MediatorResolution = () => {
                       ) : (
                         <>
                           <CheckCircle className="h-4 w-4" />
-                          Release to Worker
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => handleResolve(false)}
-                      disabled={resolving || !smartWalletClient || !smartWalletAddress || (blockchainState && blockchainState.state !== ContractState.Disputed)}
-                      className="w-full bg-gray-600 text-white py-3 rounded-lg text-sm font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {resolving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          {txStep === TxSteps.SIGNING_USEROP ? "Sign in wallet..." : "Processing..."}
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-4 w-4" />
-                          Refund to Employer
+                          Resolve Dispute ({workerPercentage}% to worker)
                         </>
                       )}
                     </button>

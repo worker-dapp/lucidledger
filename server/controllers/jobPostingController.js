@@ -332,11 +332,19 @@ class JobPostingController {
         jobPostings = await sequelize.query(
           `SELECT jp.*,
                   CASE WHEN sj.id IS NOT NULL THEN true ELSE false END as is_saved,
-                  ja.application_status,
+                  active_app.application_status,
                   jp.title as "jobTitle",
                   jp.company_name as "companyName"
            FROM job_postings jp
-           LEFT JOIN job_applications ja ON jp.id = ja.job_posting_id AND ja.employee_id = :employeeId
+           LEFT JOIN LATERAL (
+             SELECT application_status
+             FROM job_applications
+             WHERE job_posting_id = jp.id
+               AND employee_id = :employeeId
+               AND application_status NOT IN ('completed', 'declined', 'rejected')
+             ORDER BY applied_at DESC
+             LIMIT 1
+           ) active_app ON true
            LEFT JOIN saved_jobs sj ON jp.id = sj.job_posting_id AND sj.employee_id = :employeeId
            WHERE jp.status = 'active'
            ORDER BY jp.created_at DESC`,

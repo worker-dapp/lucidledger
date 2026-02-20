@@ -199,7 +199,7 @@ const EmployeeJobsPage = () => {
           }));
       }
       
-      const visibleJobs = (data || []).filter(job => !['signed', 'deployed', 'declined'].includes(job.application_status));
+      const visibleJobs = (data || []).filter(job => !['signed', 'deployed', 'declined', 'completed'].includes(job.application_status));
       setJobs(visibleJobs);
       if (visibleJobs.length > 0) {
         setSelectedJob(visibleJobs[0]);

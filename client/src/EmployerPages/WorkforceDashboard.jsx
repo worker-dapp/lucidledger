@@ -9,6 +9,7 @@ import {
   Loader2,
   XCircle,
   Zap,
+  PlusCircle,
 } from "lucide-react";
 import EmployerLayout from "../components/EmployerLayout";
 import apiService from "../services/api";
@@ -16,6 +17,7 @@ import {
   getContractState,
   approveAndPay,
   raiseDispute,
+  topUpEscrow,
   checkPermissions,
   ContractState,
   StateNames,
@@ -63,6 +65,9 @@ const WorkforceDashboard = () => {
   const [disputing, setDisputing] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+  const [toppingUp, setToppingUp] = useState(false);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState("");
   const [txStep, setTxStep] = useState(TxSteps.IDLE);
   const [txMessage, setTxMessage] = useState("");
 
@@ -217,7 +222,7 @@ const WorkforceDashboard = () => {
         try {
           await apiService.completeContractWithPayment(selectedContract.id, {
             tx_hash: result.txHash,
-            amount: selectedContract.payment_amount,
+            amount: blockchainState?.paymentAmount || selectedContract.payment_amount,
             currency: selectedContract.payment_currency || "USDC",
           });
           break; // Success - exit retry loop
@@ -304,6 +309,37 @@ const WorkforceDashboard = () => {
       setActionMessage(`Error: ${parseAAError(error)}`);
     } finally {
       setDisputing(false);
+      setTxStep(TxSteps.IDLE);
+    }
+  };
+
+  const handleTopUp = async () => {
+    if (!selectedContract?.contract_address || !topUpAmount || !smartWalletClient || !smartWalletAddress) return;
+
+    setToppingUp(true);
+    setActionMessage("");
+    setTxStep(TxSteps.IDLE);
+
+    try {
+      const result = await topUpEscrow({
+        user,
+        smartWalletClient,
+        contractAddress: selectedContract.contract_address,
+        amount: topUpAmount,
+        onStatusChange: handleTxStatusChange,
+      });
+
+      setActionMessage(`Escrow topped up (gas-free)! Added ${topUpAmount} USDC. View on-chain: ${result.basescanUrl}`);
+      setShowTopUpModal(false);
+      setTopUpAmount("");
+
+      // Refresh blockchain state to show new balance
+      const newState = await getContractState(selectedContract.contract_address);
+      setBlockchainState(newState);
+    } catch (error) {
+      setActionMessage(`Error: ${parseAAError(error)}`);
+    } finally {
+      setToppingUp(false);
       setTxStep(TxSteps.IDLE);
     }
   };
@@ -599,7 +635,7 @@ const WorkforceDashboard = () => {
                 {isRealContract(selectedContract) && permissions && (
                   <div className="mt-5 space-y-3">
                     {/* Gas Sponsorship Notice */}
-                    {(permissions.canApprove || permissions.canDispute) && (
+                    {(permissions.canApprove || permissions.canDispute || permissions.isEmployer) && (
                       <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
                         <Zap className="h-4 w-4 text-green-600" />
                         <span className="text-xs text-green-700">Gas fees sponsored — No ETH required</span>
@@ -655,6 +691,17 @@ const WorkforceDashboard = () => {
                       >
                         <AlertTriangle className="h-4 w-4" />
                         Raise Dispute
+                      </button>
+                    )}
+
+                    {permissions.isEmployer && [ContractState.Funded, ContractState.Active, ContractState.Disputed].includes(blockchainState?.state) && (
+                      <button
+                        onClick={() => setShowTopUpModal(true)}
+                        disabled={toppingUp}
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                        Top Up Escrow
                       </button>
                     )}
 
@@ -733,6 +780,74 @@ const WorkforceDashboard = () => {
             )}
           </div>
         </div>
+
+        {/* Top Up Modal */}
+        {showTopUpModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-[#0D3B66]">Top Up Escrow</h3>
+                <button
+                  onClick={() => { setShowTopUpModal(false); setTopUpAmount(""); }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-1">
+                  Current escrow balance: <span className="font-medium">{blockchainState?.balance} USDC</span>
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  Add USDC to the escrow. This may be needed if the contracted amount changes or for multi-milestone work.
+                </p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount to add (USDC) *
+                </label>
+                <input
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  value={topUpAmount}
+                  onChange={(e) => setTopUpAmount(e.target.value)}
+                  placeholder="e.g. 50"
+                  className="w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Transaction Status */}
+              {txStep !== TxSteps.IDLE && toppingUp && (
+                <div className="p-2 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-700 mb-3">
+                  {txMessage || "Processing..."}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowTopUpModal(false); setTopUpAmount(""); }}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTopUp}
+                  disabled={!topUpAmount || parseFloat(topUpAmount) <= 0 || toppingUp}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {toppingUp ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {txStep === TxSteps.SIGNING_USEROP ? "Sign in wallet..." : "Processing..."}
+                    </>
+                  ) : (
+                    "Confirm Top Up"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Dispute Modal */}
         {showDisputeModal && (

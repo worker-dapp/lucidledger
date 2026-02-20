@@ -5,7 +5,7 @@
  * using Account Abstraction for gas-free transactions.
  */
 
-import { encodeFunctionData, getAddress, formatUnits } from "viem";
+import { encodeFunctionData, getAddress, formatUnits, parseUnits } from "viem";
 import WorkContractABI from "./WorkContract.json";
 import {
   publicClient,
@@ -92,6 +92,21 @@ const manualOracleAbi = [
 ];
 
 const MANUAL_ORACLE_ADDRESS = import.meta.env.VITE_MANUAL_ORACLE_ADDRESS;
+const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
+
+// Minimal ERC20 ABI for USDC approval
+const erc20Abi = [
+  {
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+];
 
 /**
  * Employer approves work and releases payment to worker.
@@ -366,6 +381,78 @@ export const assignMediator = async ({
 };
 
 /**
+ * Employer tops up the escrow balance of an active contract.
+ * Batches USDC approval + topUp in a single sponsored transaction.
+ *
+ * @param {object} params
+ * @param {string} params.amount - Human-readable USDC amount (e.g. "50" = $50)
+ * @returns {Promise<{txHash: string, basescanUrl: string}>}
+ */
+export const topUpEscrow = async ({
+  user,
+  smartWalletClient,
+  contractAddress,
+  amount,
+  onStatusChange,
+}) => {
+  const address = getAddress(contractAddress);
+  const usdcAddress = getAddress(USDC_ADDRESS);
+
+  const updateStatus = (step, message) => {
+    if (onStatusChange) onStatusChange({ step, message });
+  };
+
+  try {
+    updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
+    const signerAddress = getSmartWalletAddress(user);
+    if (!signerAddress) throw new Error("Smart wallet not connected");
+
+    const amountUnits = parseUnits(String(amount), USDC_DECIMALS);
+    if (amountUnits <= 0n) throw new Error("Amount must be greater than 0");
+
+    updateStatus(TxSteps.PREPARING_USEROP, "Verifying contract state...");
+
+    const state = await publicClient.readContract({
+      address, abi, functionName: "state",
+    });
+
+    const stateNum = Number(state);
+    const topUpAllowed = [ContractState.Funded, ContractState.Active, ContractState.Disputed];
+    if (!topUpAllowed.includes(stateNum)) {
+      throw new Error(`Cannot top up: contract is in ${StateNames[stateNum]} state`);
+    }
+
+    updateStatus(TxSteps.PREPARING_USEROP, "Preparing escrow top-up...");
+
+    const approveData = encodeFunctionData({
+      abi: erc20Abi, functionName: "approve", args: [address, amountUnits],
+    });
+
+    const topUpData = encodeFunctionData({
+      abi, functionName: "topUp", args: [amountUnits],
+    });
+
+    const result = await sendBatchTransaction({
+      smartWalletClient,
+      calls: [
+        { to: usdcAddress, data: approveData },
+        { to: address, data: topUpData },
+      ],
+      onStatusChange,
+    });
+
+    return {
+      txHash: result.hash,
+      basescanUrl: getBasescanUrl(result.hash, "tx"),
+      blockNumber: result.receipt.blockNumber,
+    };
+  } catch (error) {
+    updateStatus(TxSteps.ERROR, parseAAError(error));
+    throw error;
+  }
+};
+
+/**
  * Checks permissions and oracle status for a contract.
  *
  * @param {string} contractAddress
@@ -515,6 +602,7 @@ export default {
   raiseDispute,
   resolveDispute,
   assignMediator,
+  topUpEscrow,
   checkPermissions,
   getDisputedContractsForMediator,
   listenToContractEvents,
