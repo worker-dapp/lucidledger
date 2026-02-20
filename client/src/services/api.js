@@ -356,10 +356,10 @@ class ApiService {
     return this.request(`/job-applications/applied/${employeeId}`);
   }
 
-  async updateApplicationStatus(applicationId, status) {
+  async updateApplicationStatus(applicationId, status, extraData = {}) {
     return this.request(`/job-applications/${applicationId}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...extraData }),
     });
   }
 

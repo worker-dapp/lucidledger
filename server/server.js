@@ -128,7 +128,9 @@ async function runMigrationsOnStartup() {
       '011-add-mediator-to-deployed-contracts.sql',
       '012-create-dispute-history.sql',
       '013-add-employer-approval.sql',
-      '014-add-employee-profile-fields.sql'
+      '014-add-employee-profile-fields.sql',
+      '015-contract-version-and-oracle-addresses.sql',
+      '016-offer-signature.sql'
     ];
 
     for (const file of migrationFiles) {

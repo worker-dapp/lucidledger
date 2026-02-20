@@ -90,16 +90,16 @@ const pickAllowedFields = (payload, allowedFields) => {
   }, {});
 };
 
-// Get employer by wallet address (primary identifier with Privy)
+// Get employer by wallet address (case-insensitive — addresses may differ in checksum casing)
 const getEmployerForUser = async (walletAddress) => {
   if (!walletAddress) return null;
-  return Employer.findOne({ where: { wallet_address: walletAddress } });
+  return Employer.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
 };
 
-// Get employee by wallet address (primary identifier with Privy)
+// Get employee by wallet address (case-insensitive — addresses may differ in checksum casing)
 const getEmployeeForUser = async (walletAddress) => {
   if (!walletAddress) return null;
-  return Employee.findOne({ where: { wallet_address: walletAddress } });
+  return Employee.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
 };
 
 class DeployedContractController {
@@ -145,6 +145,8 @@ class DeployedContractController {
         'payment_frequency',
         'status',
         'selected_oracles',
+        'contract_version',
+        'oracle_addresses',
         'verification_status',
         'deployment_tx_hash',
         'deployed_at',

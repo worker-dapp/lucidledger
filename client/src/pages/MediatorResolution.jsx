@@ -144,7 +144,7 @@ const MediatorResolution = () => {
           user,
           smartWalletClient,
           contractAddress: selectedContract.contract_address,
-          payWorker,
+          workerPercentage: payWorker ? 100 : 0,
           onStatusChange: handleTxStatusChange,
         });
         txHash = result.txHash;
