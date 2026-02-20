@@ -1,35 +1,42 @@
 /**
  * Work Contract Interactions Module
  *
- * Provides functions to interact with deployed ManualWorkContracts
+ * Provides functions to interact with deployed WorkContract (v2) instances
  * using Account Abstraction for gas-free transactions.
  */
 
 import { encodeFunctionData, getAddress, formatUnits } from "viem";
-import ManualWorkContractABI from "./ManualWorkContract.json";
+import WorkContractABI from "./WorkContract.json";
 import {
   publicClient,
   sendSponsoredTransaction,
+  sendBatchTransaction,
   TxSteps,
   parseAAError,
   getSmartWalletAddress,
+  getBasescanUrl,
 } from "./aaClient";
-import { getBasescanUrl } from "./deployWorkContract";
 
-// Contract state enum (matches Solidity)
+const abi = WorkContractABI.abi;
+
+// WorkContract state enum
 export const ContractState = {
   Funded: 0,
-  Completed: 1,
-  Disputed: 2,
-  Refunded: 3,
+  Active: 1,
+  Completed: 2,
+  Disputed: 3,
+  Refunded: 4,
+  Cancelled: 5,
 };
 
 // Human-readable state names
 export const StateNames = {
   [ContractState.Funded]: "Funded",
+  [ContractState.Active]: "Active",
   [ContractState.Completed]: "Completed",
   [ContractState.Disputed]: "Disputed",
   [ContractState.Refunded]: "Refunded",
+  [ContractState.Cancelled]: "Cancelled",
 };
 
 // USDC has 6 decimals
@@ -37,39 +44,19 @@ const USDC_DECIMALS = 6;
 
 /**
  * Gets the current state of a work contract.
- * Uses publicClient for read-only operations.
  *
  * @param {string} contractAddress - Deployed contract address
- * @returns {Promise<{
- *   employer: string,
- *   worker: string,
- *   mediator: string,
- *   paymentAmount: string,
- *   jobId: number,
- *   state: number,
- *   stateName: string,
- *   disputeReason: string,
- *   balance: string
- * }>}
+ * @returns {Promise<object>}
  */
 export const getContractState = async (contractAddress) => {
   const address = getAddress(contractAddress);
 
   const [details, balance] = await Promise.all([
-    publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "getDetails",
-    }),
-    publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "getBalance",
-    }),
+    publicClient.readContract({ address, abi, functionName: "getDetails" }),
+    publicClient.readContract({ address, abi, functionName: "getBalance" }),
   ]);
 
-  const [employer, worker, mediator, paymentAmount, jobId, state, disputeReason] = details;
-
+  const [employer, worker, mediator, paymentAmount, jobId, state, disputeReason, oracleCount] = details;
   return {
     employer,
     worker,
@@ -78,22 +65,41 @@ export const getContractState = async (contractAddress) => {
     paymentAmountRaw: paymentAmount,
     jobId: Number(jobId),
     state: Number(state),
-    stateName: StateNames[state] || "Unknown",
+    stateName: StateNames[Number(state)] || "Unknown",
     disputeReason,
+    oracleCount: Number(oracleCount),
     balance: formatUnits(balance, USDC_DECIMALS),
     balanceRaw: balance,
   };
 };
 
+// Minimal ABI for ManualOracle interactions
+const manualOracleAbi = [
+  {
+    inputs: [{ name: "workContract", type: "address" }],
+    name: "verify",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "workContract", type: "address" }],
+    name: "isWorkVerified",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+];
+
+const MANUAL_ORACLE_ADDRESS = import.meta.env.VITE_MANUAL_ORACLE_ADDRESS;
+
 /**
  * Employer approves work and releases payment to worker.
- * Uses AA for gas-free transaction.
+ * If oracles are configured and haven't passed, auto-verifies via ManualOracle first.
+ * Accepts from Funded or Active state.
  *
- * @param {object} params.user - Privy user
- * @param {object} params.smartWalletClient - Privy smart wallet client
- * @param {string} contractAddress - Deployed contract address
- * @param {function} [onStatusChange] - Status callback
- * @returns {Promise<{txHash: string, basescanUrl: string}>}
+ * @param {object} params
+ * @returns {Promise<{txHash: string, basescanUrl: string, blockNumber: bigint}>}
  */
 export const approveAndPay = async ({
   user,
@@ -104,59 +110,70 @@ export const approveAndPay = async ({
   const address = getAddress(contractAddress);
 
   const updateStatus = (step, message) => {
-    if (onStatusChange) {
-      onStatusChange({ step, message });
-    }
+    if (onStatusChange) onStatusChange({ step, message });
   };
 
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
-    // Use smart account address for permission checks (this is what the contract sees as msg.sender)
     const signerAddress = getSmartWalletAddress(user);
-    if (!signerAddress) {
-      throw new Error("Smart wallet not connected");
-    }
+    if (!signerAddress) throw new Error("Smart wallet not connected");
 
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying permissions...");
 
-    // Verify caller is employer
     const employer = await publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "employer",
+      address, abi, functionName: "employer",
     });
 
     if (signerAddress.toLowerCase() !== employer.toLowerCase()) {
       throw new Error("Only the employer can approve and pay");
     }
 
-    // Check state
     const state = await publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "state",
+      address, abi, functionName: "state",
     });
 
-    if (Number(state) !== ContractState.Funded) {
-      throw new Error(`Cannot approve: contract is in ${StateNames[state]} state`);
+    const stateNum = Number(state);
+    if (stateNum !== ContractState.Funded && stateNum !== ContractState.Active) {
+      throw new Error(`Cannot approve: contract is in ${StateNames[stateNum]} state`);
     }
 
-    updateStatus(TxSteps.PREPARING_USEROP, "Preparing approval...");
-
-    // Encode the approveAndPay function call
-    const data = encodeFunctionData({
-      abi: ManualWorkContractABI.abi,
-      functionName: "approveAndPay",
-      args: [],
+    // Auto-verify via ManualOracle if oracles are configured but haven't passed
+    const oraclesPassing = await publicClient.readContract({
+      address, abi, functionName: "checkOracles",
     });
 
-    // Send sponsored transaction
-    const result = await sendSponsoredTransaction({
-      smartWalletClient,
-      to: address,
-      data,
-      onStatusChange,
+    const approveData = encodeFunctionData({
+      abi, functionName: "approveAndPay", args: [],
     });
+
+    let result;
+
+    if (!oraclesPassing && MANUAL_ORACLE_ADDRESS) {
+      // Batch: oracle verify + approveAndPay in one atomic transaction
+      updateStatus(TxSteps.PREPARING_USEROP, "Preparing oracle verification + payment...");
+
+      const verifyData = encodeFunctionData({
+        abi: manualOracleAbi,
+        functionName: "verify",
+        args: [address],
+      });
+
+      result = await sendBatchTransaction({
+        smartWalletClient,
+        calls: [
+          { to: getAddress(MANUAL_ORACLE_ADDRESS), data: verifyData },
+          { to: address, data: approveData },
+        ],
+        onStatusChange,
+      });
+    } else {
+      // Oracles already passing (or none configured) — single transaction
+      updateStatus(TxSteps.PREPARING_USEROP, "Preparing approval...");
+
+      result = await sendSponsoredTransaction({
+        smartWalletClient, to: address, data: approveData, onStatusChange,
+      });
+    }
 
     return {
       txHash: result.hash,
@@ -171,14 +188,9 @@ export const approveAndPay = async ({
 
 /**
  * Raises a dispute on a work contract.
- * Either employer or worker can raise a dispute.
- * Uses AA for gas-free transaction.
+ * Either employer or worker can raise from Funded or Active state.
  *
- * @param {object} params.user - Privy user
- * @param {object} params.smartWalletClient - Privy smart wallet client
- * @param {string} contractAddress - Deployed contract address
- * @param {string} reason - Description of the dispute
- * @param {function} [onStatusChange] - Status callback
+ * @param {object} params
  * @returns {Promise<{txHash: string, basescanUrl: string, raisedBy: string}>}
  */
 export const raiseDispute = async ({
@@ -195,38 +207,20 @@ export const raiseDispute = async ({
   const address = getAddress(contractAddress);
 
   const updateStatus = (step, message) => {
-    if (onStatusChange) {
-      onStatusChange({ step, message });
-    }
+    if (onStatusChange) onStatusChange({ step, message });
   };
 
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
-    // Use smart account address for permission checks (this is what the contract sees as msg.sender)
     const signerAddress = getSmartWalletAddress(user);
-    if (!signerAddress) {
-      throw new Error("Smart wallet not connected");
-    }
+    if (!signerAddress) throw new Error("Smart wallet not connected");
 
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying permissions...");
 
-    // Verify caller is employer or worker
     const [employer, worker, state] = await Promise.all([
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "employer",
-      }),
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "worker",
-      }),
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "state",
-      }),
+      publicClient.readContract({ address, abi, functionName: "employer" }),
+      publicClient.readContract({ address, abi, functionName: "worker" }),
+      publicClient.readContract({ address, abi, functionName: "state" }),
     ]);
 
     const isEmployer = signerAddress.toLowerCase() === employer.toLowerCase();
@@ -236,25 +230,19 @@ export const raiseDispute = async ({
       throw new Error("Only the employer or worker can raise a dispute");
     }
 
-    if (Number(state) !== ContractState.Funded) {
-      throw new Error(`Cannot dispute: contract is in ${StateNames[state]} state`);
+    const stateNum = Number(state);
+    if (stateNum !== ContractState.Funded && stateNum !== ContractState.Active) {
+      throw new Error(`Cannot dispute: contract is in ${StateNames[stateNum]} state`);
     }
 
     updateStatus(TxSteps.PREPARING_USEROP, "Preparing dispute...");
 
-    // Encode the raiseDispute function call
     const data = encodeFunctionData({
-      abi: ManualWorkContractABI.abi,
-      functionName: "raiseDispute",
-      args: [reason.trim()],
+      abi, functionName: "raiseDispute", args: [reason.trim()],
     });
 
-    // Send sponsored transaction
     const result = await sendSponsoredTransaction({
-      smartWalletClient,
-      to: address,
-      data,
-      onStatusChange,
+      smartWalletClient, to: address, data, onStatusChange,
     });
 
     return {
@@ -271,63 +259,36 @@ export const raiseDispute = async ({
 
 /**
  * Mediator resolves a dispute.
- * ONLY the designated mediator can call this function.
- * Uses AA for gas-free transaction.
+ * workerPercentage: 0 = full refund to employer, 100 = full pay to worker, 50 = split
  *
- * @param {object} params.user - Privy user
- * @param {object} params.smartWalletClient - Privy smart wallet client
- * @param {string} contractAddress - Deployed contract address
- * @param {boolean} payWorker - True to pay worker, false to refund employer
- * @param {function} [onStatusChange] - Status callback
- * @returns {Promise<{txHash: string, basescanUrl: string, recipient: string, paidWorker: boolean}>}
+ * @param {object} params
+ * @returns {Promise<{txHash: string, basescanUrl: string}>}
  */
 export const resolveDispute = async ({
   user,
   smartWalletClient,
   contractAddress,
-  payWorker,
+  workerPercentage,
   onStatusChange,
 }) => {
   const address = getAddress(contractAddress);
 
   const updateStatus = (step, message) => {
-    if (onStatusChange) {
-      onStatusChange({ step, message });
-    }
+    if (onStatusChange) onStatusChange({ step, message });
   };
 
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Getting smart account address...");
-    // Use smart account address for permission checks (this is what the contract sees as msg.sender)
     const signerAddress = getSmartWalletAddress(user);
-    if (!signerAddress) {
-      throw new Error("Smart wallet not connected");
-    }
+    if (!signerAddress) throw new Error("Smart wallet not connected");
 
     updateStatus(TxSteps.PREPARING_USEROP, "Verifying mediator permissions...");
 
-    // Verify caller is mediator and contract is in Disputed state
     const [mediator, state, employer, worker] = await Promise.all([
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "mediator",
-      }),
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "state",
-      }),
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "employer",
-      }),
-      publicClient.readContract({
-        address,
-        abi: ManualWorkContractABI.abi,
-        functionName: "worker",
-      }),
+      publicClient.readContract({ address, abi, functionName: "mediator" }),
+      publicClient.readContract({ address, abi, functionName: "state" }),
+      publicClient.readContract({ address, abi, functionName: "employer" }),
+      publicClient.readContract({ address, abi, functionName: "worker" }),
     ]);
 
     if (mediator.toLowerCase() === "0x0000000000000000000000000000000000000000") {
@@ -339,32 +300,24 @@ export const resolveDispute = async ({
     }
 
     if (Number(state) !== ContractState.Disputed) {
-      throw new Error(`Cannot resolve: contract is in ${StateNames[state]} state, expected Disputed`);
+      throw new Error(`Cannot resolve: contract is in ${StateNames[Number(state)]} state, expected Disputed`);
     }
 
     updateStatus(TxSteps.PREPARING_USEROP, "Preparing resolution...");
 
-    // Encode the resolveDispute function call
     const data = encodeFunctionData({
-      abi: ManualWorkContractABI.abi,
-      functionName: "resolveDispute",
-      args: [payWorker],
+      abi, functionName: "resolveDispute", args: [workerPercentage],
     });
 
-    // Send sponsored transaction
     const result = await sendSponsoredTransaction({
-      smartWalletClient,
-      to: address,
-      data,
-      onStatusChange,
+      smartWalletClient, to: address, data, onStatusChange,
     });
 
     return {
       txHash: result.hash,
       basescanUrl: getBasescanUrl(result.hash, "tx"),
       blockNumber: result.receipt.blockNumber,
-      recipient: payWorker ? worker : employer,
-      paidWorker: payWorker,
+      recipient: workerPercentage > 0 ? worker : employer,
     };
   } catch (error) {
     updateStatus(TxSteps.ERROR, parseAAError(error));
@@ -374,12 +327,8 @@ export const resolveDispute = async ({
 
 /**
  * Admin assigns mediator to a disputed contract.
- * ONLY the platform admin can call this function.
  *
- * @param {object} params.smartWalletClient - Privy smart wallet client
- * @param {string} contractAddress - Deployed contract address
- * @param {string} mediatorAddress - Mediator wallet address
- * @param {function} [onStatusChange] - Status callback
+ * @param {object} params
  * @returns {Promise<{txHash: string, basescanUrl: string}>}
  */
 export const assignMediator = async ({
@@ -392,25 +341,18 @@ export const assignMediator = async ({
   const mediator = getAddress(mediatorAddress);
 
   const updateStatus = (step, message) => {
-    if (onStatusChange) {
-      onStatusChange({ step, message });
-    }
+    if (onStatusChange) onStatusChange({ step, message });
   };
 
   try {
     updateStatus(TxSteps.PREPARING_USEROP, "Preparing mediator assignment...");
 
     const data = encodeFunctionData({
-      abi: ManualWorkContractABI.abi,
-      functionName: "assignMediator",
-      args: [mediator],
+      abi, functionName: "assignMediator", args: [mediator],
     });
 
     const result = await sendSponsoredTransaction({
-      smartWalletClient,
-      to: address,
-      data,
-      onStatusChange,
+      smartWalletClient, to: address, data, onStatusChange,
     });
 
     return {
@@ -424,73 +366,53 @@ export const assignMediator = async ({
 };
 
 /**
- * Checks if the current wallet can perform actions on a contract.
+ * Checks permissions and oracle status for a contract.
  *
- * @param {string} contractAddress - Deployed contract address
- * @param {string} signerAddress - Address to check permissions for
- * @returns {Promise<{
- *   isEmployer: boolean,
- *   isWorker: boolean,
- *   isMediator: boolean,
- *   canApprove: boolean,
- *   canDispute: boolean,
- *   canResolve: boolean
- * }>}
+ * @param {string} contractAddress
+ * @param {string} signerAddress
+ * @returns {Promise<object>}
  */
 export const checkPermissions = async (contractAddress, signerAddress) => {
   const address = getAddress(contractAddress);
 
-  const [employer, worker, mediator, state] = await Promise.all([
-    publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "employer",
-    }),
-    publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "worker",
-    }),
-    publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "mediator",
-    }),
-    publicClient.readContract({
-      address,
-      abi: ManualWorkContractABI.abi,
-      functionName: "state",
-    }),
+  const [employer, worker, mediator, state, oracleCount, oraclesPassing] = await Promise.all([
+    publicClient.readContract({ address, abi, functionName: "employer" }),
+    publicClient.readContract({ address, abi, functionName: "worker" }),
+    publicClient.readContract({ address, abi, functionName: "mediator" }),
+    publicClient.readContract({ address, abi, functionName: "state" }),
+    publicClient.readContract({ address, abi, functionName: "getOracleCount" }),
+    publicClient.readContract({ address, abi, functionName: "checkOracles" }),
   ]);
 
   const isEmployer = signerAddress.toLowerCase() === employer.toLowerCase();
   const isWorker = signerAddress.toLowerCase() === worker.toLowerCase();
   const isMediator = signerAddress.toLowerCase() === mediator.toLowerCase();
+  const stateNum = Number(state);
+  const oCount = Number(oracleCount);
 
-  const isFunded = Number(state) === ContractState.Funded;
-  const isDisputed = Number(state) === ContractState.Disputed;
+  const isFunded = stateNum === ContractState.Funded;
+  const isActive = stateNum === ContractState.Active;
+  const isDisputed = stateNum === ContractState.Disputed;
 
   return {
     isEmployer,
     isWorker,
     isMediator,
-    canApprove: isEmployer && isFunded,
-    canDispute: (isEmployer || isWorker) && isFunded,
+    canApprove: isEmployer && (isFunded || isActive),
+    canDispute: (isEmployer || isWorker) && (isFunded || isActive),
     canResolve: isMediator && isDisputed,
-    currentState: Number(state),
-    currentStateName: StateNames[state],
+    oracleCount: oCount,
+    oraclesPassing,
+    currentState: stateNum,
+    currentStateName: StateNames[stateNum] || "Unknown",
   };
 };
 
 /**
  * Gets all disputed contracts where the connected wallet is the mediator.
- * This is used by the MediatorResolution page.
  *
- * Note: This requires an indexer or subgraph in production.
- * For MVP, we'll query the database for contract addresses.
- *
- * @param {string[]} contractAddresses - Array of contract addresses to check
- * @param {string} signerAddress - Address of the mediator
+ * @param {string[]} contractAddresses
+ * @param {string} signerAddress
  * @returns {Promise<Array<{address: string, details: object}>>}
  */
 export const getDisputedContractsForMediator = async (contractAddresses, signerAddress) => {
@@ -501,28 +423,16 @@ export const getDisputedContractsForMediator = async (contractAddresses, signerA
       const address = getAddress(contractAddr);
 
       const [mediator, state] = await Promise.all([
-        publicClient.readContract({
-          address,
-          abi: ManualWorkContractABI.abi,
-          functionName: "mediator",
-        }),
-        publicClient.readContract({
-          address,
-          abi: ManualWorkContractABI.abi,
-          functionName: "state",
-        }),
+        publicClient.readContract({ address, abi, functionName: "mediator" }),
+        publicClient.readContract({ address, abi, functionName: "state" }),
       ]);
 
-      // Check if this wallet is the mediator and contract is disputed
       if (
         signerAddress.toLowerCase() === mediator.toLowerCase() &&
         Number(state) === ContractState.Disputed
       ) {
         const details = await getContractState(address);
-        disputedContracts.push({
-          address,
-          details,
-        });
+        disputedContracts.push({ address, details });
       }
     } catch (error) {
       console.warn(`Failed to check contract ${contractAddr}:`, error.message);
@@ -534,14 +444,10 @@ export const getDisputedContractsForMediator = async (contractAddresses, signerA
 
 /**
  * Listen for contract events.
- * Note: This uses polling in viem for browser compatibility.
  *
- * @param {string} contractAddress - Contract to monitor
- * @param {Object} callbacks - Event callbacks
- * @param {Function} [callbacks.onWorkApproved] - Called when work is approved
- * @param {Function} [callbacks.onDisputeRaised] - Called when dispute is raised
- * @param {Function} [callbacks.onDisputeResolved] - Called when dispute is resolved
- * @returns {Function} Cleanup function to stop listening
+ * @param {string} contractAddress
+ * @param {Object} callbacks
+ * @returns {Function} Cleanup function
  */
 export const listenToContractEvents = async (contractAddress, callbacks) => {
   const address = getAddress(contractAddress);
@@ -549,9 +455,7 @@ export const listenToContractEvents = async (contractAddress, callbacks) => {
 
   if (callbacks.onWorkApproved) {
     const unwatch = publicClient.watchContractEvent({
-      address,
-      abi: ManualWorkContractABI.abi,
-      eventName: "WorkApproved",
+      address, abi, eventName: "WorkApproved",
       onLogs: (logs) => {
         logs.forEach((log) => {
           callbacks.onWorkApproved({
@@ -566,9 +470,7 @@ export const listenToContractEvents = async (contractAddress, callbacks) => {
 
   if (callbacks.onDisputeRaised) {
     const unwatch = publicClient.watchContractEvent({
-      address,
-      abi: ManualWorkContractABI.abi,
-      eventName: "DisputeRaised",
+      address, abi, eventName: "DisputeRaised",
       onLogs: (logs) => {
         logs.forEach((log) => {
           callbacks.onDisputeRaised({
@@ -583,15 +485,13 @@ export const listenToContractEvents = async (contractAddress, callbacks) => {
 
   if (callbacks.onDisputeResolved) {
     const unwatch = publicClient.watchContractEvent({
-      address,
-      abi: ManualWorkContractABI.abi,
-      eventName: "DisputeResolved",
+      address, abi, eventName: "DisputeResolved",
       onLogs: (logs) => {
         logs.forEach((log) => {
           callbacks.onDisputeResolved({
-            recipient: log.args.recipient,
-            amount: formatUnits(log.args.amount, USDC_DECIMALS),
-            paidWorker: log.args.paidWorker,
+            mediator: log.args.mediator,
+            workerAmount: formatUnits(log.args.workerAmount, USDC_DECIMALS),
+            employerAmount: formatUnits(log.args.employerAmount, USDC_DECIMALS),
           });
         });
       },
@@ -599,16 +499,13 @@ export const listenToContractEvents = async (contractAddress, callbacks) => {
     unwatchFunctions.push(unwatch);
   }
 
-  // Return cleanup function
   return () => {
     unwatchFunctions.forEach((unwatch) => unwatch());
   };
 };
 
-// Legacy compatibility: ensureBaseSepolia is no longer needed with AA
-export const ensureBaseSepolia = async () => {
-  return true;
-};
+// Legacy compatibility
+export const ensureBaseSepolia = async () => true;
 
 export default {
   ContractState,

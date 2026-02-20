@@ -332,7 +332,7 @@ exports.getAppliedJobs = async (req, res) => {
 exports.updateApplicationStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
-    const { status } = req.body;
+    const { status, offer_signature, offer_signed_at } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -356,6 +356,12 @@ exports.updateApplicationStatus = async (req, res) => {
     }
     if (status === 'signed') {
       updates.offer_accepted_at = new Date();
+      if (offer_signature) {
+        updates.offer_signature = offer_signature;
+      }
+      if (offer_signed_at) {
+        updates.offer_signed_at = offer_signed_at;
+      }
     }
 
     application.set(updates);

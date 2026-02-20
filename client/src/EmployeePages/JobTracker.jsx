@@ -5,7 +5,7 @@ import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
-import { raiseDispute, ContractState, getContractState } from "../contracts/workContractInteractions";
+import { raiseDispute, ContractState } from "../contracts/workContractInteractions";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
@@ -694,25 +694,28 @@ const JobTracker = () => {
                         </div>
                       )}
 
-                      {activeTab === "open" && selectedContract.application_status === "deployed" && (
-                        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
-                          <button
-                            onClick={() => setShowCancelModal(true)}
-                            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-red-100 text-red-700 hover:bg-red-200"
-                          >
-                            Cancel Contract
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDisputeMessage("");
-                              setShowDisputeModal(true);
-                            }}
-                            disabled={!smartWalletClient || !smartWalletAddress}
-                            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-yellow-100 text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                          >
-                            <AlertTriangle className="h-4 w-4" />
-                            Raise Dispute
-                          </button>
+                      {/* Action buttons for deployed contracts */}
+                      {activeTab === "open" && selectedContract.application_status === "deployed" && selectedContract.contract_address && (
+                        <div className="pt-4 border-t border-gray-200 space-y-3">
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                              onClick={() => setShowCancelModal(true)}
+                              className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-red-100 text-red-700 hover:bg-red-200"
+                            >
+                              Cancel Contract
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDisputeMessage("");
+                                setShowDisputeModal(true);
+                              }}
+                              disabled={!smartWalletClient || !smartWalletAddress}
+                              className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-yellow-100 text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                              Raise Dispute
+                            </button>
+                          </div>
                         </div>
                       )}
                       {activeTab === "open" && selectedContract.application_status === "signed" && (

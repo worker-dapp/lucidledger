@@ -24,7 +24,6 @@ const EmployeeJobsPage = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
   const [offersCount, setOffersCount] = useState(0);
-  const [showSignModal, setShowSignModal] = useState(false);
   const [signing, setSigning] = useState(false);
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -356,27 +355,78 @@ const EmployeeJobsPage = () => {
     }
   };
 
-  const handleSignContract = () => {
+  const handleSignContract = async () => {
     if (!selectedJob?.application_id) {
       alert('Unable to find the application record for this offer.');
       return;
     }
-    setShowSignModal(true);
-  };
 
-  const confirmSignContract = async () => {
+    if (!primaryWallet) {
+      alert('Wallet not connected. Please wait for your wallet to load.');
+      return;
+    }
+
     setSigning(true);
     try {
-      await apiService.updateApplicationStatus(selectedJob.application_id, 'signed');
+      // Get the embedded wallet provider for EIP-712 signing
+      const provider = await primaryWallet.getEthereumProvider();
+
+      const domain = {
+        name: "LucidLedger",
+        version: "1",
+        chainId: 84532,
+      };
+      const types = {
+        EIP712Domain: [
+          { name: "name", type: "string" },
+          { name: "version", type: "string" },
+          { name: "chainId", type: "uint256" },
+        ],
+        OfferAcceptance: [
+          { name: "jobPostingId", type: "uint256" },
+          { name: "applicationId", type: "uint256" },
+          { name: "worker", type: "address" },
+          { name: "timestamp", type: "uint256" },
+        ],
+      };
+      const timestamp = Math.floor(Date.now() / 1000);
+      const message = {
+        jobPostingId: String(selectedJob.id),
+        applicationId: String(selectedJob.application_id),
+        worker: smartWalletAddress,
+        timestamp: String(timestamp),
+      };
+
+      const msgParams = JSON.stringify({
+        domain,
+        types,
+        primaryType: "OfferAcceptance",
+        message,
+      });
+
+      const signature = await provider.request({
+        method: "eth_signTypedData_v4",
+        params: [primaryWallet.address, msgParams],
+      });
+
+      // Send signature + status update to backend
+      await apiService.updateApplicationStatus(selectedJob.application_id, 'signed', {
+        offer_signature: signature,
+        offer_signed_at: new Date().toISOString(),
+      });
+
       const remainingJobs = jobs.filter(job => job.application_id !== selectedJob.application_id);
       setJobs(remainingJobs);
       setSelectedJob(remainingJobs[0] || null);
       setOffersCount((prev) => Math.max(prev - 1, 0));
-      setShowSignModal(false);
-      alert('Contract signed successfully!');
+      alert('Offer signed! The employer can now deploy and fund the contract.');
     } catch (err) {
       console.error('Error signing contract:', err);
-      alert('Failed to sign the contract. Please try again.');
+      if (err?.message?.includes('rejected') || err?.message?.includes('denied')) {
+        alert('Signature request was cancelled.');
+      } else {
+        alert('Failed to sign the contract. Please try again.');
+      }
     } finally {
       setSigning(false);
     }
@@ -876,9 +926,10 @@ const EmployeeJobsPage = () => {
                       <div className="flex gap-3 w-full">
                         <button
                           onClick={handleSignContract}
-                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
+                          disabled={signing}
+                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Sign Contract
+                          {signing ? 'Signing...' : 'Sign & Accept'}
                         </button>
                         <button
                           onClick={handleDeclineOffer}
@@ -1099,9 +1150,10 @@ const EmployeeJobsPage = () => {
                       <div className="flex gap-3 w-full">
                         <button
                           onClick={handleSignContract}
-                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700"
+                          disabled={signing}
+                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Sign Contract
+                          {signing ? 'Signing...' : 'Sign & Accept'}
                         </button>
                         <button
                           onClick={handleDeclineOffer}
@@ -1174,51 +1226,6 @@ const EmployeeJobsPage = () => {
                   Posted on {formatDate(selectedJob.created_at)}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sign Contract Confirmation Modal */}
-      {showSignModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[#0D3B66]">Confirm Signature</h3>
-              <button
-                onClick={() => setShowSignModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-3">
-                By signing this contract, you confirm that you have read and understood the terms
-                of the offer for <strong>{selectedJob?.title}</strong> with <strong>{selectedJob?.company_name}</strong>.
-              </p>
-              <p className="text-sm text-gray-600">
-                Once signed, the employer will be able to deploy the contract on-chain and fund
-                the escrow. This action cannot be undone.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowSignModal(false)}
-                disabled={signing}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmSignContract}
-                disabled={signing}
-                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {signing ? 'Signing...' : 'I Agree — Sign Contract'}
-              </button>
             </div>
           </div>
         </div>

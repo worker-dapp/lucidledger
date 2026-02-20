@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 
+// Oracle types currently registered on-chain. Expand as new oracles are deployed.
+const AVAILABLE_ORACLES = ["manual"];
+
 export default function OracleConfiguration({ formData, handleChange }) {
   const [selectedOracles, setSelectedOracles] = useState(formData.selectedOracles || []);
 
@@ -43,6 +46,8 @@ export default function OracleConfiguration({ formData, handleChange }) {
   };
 
   const handleOracleToggle = (oracleKey) => {
+    if (!AVAILABLE_ORACLES.includes(oracleKey)) return;
+
     const newSelected = selectedOracles.includes(oracleKey)
       ? selectedOracles.filter((key) => key !== oracleKey)
       : [...selectedOracles, oracleKey];
@@ -75,13 +80,16 @@ export default function OracleConfiguration({ formData, handleChange }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(oracleOptions).map(([key, oracle]) => {
             const isSelected = selectedOracles.includes(key);
+            const isAvailable = AVAILABLE_ORACLES.includes(key);
             return (
               <div
                 key={key}
-                className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                  isSelected
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-300 hover:border-blue-300"
+                className={`p-4 rounded-lg border transition-all ${
+                  !isAvailable
+                    ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                    : isSelected
+                    ? "border-blue-500 bg-blue-50 cursor-pointer"
+                    : "border-gray-300 hover:border-blue-300 cursor-pointer"
                 }`}
                 onClick={() => handleOracleToggle(key)}
               >
@@ -89,6 +97,11 @@ export default function OracleConfiguration({ formData, handleChange }) {
                   <div>
                     <h4 className="font-medium">{oracle.name}</h4>
                   </div>
+                  {!isAvailable && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-200 text-gray-600">
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-gray-600 mb-3">{oracle.description}</p>
                 <div className="space-y-1">
@@ -103,11 +116,12 @@ export default function OracleConfiguration({ formData, handleChange }) {
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    disabled={!isAvailable}
                     onChange={() => handleOracleToggle(key)}
                     className="mr-2"
                   />
                   <span className="text-sm font-medium">
-                    {isSelected ? "Selected" : "Select"}
+                    {!isAvailable ? "Coming Soon" : isSelected ? "Selected" : "Select"}
                   </span>
                 </div>
               </div>
