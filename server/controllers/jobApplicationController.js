@@ -213,19 +213,21 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // Check if application already exists
+    // Check if an active application already exists (completed applications allow re-applying)
+    const ACTIVE_APPLICATION_STATUSES = ['pending', 'applied', 'accepted', 'signed', 'deployed'];
     let application = await JobApplication.findOne({
       where: {
         employee_id,
-        job_posting_id
+        job_posting_id,
+        application_status: { [Op.in]: ACTIVE_APPLICATION_STATUSES }
       }
     });
 
     if (application) {
-      console.log('ℹ️ Already applied to this job');
+      console.log('ℹ️ Already has an active application for this job');
       return res.status(400).json({
         success: false,
-        message: 'You have already applied to this job'
+        message: 'You already have an active application for this job'
       });
     }
 

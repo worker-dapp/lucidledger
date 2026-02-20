@@ -1,4 +1,4 @@
-const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, sequelize } = require('../models');
+const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, JobApplication, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 // Terminal contract statuses (contract lifecycle is complete)
@@ -867,6 +867,18 @@ class DeployedContractController {
         status: 'completed',
         verification_status: 'verified'
       }, { transaction });
+
+      // Mark the application as completed so the worker can re-apply for remaining positions
+      await JobApplication.update(
+        { application_status: 'completed' },
+        {
+          where: {
+            job_posting_id: deployedContract.job_posting_id,
+            employee_id: deployedContract.employee_id,
+          },
+          transaction
+        }
+      );
 
       // Create payment transaction record
       const paymentTransaction = await PaymentTransaction.create({

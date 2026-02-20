@@ -20,7 +20,6 @@ const JobTracker = () => {
   const [disputedContracts, setDisputedContracts] = useState([]);
   const [activeTab, setActiveTab] = useState("earnings");
   const [selectedContract, setSelectedContract] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -696,26 +695,18 @@ const JobTracker = () => {
 
                       {/* Action buttons for deployed contracts */}
                       {activeTab === "open" && selectedContract.application_status === "deployed" && selectedContract.contract_address && (
-                        <div className="pt-4 border-t border-gray-200 space-y-3">
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <button
-                              onClick={() => setShowCancelModal(true)}
-                              className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-red-100 text-red-700 hover:bg-red-200"
-                            >
-                              Cancel Contract
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDisputeMessage("");
-                                setShowDisputeModal(true);
-                              }}
-                              disabled={!smartWalletClient || !smartWalletAddress}
-                              className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-yellow-100 text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                              <AlertTriangle className="h-4 w-4" />
-                              Raise Dispute
-                            </button>
-                          </div>
+                        <div className="pt-4 border-t border-gray-200">
+                          <button
+                            onClick={() => {
+                              setDisputeMessage("");
+                              setShowDisputeModal(true);
+                            }}
+                            disabled={!smartWalletClient || !smartWalletAddress}
+                            className="w-full py-3 px-4 rounded-lg font-semibold text-sm bg-yellow-100 text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                            Raise Dispute
+                          </button>
                         </div>
                       )}
                       {activeTab === "open" && selectedContract.application_status === "signed" && (
@@ -787,31 +778,6 @@ const JobTracker = () => {
           </div>
         </div>
       </main>
-
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-[#0D3B66] mb-2">Cancel contract?</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Warning, you are about to cancel this contract. This action will notify the employer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="flex-1 py-2 px-4 rounded-lg text-sm font-semibold bg-gray-100 text-[#0D3B66] hover:bg-gray-200"
-              >
-                Nevermind
-              </button>
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="flex-1 py-2 px-4 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700"
-              >
-                Yes, cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Dispute Modal */}
       {showDisputeModal && (
