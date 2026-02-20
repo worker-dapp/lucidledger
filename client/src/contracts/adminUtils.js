@@ -5,7 +5,7 @@
  * WorkContractFactory contract. Used for wallet mismatch detection.
  */
 
-import { getAddress, encodeDeployData } from 'viem';
+import { getAddress, encodeDeployData, encodeFunctionData } from 'viem';
 import { publicClient, sendSponsoredTransaction } from './aaClient';
 import WorkContractFactoryABI from './WorkContractFactory.json';
 
@@ -89,8 +89,67 @@ export const deployFactory = async ({ smartWalletClient, adminAddress, onStatusC
   };
 };
 
+/**
+ * Registers an oracle with the WorkContractFactory via sponsored transaction.
+ * Must be called from the admin smart wallet.
+ *
+ * @param {Object} params
+ * @param {Object} params.smartWalletClient - Privy smart wallet client
+ * @param {string} params.oracleAddress - Address of the oracle contract to register
+ * @param {Function} [params.onStatusChange] - Status callback
+ * @returns {Promise<{txHash: string, basescanUrl: string}>}
+ */
+export const registerOracle = async ({ smartWalletClient, oracleAddress, onStatusChange }) => {
+  if (!FACTORY_ADDRESS) {
+    throw new Error('VITE_FACTORY_ADDRESS not configured');
+  }
+
+  const data = encodeFunctionData({
+    abi: WorkContractFactoryABI.abi,
+    functionName: 'registerOracle',
+    args: [getAddress(oracleAddress)],
+  });
+
+  const result = await sendSponsoredTransaction({
+    smartWalletClient,
+    to: getAddress(FACTORY_ADDRESS),
+    data,
+    onStatusChange,
+  });
+
+  return {
+    txHash: result.hash,
+    basescanUrl: `${BASESCAN_URL}/tx/${result.hash}`,
+  };
+};
+
+/**
+ * Reads the registered oracle address for a given type from the factory.
+ *
+ * @param {string} oracleType - The oracle type string (e.g. "manual")
+ * @returns {Promise<string|null>} The oracle address or null
+ */
+export const getRegisteredOracle = async (oracleType) => {
+  if (!FACTORY_ADDRESS) return null;
+
+  try {
+    const addr = await publicClient.readContract({
+      address: getAddress(FACTORY_ADDRESS),
+      abi: WorkContractFactoryABI.abi,
+      functionName: 'oracleRegistry',
+      args: [oracleType],
+    });
+    return addr === '0x0000000000000000000000000000000000000000' ? null : addr;
+  } catch (error) {
+    console.error('Failed to read oracle registry:', error);
+    return null;
+  }
+};
+
 export default {
   getOnChainAdminAddress,
   isOnChainAdmin,
   deployFactory,
+  registerOracle,
+  getRegisteredOracle,
 };

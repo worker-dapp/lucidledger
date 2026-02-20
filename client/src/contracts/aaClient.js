@@ -106,6 +106,10 @@ export const sendSponsoredTransaction = async ({
     updateStatus(TxSteps.CONFIRMING, "Confirming on-chain...");
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
+    if (receipt.status === "reverted") {
+      throw new Error("Transaction reverted on-chain. The contract call failed.");
+    }
+
     updateStatus(TxSteps.SUCCESS, "Transaction confirmed!");
 
     return {
@@ -151,6 +155,10 @@ export const sendBatchTransaction = async ({
     updateStatus(TxSteps.CONFIRMING, "Confirming on-chain...");
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
+    if (receipt.status === "reverted") {
+      throw new Error("Transaction reverted on-chain. The batch call failed.");
+    }
+
     updateStatus(TxSteps.SUCCESS, "Batch confirmed!");
 
     return {
@@ -192,6 +200,13 @@ export const getSmartWalletAddress = (user) => {
   return smartWallet?.address;
 };
 
+/**
+ * Gets BaseScan URL for a transaction or address.
+ */
+export const getBasescanUrl = (hashOrAddress, type = "address") => {
+  return `${BASESCAN_URL}/${type}/${hashOrAddress}`;
+};
+
 export default {
   publicClient,
   TxSteps,
@@ -202,4 +217,5 @@ export default {
   encodeApproveData,
   isContract,
   getSmartWalletAddress,
+  getBasescanUrl,
 };

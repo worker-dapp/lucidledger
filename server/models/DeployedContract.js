@@ -89,6 +89,14 @@ const DeployedContract = sequelize.define('DeployedContract', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  contract_version: {
+    type: DataTypes.SMALLINT,
+    defaultValue: 1
+  },
+  oracle_addresses: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   verification_status: {
     type: DataTypes.STRING(50),
     defaultValue: 'pending'

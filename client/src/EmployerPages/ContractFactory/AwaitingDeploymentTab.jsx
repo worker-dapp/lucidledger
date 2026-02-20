@@ -12,6 +12,32 @@ import { useAuth } from "../../hooks/useAuth";
 
 const USDC_DECIMALS = 6;
 
+// Oracle types currently registered on-chain. Unregistered types are filtered out
+// so the factory doesn't revert. Expand this list as new oracles are deployed.
+const REGISTERED_ORACLE_TYPES = ["manual"];
+
+/**
+ * Parse the comma-separated selected_oracles string from the DB into
+ * an array of on-chain oracle type keys, filtering to only registered types.
+ *
+ * DB stores keys like "manual_verification" (legacy) or "manual" (current).
+ * Maps legacy names to on-chain keys.
+ */
+const parseOracleTypes = (selectedOracles) => {
+  if (!selectedOracles) return [];
+
+  // Map legacy DB names to on-chain registry keys
+  const legacyMap = {
+    manual_verification: "manual",
+  };
+
+  return selectedOracles
+    .split(",")
+    .map((s) => s.trim())
+    .map((s) => legacyMap[s] || s)
+    .filter((s) => REGISTERED_ORACLE_TYPES.includes(s));
+};
+
 // Deployment step messages for UI
 const stepMessages = {
   [TxSteps.IDLE]: "",
@@ -130,6 +156,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
         workerAddress: employee.wallet_address,
         paymentAmountUSD: paymentAmount,
         jobId: job.id,
+        oracleTypes: parseOracleTypes(job.selected_oracles),
         job,
         employee,
       });
@@ -209,6 +236,10 @@ const AwaitingDeploymentTab = ({ employerId }) => {
           payment_frequency: deployment.job.pay_frequency || null,
           status: "active",
           selected_oracles: deployment.job.selected_oracles || "manual_verification",
+          contract_version: 2,
+          oracle_addresses: deployment.oracleTypes.length > 0
+            ? deployment.oracleTypes.join(",")
+            : null,
           verification_status: "pending",
           deployment_tx_hash: result.txHash,
         });
