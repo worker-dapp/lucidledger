@@ -14,6 +14,10 @@ on:
   push:
     branches: [ main ]
 
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   PROD_DOMAIN: lucidledger.co
   STAGING_DOMAIN: staging.lucidledger.co
