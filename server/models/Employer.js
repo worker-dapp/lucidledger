@@ -19,12 +19,12 @@ const Employer = sequelize.define('Employer', {
   },
   email: {
     type: DataTypes.STRING(255),
-    allowNull: false,
-    unique: true
+    allowNull: false
   },
   wallet_address: {
     type: DataTypes.STRING(100),
-    allowNull: true
+    allowNull: true,
+    unique: true
   },
   street_address: {
     type: DataTypes.STRING(255),

@@ -152,6 +152,19 @@ const AppContent = () => {
       // Check if user already has a profile in backend (works for both email and phone login)
       const checkProfileAndRedirect = async () => {
         try {
+          // ADMIN SHORT-CIRCUIT:
+          // Admins don't have employee/employer profiles, so skip the lookup
+          // and send them directly to the admin dashboard.
+          const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '')
+            .split(',')
+            .map((e) => e.trim())
+            .filter(Boolean);
+          const userEmail = user?.email?.address;
+          if (userEmail && adminEmails.includes(userEmail)) {
+            navigate('/admin', { replace: true });
+            return;
+          }
+
           // DUAL-ROLE LOGIC:
           // 1. Check if profile exists for intended role (by wallet address)
           // 2. If not found, check other role — only redirect there if no explicit pendingRole
