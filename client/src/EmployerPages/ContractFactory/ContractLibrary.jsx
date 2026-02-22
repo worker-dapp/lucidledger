@@ -57,14 +57,8 @@ const ContractLibrary = ({ employerId }) => {
   };
 
   const handleUseContract = (contract) => {
-    // If it's been used before (template), show quick posting modal
-    if (contract.usage_count > 0) {
-      setSelectedContract(contract);
-      setIsPostModalOpen(true);
-    } else {
-      // One-time contract, just show alert for now
-      alert(`This is a one-time contract. Use "Create New Job" to create similar contracts.`);
-    }
+    setSelectedContract(contract);
+    setIsPostModalOpen(true);
   };
 
   const handleWizardComplete = () => {

@@ -263,4 +263,53 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken, optionalAuth, verifyAdmin };
+const requireApprovedEmployer = async (req, res, next) => {
+  const walletAddress = req.headers['x-wallet-address'];
+  if (!walletAddress) {
+    return res.status(403).json({ success: false, message: 'Wallet address required for employer verification' });
+  }
+
+  try {
+    const { Employer } = require('../models');
+    const { Op } = require('sequelize');
+    const employer = await Employer.findOne({
+      where: { wallet_address: { [Op.iLike]: walletAddress } }
+    });
+
+    if (!employer) {
+      return res.status(403).json({ success: false, message: 'Employer profile not found' });
+    }
+
+    if (employer.approval_status !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your employer account is pending approval. You cannot perform this action until approved.',
+        approval_status: employer.approval_status
+      });
+    }
+
+    req.employer = employer;
+    next();
+  } catch (error) {
+    console.error('requireApprovedEmployer error:', error.message);
+    return res.status(500).json({ success: false, message: 'Error verifying employer status' });
+  }
+};
+
+// Validates and normalizes the x-wallet-address header to EIP-55 checksum form.
+// Returns 400 if the header is present but not a valid Ethereum address.
+// No-op if the header is absent.
+const validateWalletAddress = (req, res, next) => {
+  const raw = req.headers['x-wallet-address'];
+  if (!raw) return next();
+
+  try {
+    const { ethers } = require('ethers');
+    req.headers['x-wallet-address'] = ethers.getAddress(raw);
+    next();
+  } catch {
+    return res.status(400).json({ success: false, message: 'Invalid wallet address format' });
+  }
+};
+
+module.exports = { verifyToken, optionalAuth, verifyAdmin, requireApprovedEmployer, validateWalletAddress };

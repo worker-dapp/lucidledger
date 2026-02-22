@@ -1,6 +1,6 @@
 const express = require('express');
 const DeployedContractController = require('../controllers/deployedContractController');
-const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const { verifyToken, verifyAdmin, requireApprovedEmployer } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ router.get('/employee/:employee_id', verifyToken, DeployedContractController.get
 router.get('/disputed', verifyToken, verifyAdmin, DeployedContractController.getDisputedContractsForAdmin);
 router.get('/mediator/:mediatorId/disputed', verifyToken, DeployedContractController.getDisputedContractsByMediator);
 router.get('/', verifyToken, DeployedContractController.getDeployedContractsByEmployer);
-router.post('/', verifyToken, DeployedContractController.createDeployedContract);
+router.post('/', verifyToken, requireApprovedEmployer, DeployedContractController.createDeployedContract);
 router.patch('/:id/mediator', verifyToken, verifyAdmin, DeployedContractController.assignMediatorToDeployedContract);
 router.patch('/:id/status', verifyToken, DeployedContractController.updateDeployedContractStatus);
 router.post('/:id/complete-with-payment', verifyToken, DeployedContractController.completeContractWithPayment);

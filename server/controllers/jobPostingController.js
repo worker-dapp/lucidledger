@@ -53,21 +53,12 @@ class JobPostingController {
         });
       }
 
-      // Get employer info to populate company fields
-      const employer = await Employer.findByPk(employer_id);
+      // Get employer info to populate company fields (req.employer set by requireApprovedEmployer middleware)
+      const employer = req.employer || await Employer.findByPk(employer_id);
       if (!employer) {
         return res.status(404).json({
           success: false,
           message: 'Employer not found'
-        });
-      }
-
-      // Check employer approval status
-      if (employer.approval_status !== 'approved') {
-        return res.status(403).json({
-          success: false,
-          message: 'Your employer account is pending approval. You cannot create job postings until approved.',
-          approval_status: employer.approval_status
         });
       }
 
@@ -289,16 +280,6 @@ class JobPostingController {
         return res.status(404).json({
           success: false,
           message: 'Job posting not found'
-        });
-      }
-
-      // Check employer approval status before activating
-      const employer = await Employer.findByPk(jobPosting.employer_id);
-      if (!employer || employer.approval_status !== 'approved') {
-        return res.status(403).json({
-          success: false,
-          message: 'Your employer account is pending approval. You cannot activate job postings until approved.',
-          approval_status: employer?.approval_status || 'unknown'
         });
       }
 

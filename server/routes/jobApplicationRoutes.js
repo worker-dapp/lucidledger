@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jobApplicationController = require('../controllers/jobApplicationController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken, requireApprovedEmployer } = require('../middleware/authMiddleware');
 
 // Save/Unsave job routes
 router.post('/save', verifyToken, jobApplicationController.saveJob);
@@ -15,8 +15,8 @@ router.get('/saved/:employee_id', verifyToken, jobApplicationController.getSaved
 router.get('/applied/:employee_id', verifyToken, jobApplicationController.getAppliedJobs);
 
 // Employer application review
-router.get('/employer/:employer_id', verifyToken, jobApplicationController.getApplicationsByEmployer);
-router.post('/bulk-status', verifyToken, jobApplicationController.bulkUpdateApplicationStatus);
+router.get('/employer/:employer_id', verifyToken, requireApprovedEmployer, jobApplicationController.getApplicationsByEmployer);
+router.post('/bulk-status', verifyToken, requireApprovedEmployer, jobApplicationController.bulkUpdateApplicationStatus);
 
 // Update application status
 router.patch('/:applicationId/status', verifyToken, jobApplicationController.updateApplicationStatus);

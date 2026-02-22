@@ -83,7 +83,7 @@ const EmployerLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <SmartWalletInfo />
+            {approvalStatus === 'approved' && <SmartWalletInfo />}
             <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
           </div>
         </div>
