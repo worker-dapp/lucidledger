@@ -3,14 +3,16 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import SmartWalletInfo from "./SmartWalletInfo";
+import apiService from "../services/api";
 
 import LogoutButton from "./LogoutButton";
 import BetaBanner from "./BetaBanner";
 
 const EmployerNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState(null);
 
-  const { user } = useAuth();
+  const { user, smartWalletAddress } = useAuth();
   const mobileMenuRef = useRef(null);
   const navigate = useNavigate();
 
@@ -26,6 +28,29 @@ const EmployerNavbar = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchApprovalStatus = async () => {
+      try {
+        let response = null;
+        if (smartWalletAddress) {
+          response = await apiService.getEmployerByWallet(smartWalletAddress);
+        }
+        if ((!response || !response.data) && user?.email?.address) {
+          response = await apiService.getEmployerByEmail(user.email.address);
+        }
+        if (response?.data) {
+          setApprovalStatus(response.data.approval_status);
+        }
+      } catch (error) {
+        console.error("Error fetching employer approval status:", error);
+      }
+    };
+
+    if (smartWalletAddress || user?.email?.address) {
+      fetchApprovalStatus();
+    }
+  }, [smartWalletAddress, user?.email?.address]);
 
   const handleHomeClick = () => {
     navigate('/employerDashboard');
@@ -112,7 +137,7 @@ const EmployerNavbar = () => {
             Support
           </NavLink>
 
-          <SmartWalletInfo />
+          {approvalStatus === 'approved' && <SmartWalletInfo />}
           <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
         </div>
 
@@ -245,7 +270,7 @@ const EmployerNavbar = () => {
                 🆘 Support
               </NavLink>
 
-              <SmartWalletInfo compact />
+              {approvalStatus === 'approved' && <SmartWalletInfo compact />}
               <LogoutButton className='bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-all' />
             </div>
 

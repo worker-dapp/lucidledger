@@ -416,7 +416,7 @@ const EmployerProfile = () => {
                 <div>
                   <div className="text-sm text-gray-500">Phone</div>
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-800">{phone ? `${countryCode} ${phone}` : '—'}</span>
+                    <span className="text-gray-800">{phone || '—'}</span>
                     {privyPhone && (
                       <span className="inline-flex items-center gap-1 text-green-600 text-sm">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

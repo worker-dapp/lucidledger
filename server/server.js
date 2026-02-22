@@ -21,6 +21,8 @@ const paymentTransactionRoutes = require('./routes/paymentTransactionRoutes');
 const mediatorRoutes = require('./routes/mediatorRoutes');
 const disputeHistoryRoutes = require('./routes/disputeHistoryRoutes');
 const adminEmployerRoutes = require('./routes/adminEmployerRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const { validateWalletAddress } = require('./middleware/authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,7 +37,13 @@ if (process.env.NODE_ENV === 'production') {
     max: 100, // limit each IP to 100 requests per windowMs
     message: 'Too many requests from this IP, please try again later.'
   });
+  const adminLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // stricter limit for sensitive admin endpoints
+    message: 'Too many requests to admin endpoints, please try again later.'
+  });
   app.use(limiter);
+  app.use('/api/admin', adminLimiter);
   console.log('🛡️  Rate limiting enabled (production mode)');
 } else {
   console.log('⚠️  Rate limiting disabled (development mode)');
@@ -50,6 +58,9 @@ app.use(cors({
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Wallet address validation — normalizes x-wallet-address header to EIP-55 checksum form
+app.use(validateWalletAddress);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -81,6 +92,7 @@ app.use('/api/oracle-verifications', oracleVerificationRoutes);
 app.use('/api/payment-transactions', paymentTransactionRoutes);
 app.use('/api/mediators', mediatorRoutes);
 app.use('/api/dispute-history', disputeHistoryRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/admin/employers', adminEmployerRoutes);
 
 // 404 handler

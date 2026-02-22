@@ -845,21 +845,28 @@ const EmployeeJobsPage = () => {
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📍 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location}</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">💰 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.currency} {selectedJob.salary}/{selectedJob.pay_frequency}</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📅 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.job_type || 'Not specified'}</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">🏢 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location_type || 'Not specified'}</span>
                   </div>
+
+                  {selectedJob.application_deadline && (
+                    <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
+                      <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">⏰ Apply by: </span>
+                      <span className="text-gray-600 text-xs sm:text-sm">{new Date(selectedJob.application_deadline).toLocaleDateString()}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -1071,21 +1078,28 @@ const EmployeeJobsPage = () => {
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📍 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location}</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">💰 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.currency} {selectedJob.salary}/{selectedJob.pay_frequency}</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">📅 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.job_type || 'Not specified'}</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
                     <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">🏢 </span>
                     <span className="text-gray-600 text-xs sm:text-sm">{selectedJob.location_type || 'Not specified'}</span>
                   </div>
+
+                  {selectedJob.application_deadline && (
+                    <div className="bg-gray-50 px-3 sm:px-4 py-2 rounded-lg">
+                      <span className="font-semibold text-[#0D3B66] text-xs sm:text-sm">⏰ Apply by: </span>
+                      <span className="text-gray-600 text-xs sm:text-sm">{new Date(selectedJob.application_deadline).toLocaleDateString()}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Description */}

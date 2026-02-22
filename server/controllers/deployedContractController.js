@@ -674,6 +674,16 @@ class DeployedContractController {
       const { id } = req.params;
       const updates = req.body;
 
+      // Reject attempts to modify identity fields — these are set at creation and must never change
+      const IMMUTABLE_FIELDS = ['contract_address', 'employer_id', 'employee_id', 'job_posting_id', 'payment_amount'];
+      const attempted = IMMUTABLE_FIELDS.filter(f => f in updates);
+      if (attempted.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `The following fields cannot be modified: ${attempted.join(', ')}`
+        });
+      }
+
       // Get requesting user's wallet address for authorization
       const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
       if (!walletAddress) {
