@@ -57,7 +57,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
         const currentRole = getStoredRole(user);
 
         if (!currentRole) {
-            return <Navigate to="/user-profile" replace />;
+            return <Navigate to="/" replace />;
         }
 
         if (currentRole !== requiredRole) {

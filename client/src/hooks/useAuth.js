@@ -23,7 +23,6 @@ export const useAuth = (linkCallbacks, updateCallbacks) => {
   const { client: smartWalletClient } = useSmartWallets();
   const { linkEmail, linkPhone } = useLinkAccount(linkCallbacks);
   const { updateEmail, updatePhone } = useUpdateAccount(updateCallbacks);
-
   const smartWalletAccount = user?.linkedAccounts?.find(
     (account) => account.type === "smart_wallet"
   );
