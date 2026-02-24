@@ -142,7 +142,9 @@ async function runMigrationsOnStartup() {
       '013-add-employer-approval.sql',
       '014-add-employee-profile-fields.sql',
       '015-contract-version-and-oracle-addresses.sql',
-      '016-offer-signature.sql'
+      '016-offer-signature.sql',
+      '017-allow-repeat-contracts-per-worker.sql',
+      '018-fix-email-wallet-constraints.sql'
     ];
 
     for (const file of migrationFiles) {
