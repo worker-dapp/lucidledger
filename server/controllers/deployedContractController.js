@@ -174,6 +174,37 @@ class DeployedContractController {
         }
       }
 
+      // Capture immutable snapshot of job posting terms at deployment time
+      const jobPosting = await JobPosting.findByPk(job_posting_id, {
+        attributes: [
+          'title', 'salary', 'currency', 'pay_frequency', 'payment_amount',
+          'location', 'location_type', 'job_type', 'responsibilities',
+          'description', 'employee_benefits', 'additional_compensation',
+          'selected_oracles', 'application_deadline', 'company_name',
+          'company_description'
+        ]
+      });
+      if (jobPosting) {
+        createPayload.contract_snapshot = {
+          title: jobPosting.title,
+          salary: jobPosting.salary,
+          currency: jobPosting.currency,
+          pay_frequency: jobPosting.pay_frequency,
+          location: jobPosting.location,
+          location_type: jobPosting.location_type,
+          job_type: jobPosting.job_type,
+          responsibilities: jobPosting.responsibilities,
+          description: jobPosting.description,
+          employee_benefits: jobPosting.employee_benefits,
+          additional_compensation: jobPosting.additional_compensation,
+          selected_oracles: jobPosting.selected_oracles,
+          application_deadline: jobPosting.application_deadline,
+          company_name: jobPosting.company_name,
+          company_description: jobPosting.company_description,
+          snapshot_taken_at: new Date().toISOString()
+        };
+      }
+
       const deployedContract = await DeployedContract.create(createPayload);
 
       res.status(201).json({
