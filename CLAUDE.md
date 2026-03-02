@@ -193,6 +193,12 @@ This is a job marketplace platform with **two user roles**:
 
 ### Blockchain Integration
 
+**Core Product Invariant (important)**:
+- Lucid Ledger is an **on-chain wage escrow** system, not an off-chain payroll attestation app.
+- Employer funds are locked in USDC escrow before work begins and released/refunded by smart contract logic.
+- In the current design, payment amounts and wallet addresses are on-chain-visible (contract state/events + ERC-20 transfers on Base).
+- Do not assume exact wage amounts can be hidden while keeping standard public-chain direct escrow settlement; that would require a privacy-preserving settlement rail or a different architecture.
+
 **Smart Contracts**:
 1. **ManualWorkContract** - Individual work contracts between employer and worker
    - Deployed per-contract via factory or direct deployment
