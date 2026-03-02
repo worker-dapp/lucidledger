@@ -52,6 +52,10 @@ const JobApplication = sequelize.define('JobApplication', {
   offer_signed_at: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  contract_snapshot: {
+    type: DataTypes.JSONB,
+    allowNull: true
   }
 }, {
   tableName: 'job_applications',

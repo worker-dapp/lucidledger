@@ -174,35 +174,15 @@ class DeployedContractController {
         }
       }
 
-      // Capture immutable snapshot of job posting terms at deployment time
-      const jobPosting = await JobPosting.findByPk(job_posting_id, {
-        attributes: [
-          'title', 'salary', 'currency', 'pay_frequency', 'payment_amount',
-          'location', 'location_type', 'job_type', 'responsibilities',
-          'description', 'employee_benefits', 'additional_compensation',
-          'selected_oracles', 'application_deadline', 'company_name',
-          'company_description'
-        ]
+      // Copy the snapshot captured at signing time from job_applications.
+      // This is the source of truth — it reflects what the worker saw when they signed,
+      // not the current state of the job posting (which may have changed since).
+      const application = await JobApplication.findOne({
+        where: { job_posting_id, employee_id },
+        attributes: ['contract_snapshot']
       });
-      if (jobPosting) {
-        createPayload.contract_snapshot = {
-          title: jobPosting.title,
-          salary: jobPosting.salary,
-          currency: jobPosting.currency,
-          pay_frequency: jobPosting.pay_frequency,
-          location: jobPosting.location,
-          location_type: jobPosting.location_type,
-          job_type: jobPosting.job_type,
-          responsibilities: jobPosting.responsibilities,
-          description: jobPosting.description,
-          employee_benefits: jobPosting.employee_benefits,
-          additional_compensation: jobPosting.additional_compensation,
-          selected_oracles: jobPosting.selected_oracles,
-          application_deadline: jobPosting.application_deadline,
-          company_name: jobPosting.company_name,
-          company_description: jobPosting.company_description,
-          snapshot_taken_at: new Date().toISOString()
-        };
+      if (application?.contract_snapshot) {
+        createPayload.contract_snapshot = application.contract_snapshot;
       }
 
       const deployedContract = await DeployedContract.create(createPayload);
