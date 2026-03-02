@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { AlertTriangle, Loader2, XCircle, Zap, ExternalLink, HandCoins } from "lucide-react";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
@@ -9,6 +9,50 @@ import { raiseDispute, ContractState } from "../contracts/workContractInteractio
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
+
+const TxRow = ({ tx, formatDate, basescanUrl }) => (
+  <div className="p-4 hover:bg-gray-50 transition-all">
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-semibold text-[#0D3B66] truncate">
+          {tx.deployedContract?.jobPosting?.title || "Contract Payment"}
+        </h3>
+        <p className="text-xs text-gray-500">
+          {tx.deployedContract?.employer?.company_name ||
+            tx.deployedContract?.jobPosting?.company_name ||
+            "—"}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">{formatDate(tx.created_at)}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-bold text-emerald-600">
+          +${parseFloat(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </p>
+        <p className="text-xs text-gray-500">{tx.currency || "USDC"}</p>
+        <span
+          className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+            tx.status === "completed"
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {tx.status === "completed" ? "Paid" : "Pending"}
+        </span>
+      </div>
+    </div>
+    {tx.tx_hash && (
+      <a
+        href={`${basescanUrl}/tx/${tx.tx_hash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800"
+      >
+        View on-chain
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    )}
+  </div>
+);
 
 const JobTracker = () => {
   const navigate = useNavigate();
@@ -27,6 +71,11 @@ const JobTracker = () => {
   const [earnings, setEarnings] = useState([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [earningsLoading, setEarningsLoading] = useState(true);
+
+  // Earnings filters
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [groupBy, setGroupBy] = useState("none"); // "none" | "employer" | "month"
 
   // Dispute modal state
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -268,6 +317,48 @@ const JobTracker = () => {
     // No selection needed for earnings tab
   }, [activeTab, openContracts, completedContracts, closedContracts]);
 
+  // Filtered earnings (apply date range)
+  const filteredEarnings = useMemo(() => {
+    return earnings.filter((tx) => {
+      const txDate = new Date(tx.created_at);
+      if (dateFrom && txDate < new Date(dateFrom)) return false;
+      if (dateTo && txDate > new Date(dateTo + "T23:59:59")) return false;
+      return true;
+    });
+  }, [earnings, dateFrom, dateTo]);
+
+  const filteredTotal = useMemo(
+    () => filteredEarnings.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0),
+    [filteredEarnings]
+  );
+
+  // Grouped earnings
+  const groupedEarnings = useMemo(() => {
+    if (groupBy === "none") return null;
+    const groups = {};
+    filteredEarnings.forEach((tx) => {
+      let key;
+      if (groupBy === "employer") {
+        key =
+          tx.deployedContract?.employer?.company_name ||
+          tx.deployedContract?.jobPosting?.company_name ||
+          "Unknown Employer";
+      } else {
+        const d = new Date(tx.created_at);
+        key = d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+      }
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(tx);
+    });
+    return Object.entries(groups).map(([label, txs]) => ({
+      label,
+      txs,
+      total: txs.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0),
+    }));
+  }, [filteredEarnings, groupBy]);
+
+  const hasFilters = dateFrom || dateTo || groupBy !== "none";
+
   const formatDate = (value) => {
     if (!value) return "Not specified";
     const date = new Date(value);
@@ -408,15 +499,68 @@ const JobTracker = () => {
                 </div>
               ) : (
                 <div>
-                  {/* Total Earnings Summary */}
-                  <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6 mb-6">
-                    <div className="flex items-center justify-between">
+                  {/* Filter Bar + Earnings Summary — side by side */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {/* Filter Bar */}
+                    <div className="flex flex-col justify-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <div className="flex flex-wrap gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+                          <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+                          <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Group by</label>
+                          <select
+                            value={groupBy}
+                            onChange={(e) => setGroupBy(e.target.value)}
+                            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#EE964B] bg-white"
+                          >
+                            <option value="none">None</option>
+                            <option value="employer">Employer</option>
+                            <option value="month">Month</option>
+                          </select>
+                        </div>
+                      </div>
+                      {hasFilters && (
+                        <button
+                          onClick={() => { setDateFrom(""); setDateTo(""); setGroupBy("none"); }}
+                          className="text-sm text-gray-500 hover:text-gray-700 underline text-left"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Earnings Summary */}
+                    <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6 flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-emerald-700 mb-1">Total Earnings</p>
-                        <p className="text-3xl font-bold text-emerald-800">
-                          ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <p className="text-sm font-medium text-emerald-700 mb-1">
+                          {hasFilters ? "Filtered Earnings" : "Total Earnings"}
                         </p>
-                        <p className="text-xs text-emerald-600 mt-1">USDC</p>
+                        <p className="text-3xl font-bold text-emerald-800">
+                          ${filteredTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        {hasFilters ? (
+                          <p className="text-xs text-emerald-600 mt-1">
+                            Lifetime: ${totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
+                          </p>
+                        ) : (
+                          <p className="text-xs text-emerald-600 mt-1">USDC</p>
+                        )}
                       </div>
                       <HandCoins className="h-12 w-12 text-emerald-600" />
                     </div>
@@ -425,54 +569,39 @@ const JobTracker = () => {
                   {/* Transactions List */}
                   <div className="border border-gray-200 rounded-xl overflow-hidden">
                     <div className="p-4 border-b border-gray-200 bg-gray-50 text-sm text-gray-600">
-                      {earnings.length} transaction(s)
+                      {filteredEarnings.length} of {earnings.length} transaction(s)
                     </div>
-                    <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
-                      {earnings.map((tx) => (
-                        <div
-                          key={tx.id}
-                          className="p-4 hover:bg-gray-50 transition-all"
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-[#0D3B66] truncate">
-                                {tx.deployedContract?.jobPosting?.title || "Contract Payment"}
-                              </h3>
-                              <p className="text-xs text-gray-500">
-                                {tx.deployedContract?.employer?.company_name || tx.deployedContract?.jobPosting?.company_name || "—"}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-1">
-                                {formatDate(tx.created_at)}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-emerald-600">
-                                +${parseFloat(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-xs text-gray-500">{tx.currency || "USDC"}</p>
-                              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                tx.status === "completed"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}>
-                                {tx.status === "completed" ? "Paid" : "Pending"}
+                    {filteredEarnings.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-gray-400">
+                        No transactions match the selected date range.
+                      </div>
+                    ) : groupedEarnings ? (
+                      <div className="divide-y divide-gray-100">
+                        {groupedEarnings.map((group) => (
+                          <div key={group.label}>
+                            <div className="flex items-center justify-between px-4 py-2 bg-gray-100">
+                              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                {group.label}
+                              </span>
+                              <span className="text-xs font-bold text-emerald-700">
+                                +${group.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
+                            <div className="divide-y divide-gray-100">
+                              {group.txs.map((tx) => (
+                                <TxRow key={tx.id} tx={tx} formatDate={formatDate} basescanUrl={BASESCAN_URL} />
+                              ))}
+                            </div>
                           </div>
-                          {tx.tx_hash && (
-                            <a
-                              href={`${BASESCAN_URL}/tx/${tx.tx_hash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 mt-2 text-xs text-blue-600 hover:text-blue-800"
-                            >
-                              View on-chain
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
+                        {filteredEarnings.map((tx) => (
+                          <TxRow key={tx.id} tx={tx} formatDate={formatDate} basescanUrl={BASESCAN_URL} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
