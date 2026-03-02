@@ -144,7 +144,9 @@ async function runMigrationsOnStartup() {
       '015-contract-version-and-oracle-addresses.sql',
       '016-offer-signature.sql',
       '017-allow-repeat-contracts-per-worker.sql',
-      '018-fix-email-wallet-constraints.sql'
+      '018-fix-email-wallet-constraints.sql',
+      '019-add-contract-snapshot.sql',
+      '020-add-snapshot-to-job-applications.sql'
     ];
 
     for (const file of migrationFiles) {

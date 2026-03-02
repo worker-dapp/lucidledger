@@ -112,6 +112,10 @@ const DeployedContract = sequelize.define('DeployedContract', {
       model: 'mediators',
       key: 'id'
     }
+  },
+  contract_snapshot: {
+    type: DataTypes.JSONB,
+    allowNull: true
   }
 }, {
   tableName: 'deployed_contracts',

@@ -97,6 +97,8 @@ class JobPostingController {
       const whereClause = { employer_id };
       if (status) {
         whereClause.status = status;
+      } else {
+        whereClause.status = { [Op.ne]: 'deleted' };
       }
 
       const jobPostings = await JobPosting.findAll({
@@ -211,7 +213,8 @@ class JobPostingController {
     }
   }
 
-  // Delete a job posting
+  // Remove a job posting (soft delete — sets status to 'deleted', preserves DB record)
+  // Deployed contracts for filled slots remain intact and accessible via Workforce Dashboard.
   static async deleteJobPosting(req, res) {
     try {
       const { id } = req.params;
@@ -224,17 +227,17 @@ class JobPostingController {
         });
       }
 
-      await jobPosting.destroy();
+      await jobPosting.update({ status: 'deleted' });
 
       res.status(200).json({
         success: true,
-        message: 'Job posting deleted successfully'
+        message: 'Job posting removed successfully'
       });
     } catch (error) {
-      console.error('Error deleting job posting:', error);
+      console.error('Error removing job posting:', error);
       res.status(500).json({
         success: false,
-        message: 'Error deleting job posting',
+        message: 'Error removing job posting',
         error: error.message
       });
     }

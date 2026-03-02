@@ -174,6 +174,17 @@ class DeployedContractController {
         }
       }
 
+      // Copy the snapshot captured at signing time from job_applications.
+      // This is the source of truth — it reflects what the worker saw when they signed,
+      // not the current state of the job posting (which may have changed since).
+      const application = await JobApplication.findOne({
+        where: { job_posting_id, employee_id },
+        attributes: ['contract_snapshot']
+      });
+      if (application?.contract_snapshot) {
+        createPayload.contract_snapshot = application.contract_snapshot;
+      }
+
       const deployedContract = await DeployedContract.create(createPayload);
 
       res.status(201).json({

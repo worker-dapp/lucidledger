@@ -364,6 +364,42 @@ exports.updateApplicationStatus = async (req, res) => {
       if (offer_signed_at) {
         updates.offer_signed_at = offer_signed_at;
       }
+
+      // Note: server-side signature verification deferred — x-wallet-address is the smart
+      // wallet (contract address) while the actual signer is the underlying EOA, which are
+      // intentionally different in Privy's account abstraction model. Correct verification
+      // requires storing the EOA address in the DB. Tracked as v0.4.0 issue #89.
+
+      // Capture immutable snapshot of job posting terms at signing time
+      const jobPosting = await JobPosting.findByPk(application.job_posting_id, {
+        attributes: [
+          'title', 'salary', 'currency', 'pay_frequency',
+          'location', 'location_type', 'job_type', 'responsibilities',
+          'description', 'employee_benefits', 'additional_compensation',
+          'selected_oracles', 'application_deadline', 'company_name',
+          'company_description'
+        ]
+      });
+      if (jobPosting) {
+        updates.contract_snapshot = {
+          title: jobPosting.title,
+          salary: jobPosting.salary,
+          currency: jobPosting.currency,
+          pay_frequency: jobPosting.pay_frequency,
+          location: jobPosting.location,
+          location_type: jobPosting.location_type,
+          job_type: jobPosting.job_type,
+          responsibilities: jobPosting.responsibilities,
+          description: jobPosting.description,
+          employee_benefits: jobPosting.employee_benefits,
+          additional_compensation: jobPosting.additional_compensation,
+          selected_oracles: jobPosting.selected_oracles,
+          application_deadline: jobPosting.application_deadline,
+          company_name: jobPosting.company_name,
+          company_description: jobPosting.company_description,
+          snapshot_taken_at: new Date().toISOString()
+        };
+      }
     }
 
     application.set(updates);

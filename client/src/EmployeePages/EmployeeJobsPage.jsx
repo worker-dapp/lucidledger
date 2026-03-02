@@ -386,14 +386,21 @@ const EmployeeJobsPage = () => {
           { name: "jobPostingId", type: "uint256" },
           { name: "applicationId", type: "uint256" },
           { name: "worker", type: "address" },
+          { name: "jobTitle", type: "string" },
+          { name: "paymentAmount", type: "string" },
           { name: "timestamp", type: "uint256" },
         ],
       };
       const timestamp = Math.floor(Date.now() / 1000);
+      const paymentAmount = selectedJob.salary
+        ? `${selectedJob.salary} ${selectedJob.currency || 'USD'} / ${selectedJob.pay_frequency || 'period'}`
+        : 'See contract';
       const message = {
         jobPostingId: String(selectedJob.id),
         applicationId: String(selectedJob.application_id),
         worker: smartWalletAddress,
+        jobTitle: selectedJob.title || selectedJob.jobTitle || '',
+        paymentAmount,
         timestamp: String(timestamp),
       };
 
@@ -413,6 +420,7 @@ const EmployeeJobsPage = () => {
       await apiService.updateApplicationStatus(selectedJob.application_id, 'signed', {
         offer_signature: signature,
         offer_signed_at: new Date().toISOString(),
+        signed_message: { domain, types, message },
       });
 
       const remainingJobs = jobs.filter(job => job.application_id !== selectedJob.application_id);

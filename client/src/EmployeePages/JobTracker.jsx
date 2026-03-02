@@ -107,6 +107,7 @@ const JobTracker = () => {
           deployed_contract_id: dc.id,
           application_status: "deployed",
           deployed_at: dc.deployed_at,
+          contract_snapshot: dc.contract_snapshot,
           source: "deployed_contract"
         }));
 
@@ -122,6 +123,7 @@ const JobTracker = () => {
           application_status: "completed",
           deployed_at: dc.deployed_at,
           completed_at: dc.updated_at,
+          contract_snapshot: dc.contract_snapshot,
           source: "deployed_contract"
         }));
 
@@ -140,6 +142,7 @@ const JobTracker = () => {
           mediator_id: dc.mediator_id,
           mediator: dc.mediator,
           employer_name: dc.employer?.company_name,
+          contract_snapshot: dc.contract_snapshot,
           source: "deployed_contract"
         }));
 
@@ -156,6 +159,7 @@ const JobTracker = () => {
           deployed_at: dc.deployed_at,
           closed_at: dc.updated_at,
           employer_name: dc.employer?.company_name,
+          contract_snapshot: dc.contract_snapshot,
           source: "deployed_contract"
         }));
 
@@ -582,6 +586,69 @@ const JobTracker = () => {
                           <p className="text-sm text-gray-600">{selectedContract.description}</p>
                         </div>
                       )}
+
+                      {/* Terms at Signing — immutable snapshot */}
+                      {selectedContract.source === "deployed_contract" && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="bg-gray-100 px-4 py-2 flex items-center justify-between">
+                            <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Terms at Signing</h4>
+                            {selectedContract.contract_snapshot ? (
+                              <span className="text-xs text-emerald-600 font-medium">Verified snapshot</span>
+                            ) : (
+                              <span className="text-xs text-amber-600 font-medium">Live posting data</span>
+                            )}
+                          </div>
+                          {selectedContract.contract_snapshot ? (
+                            <div className="p-4 space-y-3">
+                              {selectedContract.contract_snapshot.responsibilities && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Responsibilities</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.contract_snapshot.responsibilities}</p>
+                                </div>
+                              )}
+                              {selectedContract.contract_snapshot.employee_benefits && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Benefits</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.contract_snapshot.employee_benefits}</p>
+                                </div>
+                              )}
+                              {selectedContract.contract_snapshot.additional_compensation && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Additional Compensation</p>
+                                  <p className="text-sm text-gray-700">{selectedContract.contract_snapshot.additional_compensation}</p>
+                                </div>
+                              )}
+                              {selectedContract.contract_snapshot.application_deadline && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Application Deadline (at signing)</p>
+                                  <p className="text-sm text-gray-700">{formatDate(selectedContract.contract_snapshot.application_deadline)}</p>
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-400 pt-1">
+                                Snapshot recorded {formatDate(selectedContract.contract_snapshot.snapshot_taken_at)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-4">
+                              {selectedContract.responsibilities && (
+                                <div className="mb-3">
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Responsibilities</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.responsibilities}</p>
+                                </div>
+                              )}
+                              {selectedContract.employee_benefits && (
+                                <div className="mb-3">
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Benefits</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.employee_benefits}</p>
+                                </div>
+                              )}
+                              <p className="text-xs text-amber-600">
+                                No snapshot recorded for this contract — showing current job posting data, which may have changed since signing.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-12 text-gray-500">
@@ -690,6 +757,69 @@ const JobTracker = () => {
                         <div>
                           <h4 className="text-sm font-semibold text-[#0D3B66] mb-2">Contract Summary</h4>
                           <p className="text-sm text-gray-600">{selectedContract.description}</p>
+                        </div>
+                      )}
+
+                      {/* Terms at Signing — immutable snapshot */}
+                      {selectedContract.source === "deployed_contract" && (
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="bg-gray-100 px-4 py-2 flex items-center justify-between">
+                            <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Terms at Signing</h4>
+                            {selectedContract.contract_snapshot ? (
+                              <span className="text-xs text-emerald-600 font-medium">Verified snapshot</span>
+                            ) : (
+                              <span className="text-xs text-amber-600 font-medium">Live posting data</span>
+                            )}
+                          </div>
+                          {selectedContract.contract_snapshot ? (
+                            <div className="p-4 space-y-3">
+                              {selectedContract.contract_snapshot.responsibilities && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Responsibilities</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.contract_snapshot.responsibilities}</p>
+                                </div>
+                              )}
+                              {selectedContract.contract_snapshot.employee_benefits && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Benefits</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.contract_snapshot.employee_benefits}</p>
+                                </div>
+                              )}
+                              {selectedContract.contract_snapshot.additional_compensation && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Additional Compensation</p>
+                                  <p className="text-sm text-gray-700">{selectedContract.contract_snapshot.additional_compensation}</p>
+                                </div>
+                              )}
+                              {selectedContract.contract_snapshot.application_deadline && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Application Deadline (at signing)</p>
+                                  <p className="text-sm text-gray-700">{formatDate(selectedContract.contract_snapshot.application_deadline)}</p>
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-400 pt-1">
+                                Snapshot recorded {formatDate(selectedContract.contract_snapshot.snapshot_taken_at)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-4">
+                              {selectedContract.responsibilities && (
+                                <div className="mb-3">
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Responsibilities</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.responsibilities}</p>
+                                </div>
+                              )}
+                              {selectedContract.employee_benefits && (
+                                <div className="mb-3">
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Benefits</p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-line">{selectedContract.employee_benefits}</p>
+                                </div>
+                              )}
+                              <p className="text-xs text-amber-600">
+                                No snapshot recorded for this contract — showing current job posting data, which may have changed since signing.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
 

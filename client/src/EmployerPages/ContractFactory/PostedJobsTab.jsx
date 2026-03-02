@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiService from "../../services/api";
 import PostJobModal from "./PostJobModal";
-import { Plus, Search, Edit, Trash2, CheckCircle, CheckCircle2, XCircle, Clock, FileText, PlayCircle } from "lucide-react";
+import { Plus, Search, X, CheckCircle, CheckCircle2, XCircle, Clock, FileText, PlayCircle } from "lucide-react";
 
 const PostedJobsTab = ({ employerId }) => {
   const [jobPostings, setJobPostings] = useState([]);
@@ -65,22 +65,8 @@ const PostedJobsTab = ({ employerId }) => {
     }
   };
 
-  const handleClose = async (postingId) => {
-    if (!window.confirm("Are you sure you want to close this job posting?")) {
-      return;
-    }
-
-    try {
-      await apiService.closeJobPosting(postingId);
-      await fetchJobPostings();
-    } catch (error) {
-      console.error("Error closing job posting:", error);
-      alert("Failed to close job posting: " + error.message);
-    }
-  };
-
-  const handleDelete = async (postingId) => {
-    if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) {
+  const handleRemove = async (postingId) => {
+    if (!window.confirm("Remove this job posting? It will no longer be visible to workers. Any filled contracts remain accessible in the Workforce Dashboard.")) {
       return;
     }
 
@@ -88,8 +74,8 @@ const PostedJobsTab = ({ employerId }) => {
       await apiService.deleteJobPosting(postingId);
       await fetchJobPostings();
     } catch (error) {
-      console.error("Error deleting job posting:", error);
-      alert("Failed to delete job posting: " + error.message);
+      console.error("Error removing job posting:", error);
+      alert("Failed to remove job posting: " + error.message);
     }
   };
 
@@ -197,7 +183,7 @@ const PostedJobsTab = ({ employerId }) => {
                   Status
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  Remove
                 </th>
               </tr>
             </thead>
@@ -240,28 +226,12 @@ const PostedJobsTab = ({ employerId }) => {
                           <CheckCircle className="h-4 w-4" />
                         </button>
                       )}
-                      {posting.status === "active" && (
-                        <button
-                          onClick={() => handleClose(posting.id)}
-                          className="text-orange-600 hover:text-orange-800"
-                          title="Close"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      )}
                       <button
-                        onClick={() => alert("Edit functionality coming soon")}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="Edit"
+                        onClick={() => handleRemove(posting.id)}
+                        className="text-gray-400 hover:text-red-600"
+                        title="Remove"
                       >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(posting.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
