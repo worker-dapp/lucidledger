@@ -28,11 +28,12 @@ const UserProfile = () => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    primaryLanguage: '',
     streetAddress: '',
     streetAddress2: '',
     country: '',
-    zipCode: '',
-    state: '',
+    postalCode: '',
+    stateRegion: '',
     city: '',
     // Company fields for employers
     companyName: '',
@@ -44,6 +45,14 @@ const UserProfile = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+
+  const languages = [
+    'English', 'Spanish', 'French', 'Arabic', 'Hindi', 'Bengali', 'Portuguese',
+    'Russian', 'Urdu', 'Indonesian', 'German', 'Japanese', 'Swahili', 'Marathi',
+    'Telugu', 'Chinese (Mandarin)', 'Chinese (Cantonese)', 'Turkish', 'Vietnamese',
+    'Polish', 'Italian', 'Tagalog', 'Hausa', 'Amharic', 'Yoruba', 'Somali',
+    'Burmese', 'Thai', 'Nepali', 'Khmer', 'Other'
+  ];
 
   const countries = [
     'United States', 'Canada', 'United Kingdom', 'India', 'Australia',
@@ -153,10 +162,9 @@ const UserProfile = () => {
 
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.primaryLanguage) newErrors.primaryLanguage = 'Primary language is required';
     if (!formData.streetAddress.trim()) newErrors.streetAddress = 'Street address is required';
     if (!formData.country.trim()) newErrors.country = 'Country is required';
-    if (!formData.zipCode.trim()) newErrors.zipCode = 'Zip code is required';
-    if (!formData.state.trim()) newErrors.state = 'State/Province is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
 
     // Employer-specific validation
@@ -189,13 +197,14 @@ const UserProfile = () => {
       const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
+        primary_language: formData.primaryLanguage,
         email: currentEmail,
         phone_number: currentPhone,
         street_address: formData.streetAddress,
         street_address2: formData.streetAddress2,
         country: formData.country,
-        zip_code: formData.zipCode,
-        state: formData.state,
+        zip_code: formData.postalCode,
+        state: formData.stateRegion,
         city: formData.city,
         wallet_address: walletAddress,
       };
@@ -285,6 +294,22 @@ const UserProfile = () => {
               />
               {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
             </div>
+          </div>
+
+          {/* Primary Language — required for all roles */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Primary Language *</label>
+            <select
+              value={formData.primaryLanguage}
+              onChange={(e) => handleInputChange('primaryLanguage', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.primaryLanguage ? 'border-red-500' : 'border-gray-300'}`}
+            >
+              <option value="">Select your primary language</option>
+              {languages.map(lang => (
+                <option key={lang} value={lang}>{lang}</option>
+              ))}
+            </select>
+            {errors.primaryLanguage && <p className="text-red-500 text-sm mt-1">{errors.primaryLanguage}</p>}
           </div>
 
           {/* Row 2: Email */}
@@ -381,22 +406,18 @@ const UserProfile = () => {
               {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">State/Province *</label>
-              <select
-                value={formData.state}
-                onChange={(e) => handleInputChange('state', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.state ? 'border-red-500' : 'border-gray-300'}`}
-              >
-                <option value="">Select your state</option>
-                {usStates.map(state => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
-              {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state}</p>}
+              <label className="block text-sm font-medium text-gray-700 mb-1">State / Province / Region</label>
+              <input
+                type="text"
+                value={formData.stateRegion}
+                onChange={(e) => handleInputChange('stateRegion', e.target.value)}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                placeholder="State, province, or region (optional)"
+              />
             </div>
           </div>
 
-          {/* Row 6: Country & Zip */}
+          {/* Row 6: Country & Postal Code */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
@@ -413,15 +434,14 @@ const UserProfile = () => {
               {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Zip Code *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
               <input
                 type="text"
-                value={formData.zipCode}
-                onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.zipCode ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder="Enter zip code"
+                value={formData.postalCode}
+                onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
+                placeholder="Postal code (optional)"
               />
-              {errors.zipCode && <p className="text-red-500 text-sm mt-1">{errors.zipCode}</p>}
             </div>
           </div>
 
