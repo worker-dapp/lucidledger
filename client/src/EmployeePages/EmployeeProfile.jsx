@@ -633,7 +633,7 @@ const EmployeeProfile = () => {
                   placeholder="Apartment, suite, unit, building, floor, etc."
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">City</label>
                     <input
@@ -645,7 +645,7 @@ const EmployeeProfile = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">State / Province / Region <span className="text-gray-400">(optional)</span></label>
+                    <label className="block text-sm text-gray-600 mb-1">State / Province / Region <span className="text-gray-400 font-normal">(optional)</span></label>
                     <input
                       type="text"
                       value={stateRegion}
@@ -656,9 +656,9 @@ const EmployeeProfile = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 items-end">
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Postal Code <span className="text-gray-400">(optional)</span></label>
+                    <label className="block text-sm text-gray-600 mb-1">Postal Code <span className="text-gray-400 font-normal">(optional)</span></label>
                     <input
                       type="text"
                       value={postalCode}

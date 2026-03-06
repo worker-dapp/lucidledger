@@ -393,7 +393,7 @@ const UserProfile = () => {
           </div>
 
           {/* Row 5: City & State */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
               <input
@@ -406,19 +406,19 @@ const UserProfile = () => {
               {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">State / Province / Region</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">State / Province / Region <span className="text-gray-400 font-normal">(optional)</span></label>
               <input
                 type="text"
                 value={formData.stateRegion}
                 onChange={(e) => handleInputChange('stateRegion', e.target.value)}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
-                placeholder="State, province, or region (optional)"
+                placeholder="State, province, or region"
               />
             </div>
           </div>
 
           {/* Row 6: Country & Postal Code */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
               <select
@@ -434,13 +434,13 @@ const UserProfile = () => {
               {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code <span className="text-gray-400 font-normal">(optional)</span></label>
               <input
                 type="text"
                 value={formData.postalCode}
                 onChange={(e) => handleInputChange('postalCode', e.target.value)}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
-                placeholder="Postal code (optional)"
+                placeholder="ZIP / Postal Code"
               />
             </div>
           </div>
