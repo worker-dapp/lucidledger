@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import img from '../assets/profile.webp';
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import { useAuth } from "../hooks/useAuth";
@@ -41,6 +41,13 @@ const EmployeeProfile = () => {
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('');
 
+  // Tier 2 / new Tier 1 fields
+  const [primaryLanguage, setPrimaryLanguage] = useState('');
+  const [bio, setBio] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [willingToTravel, setWillingToTravel] = useState(null);
+  const [isEditingEnhanced, setIsEditingEnhanced] = useState(false);
+
   // Edit mode toggles
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -73,17 +80,17 @@ const EmployeeProfile = () => {
     'Saudi Arabia', 'South Africa', 'Egypt', 'Nigeria', 'Kenya'
   ];
 
-  const usStates = [
-    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
-    'Colorado', 'Connecticut','District of Columbia', 'Delaware', 'Florida', 'Georgia',
-    'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
-    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
-    'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
-    'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
-    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
-    'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
-    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+  const languages = [
+    'English', 'Spanish', 'French', 'Arabic', 'Hindi', 'Bengali', 'Portuguese',
+    'Russian', 'Urdu', 'Indonesian', 'German', 'Japanese', 'Swahili', 'Marathi',
+    'Telugu', 'Chinese (Mandarin)', 'Chinese (Cantonese)', 'Turkish', 'Vietnamese',
+    'Polish', 'Italian', 'Tagalog', 'Hausa', 'Amharic', 'Yoruba', 'Somali',
+    'Burmese', 'Thai', 'Nepali', 'Khmer', 'Other'
+  ];
+
+  const availabilityOptions = [
+    'Full-time', 'Part-time', 'Weekdays only', 'Weekends only',
+    'Flexible', 'Contract / Project-based', 'Seasonal'
   ];
 
   // Skills state
@@ -135,6 +142,12 @@ const EmployeeProfile = () => {
         setStateRegion(data.state || '');
         setPostalCode(data.zip_code || '');
         setCountry(data.country || '');
+
+        // Load new profile fields
+        setPrimaryLanguage(data.primary_language || '');
+        setBio(data.bio || '');
+        setAvailability(data.availability || '');
+        setWillingToTravel(data.willing_to_travel !== undefined && data.willing_to_travel !== null ? data.willing_to_travel : null);
 
         // Load skills from DB
         if (data.skills) {
@@ -237,7 +250,8 @@ const EmployeeProfile = () => {
       last_name: lastName,
       email: email,
       phone_number: phone,
-      country_code: countryCode
+      country_code: countryCode,
+      primary_language: primaryLanguage
     };
     await saveToAPI(contactData, 'Contact information saved');
     setIsEditingContact(false);
@@ -354,6 +368,31 @@ const EmployeeProfile = () => {
     await saveToAPI({ work_experience: cleaned }, 'Work experience saved');
   };
 
+  // Profile completeness (0–100)
+  // Tier 1 (60 pts): name, address, city, country, primary language
+  // Tier 2 (40 pts): bio, availability, willing_to_travel answered, skills, work experience
+  const completeness = useMemo(() => {
+    const t1 = [firstName, lastName, address1, city, country, primaryLanguage].filter(v => v?.trim()).length;
+    const t2 = [
+      bio?.trim(),
+      availability,
+      willingToTravel !== null,
+      skills.length > 0,
+      experiences.some(e => e.title?.trim()),
+    ].filter(Boolean).length;
+    return Math.round((t1 / 6) * 60 + (t2 / 5) * 40);
+  }, [firstName, lastName, address1, city, country, primaryLanguage, bio, availability, willingToTravel, skills, experiences]);
+
+  const handleSaveEnhanced = async () => {
+    await saveToAPI({
+      primary_language: primaryLanguage,
+      bio,
+      availability,
+      willing_to_travel: willingToTravel,
+    }, 'Profile updated');
+    setIsEditingEnhanced(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
@@ -375,16 +414,34 @@ const EmployeeProfile = () => {
       <EmployeeNavbar />
 
       <div className="pt-40 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Header: Avatar + Name */}
-        <div className="flex items-center gap-6 mb-8">
+        {/* Header: Avatar + Name + Completeness */}
+        <div className="flex items-center gap-6 mb-4">
           <img
             src={img}
             alt={fullName}
             className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover"
           />
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold text-[#0D3B66]">{fullName}</h1>
-            <p className="text-gray-500">Employee</p>
+            <p className="text-gray-500 mb-3">Employee</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    completeness >= 80 ? 'bg-emerald-500' : completeness >= 50 ? 'bg-[#EE964B]' : 'bg-red-400'
+                  }`}
+                  style={{ width: `${completeness}%` }}
+                />
+              </div>
+              <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">{completeness}% complete</span>
+            </div>
+            {completeness < 100 && (
+              <p className="text-xs text-gray-400 mt-1">
+                {completeness < 60
+                  ? 'Complete your required fields to be visible to employers'
+                  : 'Add more details to stand out to employers'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -476,6 +533,16 @@ const EmployeeProfile = () => {
                   </div>
                 )}
 
+                <label className="block text-sm text-gray-600 mb-1 mt-2">Primary Language</label>
+                <select
+                  value={primaryLanguage}
+                  onChange={(e) => setPrimaryLanguage(e.target.value)}
+                  className="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+                >
+                  <option value="">Select language</option>
+                  {languages.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+
                 <div className="flex gap-3">
                   <button
                     onClick={handleSaveContact}
@@ -522,6 +589,12 @@ const EmployeeProfile = () => {
                     )}
                   </div>
                 </div>
+                {primaryLanguage && (
+                  <div>
+                    <div className="text-sm text-gray-500">Primary Language</div>
+                    <div className="text-gray-800">{primaryLanguage}</div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -572,23 +645,20 @@ const EmployeeProfile = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">State / Region</label>
-                    <select
+                    <label className="block text-sm text-gray-600 mb-1">State / Province / Region <span className="text-gray-400">(optional)</span></label>
+                    <input
+                      type="text"
                       value={stateRegion}
                       onChange={(e) => setStateRegion(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
-                    >
-                      <option value="">Select State</option>
-                      {usStates.map((state) => (
-                        <option key={state} value={state}>{state}</option>
-                      ))}
-                    </select>
+                      placeholder="State, province, or region"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Postal Code</label>
+                    <label className="block text-sm text-gray-600 mb-1">Postal Code <span className="text-gray-400">(optional)</span></label>
                     <input
                       type="text"
                       value={postalCode}
@@ -884,6 +954,100 @@ const EmployeeProfile = () => {
 
           {skills.length === 0 && (
             <p className="mt-3 text-gray-400 text-sm">No skills selected yet. Search or expand a category above, or add your own.</p>
+          )}
+        </div>
+
+        {/* Enhance Your Profile */}
+        <div className="mt-6 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-[#0D3B66]">Enhance Your Profile</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Optional details that help employers find the right fit</p>
+            </div>
+            <button
+              type="button"
+              aria-label={isEditingEnhanced ? 'Finish editing profile' : 'Edit profile details'}
+              onClick={() => setIsEditingEnhanced((v) => !v)}
+              className="text-[#0D3B66] hover:text-[#EE964B] transition-colors"
+            >
+              <PencilIcon />
+            </button>
+          </div>
+
+          {isEditingEnhanced ? (
+            <>
+              <label className="block text-sm text-gray-600 mb-1">Availability</label>
+              <select
+                value={availability}
+                onChange={(e) => setAvailability(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+              >
+                <option value="">Select availability</option>
+                {availabilityOptions.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+
+              <label className="block text-sm text-gray-600 mb-1">Bio</label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={4}
+                maxLength={500}
+                className="w-full mb-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EE964B] resize-none"
+                placeholder="A brief introduction about yourself, your experience, and what you're looking for..."
+              />
+              <p className="text-xs text-gray-400 mb-4 text-right">{bio.length}/500</p>
+
+              <label className="block text-sm text-gray-600 mb-2">Open to Travel?</label>
+              <div className="flex gap-3 mb-6">
+                {[{ label: 'Yes', value: true }, { label: 'No', value: false }, { label: 'Prefer not to say', value: null }].map(opt => (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => setWillingToTravel(opt.value)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      willingToTravel === opt.value
+                        ? 'bg-[#0D3B66] text-white border-[#0D3B66]'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-[#EE964B]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveEnhanced}
+                  disabled={isSaving}
+                  className="flex-1 bg-[#EE964B] text-white py-2 rounded-lg font-semibold hover:bg-[#d97b33] transition-all disabled:opacity-60"
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setIsEditingEnhanced(false)}
+                  className="flex-1 bg-gray-200 text-[#0D3B66] py-2 rounded-lg font-semibold hover:bg-gray-300 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm text-gray-500">Availability</div>
+                <div className="text-gray-800">{availability || '—'}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Bio</div>
+                <div className="text-gray-800 whitespace-pre-wrap">{bio || '—'}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">Open to Travel</div>
+                <div className="text-gray-800">
+                  {willingToTravel === null ? '—' : willingToTravel ? 'Yes' : 'No'}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
