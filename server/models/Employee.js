@@ -61,6 +61,22 @@ const Employee = sequelize.define('Employee', {
   work_experience: {
     type: DataTypes.JSONB,
     allowNull: true
+  },
+  primary_language: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  availability: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  bio: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  willing_to_travel: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true
   }
 }, {
   tableName: 'employee',
