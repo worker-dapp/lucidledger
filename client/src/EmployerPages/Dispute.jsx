@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Shield, Clock, UserCheck, CheckCircle, XCircle, ExternalLink } from "lucide-react";
-import EmployerLayout from "../components/EmployerLayout";
 import { useEmployer } from "../components/EmployerLayout";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
@@ -104,8 +103,7 @@ const Dispute = () => {
   };
 
   return (
-    <EmployerLayout>
-      <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-[#0D3B66]">Compliance</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -250,8 +248,7 @@ const Dispute = () => {
             })}
           </div>
         )}
-      </div>
-    </EmployerLayout>
+    </div>
   );
 };
 

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import EmployerLayout from "../../components/EmployerLayout";
 import { useEmployer } from "../../components/EmployerLayout";
 import ContractLibrary from "./ContractLibrary";
 import PostedJobsTab from "./PostedJobsTab";
@@ -39,8 +38,7 @@ const ContractFactory = () => {
   ];
 
   return (
-    <EmployerLayout>
-      <main className="container mx-auto">
+    <main className="container mx-auto">
         {/* Tab Navigation */}
         <div className="mb-6 mt-2">
           <div className="border-b border-gray-200">
@@ -85,8 +83,7 @@ const ContractFactory = () => {
           {activeTab === "applications" && <ApplicationReviewTab employerId={employerId} />}
           {activeTab === "deployment" && <AwaitingDeploymentTab employerId={employerId} />}
         </div>
-      </main>
-    </EmployerLayout>
+    </main>
   );
 };
 

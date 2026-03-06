@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, Outlet } from "react-router-dom";
 import { LayoutGrid, Users, AlertTriangle, User, Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
@@ -146,7 +146,7 @@ const EmployerLayout = ({ children }) => {
         <div className="flex-1 min-w-0">
           <div className="px-4 sm:px-6 lg:px-8 py-8">
             <EmployerContext.Provider value={{ employerId: employerData?.id ?? null, approvalStatus, rejectionReason, employerData }}>
-              {children}
+              {children ?? <Outlet />}
             </EmployerContext.Provider>
           </div>
         </div>

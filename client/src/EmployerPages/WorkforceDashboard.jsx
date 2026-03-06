@@ -11,7 +11,6 @@ import {
   Zap,
   PlusCircle,
 } from "lucide-react";
-import EmployerLayout from "../components/EmployerLayout";
 import { useEmployer } from "../components/EmployerLayout";
 import apiService from "../services/api";
 import {
@@ -363,27 +362,22 @@ const WorkforceDashboard = () => {
 
   if (loading) {
     return (
-      <EmployerLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-gray-600">Loading...</div>
-        </div>
-      </EmployerLayout>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-gray-600">Loading...</div>
+      </div>
     );
   }
 
   if (!employerId) {
     return (
-      <EmployerLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-gray-600">Employer profile not found.</div>
-        </div>
-      </EmployerLayout>
+      <div className="flex items-center justify-center h-96">
+        <div className="text-gray-600">Employer profile not found.</div>
+      </div>
     );
   }
 
   return (
-    <EmployerLayout>
-      <main className="container mx-auto">
+    <main className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center gap-3">
@@ -882,8 +876,7 @@ const WorkforceDashboard = () => {
             </div>
           </div>
         )}
-      </main>
-    </EmployerLayout>
+    </main>
   );
 };
 

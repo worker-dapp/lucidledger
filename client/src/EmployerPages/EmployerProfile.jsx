@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import img from "../assets/profile.webp";
-import EmployerLayout from "../components/EmployerLayout";
 import { useAuth } from "../hooks/useAuth";
 import apiService from '../services/api';
 
@@ -264,23 +263,20 @@ const EmployerProfile = () => {
 
   if (loading) {
     return (
-      <EmployerLayout>
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading profile...</p>
-            </div>
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#EE964B] mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading profile...</p>
           </div>
         </div>
-      </EmployerLayout>
+      </div>
     );
   }
 
   return (
-    <EmployerLayout>
-      <div className="max-w-5xl mx-auto">
-        {/* Header: Avatar + Name */}
+    <div className="max-w-5xl mx-auto">
+      {/* Header: Avatar + Name */}
         <div className="flex items-center gap-6 mb-8">
           <img
             src={img}
@@ -694,11 +690,10 @@ const EmployerProfile = () => {
           </div>
         </div>
 
-        {message && (
-          <div className="mt-6 text-sm text-green-600">{message}</div>
-        )}
-      </div>
-    </EmployerLayout>
+      {message && (
+        <div className="mt-6 text-sm text-green-600">{message}</div>
+      )}
+    </div>
   );
 };
 

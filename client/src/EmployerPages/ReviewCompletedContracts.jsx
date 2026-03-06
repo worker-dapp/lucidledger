@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import EmployerLayout from "../components/EmployerLayout";
 import apiService from '../services/api';
 import { useAuth } from "../hooks/useAuth";
 
@@ -93,8 +92,7 @@ const ReviewCompletedContracts = () => {
   // RENDER
   // --------------------------------------------------------------------------
   return (
-    <EmployerLayout>
-      <div className="min-h-[600px] bg-gray-50 overflow-hidden">
+    <div className="min-h-[600px] bg-gray-50 overflow-hidden">
         {/* TOP BAR */}
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 flex justify-center items-center border-b border-gray-200">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#0D3B66]">Review Completed Contracts</h1>
@@ -177,8 +175,7 @@ const ReviewCompletedContracts = () => {
             </div>
           )}
         </div>
-      </div>
-    </EmployerLayout>
+    </div>
   );
 };
 
