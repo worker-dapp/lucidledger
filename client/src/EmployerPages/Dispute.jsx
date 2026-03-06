@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Shield, Clock, UserCheck, CheckCircle, XCircle, ExternalLink } from "lucide-react";
 import EmployerLayout from "../components/EmployerLayout";
+import { useEmployer } from "../components/EmployerLayout";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 
@@ -52,31 +53,13 @@ const formatDate = (dateString) => {
 
 const Dispute = () => {
   const { smartWalletAddress } = useAuth();
-  const [employerId, setEmployerId] = useState(null);
+  const { employerId } = useEmployer();
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, resolved
 
-  useEffect(() => {
-    const fetchEmployer = async () => {
-      if (!smartWalletAddress) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const response = await apiService.getEmployerByWallet(smartWalletAddress);
-        if (response?.data?.id) {
-          setEmployerId(response.data.id);
-        }
-      } catch (err) {
-        console.error("Error fetching employer:", err);
-        setError("Unable to load employer profile.");
-      }
-    };
-    fetchEmployer();
-  }, [smartWalletAddress]);
 
   useEffect(() => {
     const fetchDisputes = async () => {

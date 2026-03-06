@@ -12,6 +12,7 @@ import {
   PlusCircle,
 } from "lucide-react";
 import EmployerLayout from "../components/EmployerLayout";
+import { useEmployer } from "../components/EmployerLayout";
 import apiService from "../services/api";
 import {
   getContractState,
@@ -43,7 +44,7 @@ const verificationStyles = {
 
 const WorkforceDashboard = () => {
   const { user, smartWalletClient, smartWalletAddress } = useAuth();
-  const [employerId, setEmployerId] = useState(null);
+  const { employerId } = useEmployer();
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -84,29 +85,6 @@ const WorkforceDashboard = () => {
     }
   }, [smartWalletAddress]);
 
-  useEffect(() => {
-    const fetchEmployer = async () => {
-      const walletAddress = smartWalletAddress;
-
-      if (!walletAddress) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await apiService.getEmployerByWallet(walletAddress);
-        if (response?.data?.id) {
-          setEmployerId(response.data.id);
-        }
-      } catch (error) {
-        console.error("Error fetching employer:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEmployer();
-  }, [smartWalletAddress]);
 
   const fetchContracts = async () => {
     if (!employerId) {

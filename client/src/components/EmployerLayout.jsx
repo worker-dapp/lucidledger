@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext, useContext } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { LayoutGrid, Users, AlertTriangle, User, Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -8,6 +8,9 @@ import BetaBanner from "./BetaBanner";
 import SmartWalletInfo from "./SmartWalletInfo";
 import EmployerApprovalBanner from "./EmployerApprovalBanner";
 import apiService from "../services/api";
+
+export const EmployerContext = createContext(null);
+export const useEmployer = () => useContext(EmployerContext);
 
 const navItems = [
   { to: "/contract-factory", label: "Recruitment Hub", icon: LayoutGrid },
@@ -19,36 +22,34 @@ const navItems = [
 const EmployerLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, smartWalletAddress } = useAuth();
-  const [approvalStatus, setApprovalStatus] = useState(null);
-  const [rejectionReason, setRejectionReason] = useState(null);
+  const [employerData, setEmployerData] = useState(null);
+
+  const approvalStatus = employerData?.approval_status ?? null;
+  const rejectionReason = employerData?.rejection_reason ?? null;
 
   const closeSidebar = () => setSidebarOpen(false);
 
-  // Fetch employer approval status
+  // Fetch employer data once — shared with all child pages via EmployerContext
   useEffect(() => {
-    const fetchApprovalStatus = async () => {
+    const fetchEmployer = async () => {
       try {
-        let employerResponse = null;
-
+        let response = null;
         if (smartWalletAddress) {
-          employerResponse = await apiService.getEmployerByWallet(smartWalletAddress);
+          response = await apiService.getEmployerByWallet(smartWalletAddress);
         }
-
-        if ((!employerResponse || !employerResponse.data) && user?.email?.address) {
-          employerResponse = await apiService.getEmployerByEmail(user.email.address);
+        if ((!response?.data) && user?.email?.address) {
+          response = await apiService.getEmployerByEmail(user.email.address);
         }
-
-        if (employerResponse?.data) {
-          setApprovalStatus(employerResponse.data.approval_status);
-          setRejectionReason(employerResponse.data.rejection_reason);
+        if (response?.data) {
+          setEmployerData(response.data);
         }
       } catch (error) {
-        console.error("Error fetching employer approval status:", error);
+        console.error("Error fetching employer data:", error);
       }
     };
 
     if (smartWalletAddress || user?.email?.address) {
-      fetchApprovalStatus();
+      fetchEmployer();
     }
   }, [smartWalletAddress, user?.email?.address]);
 
@@ -143,7 +144,11 @@ const EmployerLayout = ({ children }) => {
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="px-4 sm:px-6 lg:px-8 py-8">{children}</div>
+          <div className="px-4 sm:px-6 lg:px-8 py-8">
+            <EmployerContext.Provider value={{ employerId: employerData?.id ?? null, approvalStatus, rejectionReason, employerData }}>
+              {children}
+            </EmployerContext.Provider>
+          </div>
         </div>
       </div>
     </div>
