@@ -5,9 +5,11 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
 import { useAuth } from "../hooks/useAuth";
+import EmployeeLayout, { useEmployee } from "../components/EmployeeLayout";
 
-const EmployeeJobsPage = () => {
+const EmployeeJobsPageInner = () => {
   const { user, primaryWallet, smartWalletAddress, login } = useAuth();
+  const { employeeData, employeeId } = useEmployee();
   const navigate = useNavigate();
   const location = useLocation();
   const [jobs, setJobs] = useState([]);
@@ -18,8 +20,7 @@ const EmployeeJobsPage = () => {
   const [showJobModal, setShowJobModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'saved', 'applied', 'offers'
   const [processingJobId, setProcessingJobId] = useState(null); // Track which job is being processed
-  const [employeeData, setEmployeeData] = useState(null); // Store employee data from API
-  const [employeeLoaded, setEmployeeLoaded] = useState(false);
+  const employeeLoaded = employeeData !== null || !user;
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [jobTypeFilter, setJobTypeFilter] = useState('');
@@ -32,42 +33,6 @@ const EmployeeJobsPage = () => {
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
   const [showDemoInfo, setShowDemoInfo] = useState(isDemoMode);
 
-  // Fetch employee data on component mount
-  useEffect(() => {
-    const fetchEmployeeData = async () => {
-      if (!user) {
-        console.log('No user logged in');
-        setEmployeeLoaded(true);
-        return;
-      }
-
-      try {
-        setEmployeeLoaded(false);
-        // Try to get employee by email first (primary method)
-        const userEmail = user?.email?.address || user?.email;
-        if (userEmail) {
-          const response = await apiService.getEmployeeByEmail(userEmail);
-          setEmployeeData(response.data);
-          console.log('Employee data loaded:', response.data);
-        }
-        // Fallback to wallet address if email is not available
-        else if (smartWalletAddress || primaryWallet?.address) {
-          const response = await apiService.getEmployeeByWallet(smartWalletAddress || primaryWallet?.address);
-          setEmployeeData(response.data);
-          console.log('Employee data loaded:', response.data);
-        } else {
-          console.warn('No email or wallet address available for authentication');
-        }
-      } catch (error) {
-        console.error('Error fetching employee data:', error);
-        console.error('User object:', user);
-      } finally {
-        setEmployeeLoaded(true);
-      }
-    };
-
-    fetchEmployeeData();
-  }, [user, primaryWallet]);
 
   // Fetch jobs when employee data is loaded or filter changes
   useEffect(() => {
@@ -1299,4 +1264,4 @@ const EmployeeJobsPage = () => {
   );
 };
 
-export default EmployeeJobsPage;
+export { EmployeeJobsPageInner as default };

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Shield, Clock, UserCheck, CheckCircle, XCircle, ExternalLink } from "lucide-react";
-import EmployerLayout from "../components/EmployerLayout";
+import { useEmployer } from "../components/EmployerLayout";
 import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 
@@ -52,31 +52,13 @@ const formatDate = (dateString) => {
 
 const Dispute = () => {
   const { smartWalletAddress } = useAuth();
-  const [employerId, setEmployerId] = useState(null);
+  const { employerId } = useEmployer();
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, resolved
 
-  useEffect(() => {
-    const fetchEmployer = async () => {
-      if (!smartWalletAddress) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const response = await apiService.getEmployerByWallet(smartWalletAddress);
-        if (response?.data?.id) {
-          setEmployerId(response.data.id);
-        }
-      } catch (err) {
-        console.error("Error fetching employer:", err);
-        setError("Unable to load employer profile.");
-      }
-    };
-    fetchEmployer();
-  }, [smartWalletAddress]);
 
   useEffect(() => {
     const fetchDisputes = async () => {
@@ -121,8 +103,7 @@ const Dispute = () => {
   };
 
   return (
-    <EmployerLayout>
-      <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-[#0D3B66]">Compliance</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -267,8 +248,7 @@ const Dispute = () => {
             })}
           </div>
         )}
-      </div>
-    </EmployerLayout>
+    </div>
   );
 };
 

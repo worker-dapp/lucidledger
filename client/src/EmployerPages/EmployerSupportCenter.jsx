@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import EmployerLayout from "../components/EmployerLayout";
 import Footer from "../components/Footer";
 
 const EmployerSupportCenter = () => {
@@ -36,8 +35,7 @@ const EmployerSupportCenter = () => {
   };
 
   return (
-    <EmployerLayout>
-      <main className="pb-12">
+    <>
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-10">
@@ -200,10 +198,9 @@ const EmployerSupportCenter = () => {
             </>
           )}
         </div>
-      </main>
 
       <Footer />
-    </EmployerLayout>
+    </>
   );
 };
 

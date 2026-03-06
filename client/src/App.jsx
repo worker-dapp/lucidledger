@@ -29,6 +29,8 @@ import { useIdleTimeout } from "./hooks/useIdleTimeout";
 import IdleTimeoutWarning from "./components/IdleTimeoutWarning";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import EmployeeLayout from "./components/EmployeeLayout";
+import EmployerLayout from "./components/EmployerLayout";
 
 // Inner component to handle redirects based on auth state
 const AppContent = () => {
@@ -47,6 +49,9 @@ const AppContent = () => {
   const [checkingProfile, setCheckingProfile] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
+  // Track live auth state so the profile-check timeout can abort on logout
+  const isAuthenticatedRef = useRef(isAuthenticated);
+
   useEffect(() => {
     if (getAccessToken) {
       setAuthTokenProvider(() => getAccessToken());
@@ -61,6 +66,9 @@ const AppContent = () => {
       apiService.setWalletAddress(null);
     }
   }, [smartWalletAddress]);
+
+  // Keep isAuthenticatedRef in sync so setTimeout callbacks can read live auth state
+  useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
 
   // Track previous user ID to detect new logins AND logouts
   const prevUserIdRef = useRef(user?.id);
@@ -151,6 +159,11 @@ const AppContent = () => {
 
       // Check if user already has a profile in backend (works for both email and phone login)
       const checkProfileAndRedirect = async () => {
+        // Abort if user logged out during the 300ms delay
+        if (isAuthenticatedRef.current === false) {
+          setCheckingProfile(false);
+          return;
+        }
         try {
           // ADMIN SHORT-CIRCUIT:
           // Admins don't have employee/employer profiles, so skip the lookup
@@ -353,58 +366,62 @@ const App = () => {
               </ProtectedRoute>
             } />
 
-            {/* Employee Routes - New Routes */}
-            <Route path="/job-search" element={<EmployeeJobsPage />} />
-            <Route path="/job-tracker" element={
-              <ProtectedRoute requiredRole="employee">
-                <JobTracker />
-              </ProtectedRoute>
-            } />
-            <Route path="/support-center" element={
-              <ProtectedRoute requiredRole="employee">
-                <SupportCenter />
-              </ProtectedRoute>
-            } />
-            <Route path="/employee-profile" element={
-              <ProtectedRoute requiredRole="employee">
-                <EmployeeProfile />
-              </ProtectedRoute>
-            } />
+            {/* Employee Routes */}
+            <Route element={<EmployeeLayout />}>
+              <Route path="/job-search" element={<EmployeeJobsPage />} />
+              <Route path="/job-tracker" element={
+                <ProtectedRoute requiredRole="employee">
+                  <JobTracker />
+                </ProtectedRoute>
+              } />
+              <Route path="/support-center" element={
+                <ProtectedRoute requiredRole="employee">
+                  <SupportCenter />
+                </ProtectedRoute>
+              } />
+              <Route path="/employee-profile" element={
+                <ProtectedRoute requiredRole="employee">
+                  <EmployeeProfile />
+                </ProtectedRoute>
+              } />
+            </Route>
 
             {/* Employer Routes */}
             <Route path="/employerDashboard" element={<Navigate to="/contract-factory" replace />} />
-            <Route path="/employer-profile" element={
-              <ProtectedRoute requiredRole="employer">
-                <EmployerProfile />
-              </ProtectedRoute>
-            } />
             {/* Redirect old job posting route to Recruitment Hub */}
             <Route path="/job" element={<Navigate to="/contract-factory" replace />} />
-            <Route path="/contract-factory" element={
-              <ProtectedRoute requiredRole="employer">
-                <ContractFactory />
-              </ProtectedRoute>
-            } />
-            <Route path="/workforce" element={
-              <ProtectedRoute requiredRole="employer">
-                <WorkforceDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/review-completed-contracts" element={
-              <ProtectedRoute requiredRole="employer">
-                <ReviewCompletedContracts />
-              </ProtectedRoute>
-            } />
-            <Route path="/dispute" element={
-              <ProtectedRoute requiredRole="employer">
-                <Dispute />
-              </ProtectedRoute>
-            } />
-            <Route path="/employer-support" element={
-              <ProtectedRoute requiredRole="employer">
-                <EmployerSupportCenter />
-              </ProtectedRoute>
-            } />
+            <Route element={<EmployerLayout />}>
+              <Route path="/employer-profile" element={
+                <ProtectedRoute requiredRole="employer">
+                  <EmployerProfile />
+                </ProtectedRoute>
+              } />
+              <Route path="/contract-factory" element={
+                <ProtectedRoute requiredRole="employer">
+                  <ContractFactory />
+                </ProtectedRoute>
+              } />
+              <Route path="/workforce" element={
+                <ProtectedRoute requiredRole="employer">
+                  <WorkforceDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/review-completed-contracts" element={
+                <ProtectedRoute requiredRole="employer">
+                  <ReviewCompletedContracts />
+                </ProtectedRoute>
+              } />
+              <Route path="/dispute" element={
+                <ProtectedRoute requiredRole="employer">
+                  <Dispute />
+                </ProtectedRoute>
+              } />
+              <Route path="/employer-support" element={
+                <ProtectedRoute requiredRole="employer">
+                  <EmployerSupportCenter />
+                </ProtectedRoute>
+              } />
+            </Route>
 
             {/* Mediator Route - Self-validates via DB-backed mediator list */}
             <Route path="/resolve-disputes" element={<MediatorResolution />} />
