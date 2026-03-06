@@ -1,42 +1,14 @@
-import React, { useState, useEffect } from "react";
-import EmployerLayout from "../../components/EmployerLayout";
-import apiService from "../../services/api";
+import React, { useState } from "react";
+import { useEmployer } from "../../components/EmployerLayout";
 import ContractLibrary from "./ContractLibrary";
 import PostedJobsTab from "./PostedJobsTab";
 import ApplicationReviewTab from "./ApplicationReviewTab";
 import AwaitingDeploymentTab from "./AwaitingDeploymentTab";
 import { FileText, Users, Rocket } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
 
 const ContractFactory = () => {
-  const { smartWalletAddress } = useAuth();
+  const { employerId } = useEmployer();
   const [activeTab, setActiveTab] = useState("contracts");
-  const [employerId, setEmployerId] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchEmployer = async () => {
-      const walletAddress = smartWalletAddress;
-
-      if (!walletAddress) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await apiService.getEmployerByWallet(walletAddress);
-        if (response?.data?.id) {
-          setEmployerId(response.data.id);
-        }
-      } catch (error) {
-        console.error("Error fetching employer:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEmployer();
-  }, [smartWalletAddress]);
 
   const tabs = [
     {
@@ -65,19 +37,8 @@ const ContractFactory = () => {
     }
   ];
 
-  if (loading) {
-    return (
-      <EmployerLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-gray-600">Loading...</div>
-        </div>
-      </EmployerLayout>
-    );
-  }
-
   return (
-    <EmployerLayout>
-      <main className="container mx-auto">
+    <main className="container mx-auto">
         {/* Tab Navigation */}
         <div className="mb-6 mt-2">
           <div className="border-b border-gray-200">
@@ -122,8 +83,7 @@ const ContractFactory = () => {
           {activeTab === "applications" && <ApplicationReviewTab employerId={employerId} />}
           {activeTab === "deployment" && <AwaitingDeploymentTab employerId={employerId} />}
         </div>
-      </main>
-    </EmployerLayout>
+    </main>
   );
 };
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { AlertTriangle, Loader2, XCircle, Zap, ExternalLink, HandCoins } from "lucide-react";
+import EmployeeLayout, { useEmployee } from "../components/EmployeeLayout";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
@@ -54,10 +55,10 @@ const TxRow = ({ tx, formatDate, basescanUrl }) => (
   </div>
 );
 
-const JobTracker = () => {
+const JobTrackerInner = () => {
   const navigate = useNavigate();
   const { user, primaryWallet, smartWalletAddress, smartWalletClient } = useAuth();
-  const [employeeData, setEmployeeData] = useState(null);
+  const { employeeData } = useEmployee();
   const [openContracts, setOpenContracts] = useState([]);
   const [completedContracts, setCompletedContracts] = useState([]);
   const [closedContracts, setClosedContracts] = useState([]);
@@ -90,29 +91,6 @@ const JobTracker = () => {
     setTxMessage(message);
   };
 
-  useEffect(() => {
-    const fetchEmployeeData = async () => {
-      if (!user) {
-        setEmployeeData(null);
-        return;
-      }
-
-      try {
-        const userEmail = user?.email?.address || user?.email;
-        if (userEmail) {
-          const response = await apiService.getEmployeeByEmail(userEmail);
-          setEmployeeData(response.data);
-        } else if (smartWalletAddress || primaryWallet?.address) {
-          const response = await apiService.getEmployeeByWallet(smartWalletAddress || primaryWallet?.address);
-          setEmployeeData(response.data);
-        }
-      } catch (err) {
-        console.error("Error fetching employee data:", err);
-      }
-    };
-
-    fetchEmployeeData();
-  }, [user, primaryWallet]);
 
   const fetchContracts = async () => {
     if (!employeeData?.id) {
@@ -1123,4 +1101,4 @@ const JobTracker = () => {
   );
 };
 
-export default JobTracker;
+export { JobTrackerInner as default };
