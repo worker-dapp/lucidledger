@@ -15,7 +15,7 @@ export const useEmployer = () => useContext(EmployerContext);
 const navItems = [
   { to: "/contract-factory", label: "Recruitment Hub", icon: LayoutGrid },
   { to: "/workforce", label: "Workforce Dashboard", icon: Users },
-  { to: "/dispute", label: "Compliance", icon: AlertTriangle },
+  { to: "/compliance", label: "Compliance", icon: AlertTriangle },
   { to: "/employer-profile", label: "My Profile", icon: User },
 ];
 

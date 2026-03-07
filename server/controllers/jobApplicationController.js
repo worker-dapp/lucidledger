@@ -1,6 +1,7 @@
 const { JobApplication, SavedJob, JobPosting, Employee, Employer } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { logAction } = require('./auditLogController');
 
 // Save a job
 exports.saveJob = async (req, res) => {
@@ -405,6 +406,23 @@ exports.updateApplicationStatus = async (req, res) => {
     application.set(updates);
     await application.save();
 
+    if (status === 'accepted' || status === 'rejected') {
+      const jobForLog = await JobPosting.findByPk(application.job_posting_id, {
+        attributes: ['title', 'employer_id']
+      });
+      await logAction({
+        actorType: 'employer',
+        actorId: jobForLog?.employer_id || null,
+        actorName: null,
+        actionType: status === 'accepted' ? 'application_accepted' : 'application_rejected',
+        actionDescription: `Application ${status} for "${jobForLog?.title || 'job'}"`,
+        entityType: 'job_application',
+        entityId: application.id,
+        entityIdentifier: jobForLog?.title || `Application #${application.id}`,
+        newValue: { status },
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Application status updated successfully',
@@ -496,6 +514,18 @@ exports.bulkUpdateApplicationStatus = async (req, res) => {
       where: {
         id: application_ids
       }
+    });
+
+    await logAction({
+      actorType: 'employer',
+      actorId: null,
+      actorName: null,
+      actionType: 'applications_bulk_updated',
+      actionDescription: `Bulk ${status}: ${updatedCount} application(s)`,
+      entityType: 'job_application',
+      entityId: null,
+      entityIdentifier: `${updatedCount} application(s)`,
+      newValue: { status, count: updatedCount, application_ids },
     });
 
     res.status(200).json({

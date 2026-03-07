@@ -1,5 +1,6 @@
 const { DisputeHistory, DeployedContract, Employee, Employer, Mediator, JobPosting } = require('../models');
 const { Op } = require('sequelize');
+const { logAction } = require('./auditLogController');
 
 class DisputeHistoryController {
   // Create a dispute record
@@ -41,6 +42,21 @@ class DisputeHistoryController {
         raised_by_role,
         reason,
         raised_at: new Date()
+      });
+
+      const contractForLog = await DeployedContract.findByPk(deployed_contract_id, {
+        attributes: ['contract_address', 'employer_id']
+      });
+      await logAction({
+        actorType: raised_by_role,
+        actorId: raised_by_role === 'employee' ? raised_by_employee_id : raised_by_employer_id,
+        actorName: null,
+        actionType: 'dispute_created',
+        actionDescription: `Dispute raised by ${raised_by_role}: "${reason}"`,
+        entityType: 'dispute',
+        entityId: dispute.id,
+        entityIdentifier: contractForLog?.contract_address || `Contract #${deployed_contract_id}`,
+        newValue: { reason, raised_by_role, deployed_contract_id },
       });
 
       res.status(201).json({
@@ -175,6 +191,24 @@ class DisputeHistoryController {
       }
 
       await dispute.update(updates);
+
+      if (updates.resolution) {
+        await logAction({
+          actorType: 'mediator',
+          actorId: dispute.mediator_id || null,
+          actorName: null,
+          actionType: 'dispute_resolved',
+          actionDescription: `Dispute resolved: ${updates.resolution.replace(/_/g, ' ')}`,
+          entityType: 'dispute',
+          entityId: dispute.id,
+          entityIdentifier: `Dispute #${dispute.id} on Contract #${dispute.deployed_contract_id}`,
+          newValue: {
+            resolution: updates.resolution,
+            resolution_notes: updates.resolution_notes || null,
+            resolution_tx_hash: updates.resolution_tx_hash || null,
+          },
+        });
+      }
 
       res.status(200).json({
         success: true,
