@@ -1,5 +1,6 @@
 const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, JobApplication, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { logAction } = require('./auditLogController');
 
 // Terminal contract statuses (contract lifecycle is complete)
 const TERMINAL_CONTRACT_STATUSES = ['completed', 'refunded', 'terminated'];
@@ -186,6 +187,23 @@ class DeployedContractController {
       }
 
       const deployedContract = await DeployedContract.create(createPayload);
+
+      await logAction({
+        actorType: 'employer',
+        actorId: employer_id,
+        actorName: null,
+        actionType: 'contract_deployed',
+        actionDescription: `Contract deployed to ${deployedContract.contract_address} for ${deployedContract.payment_amount} ${deployedContract.payment_currency || 'USDC'}`,
+        entityType: 'deployed_contract',
+        entityId: deployedContract.id,
+        entityIdentifier: deployedContract.contract_address,
+        newValue: {
+          contract_address: deployedContract.contract_address,
+          payment_amount: deployedContract.payment_amount,
+          payment_currency: deployedContract.payment_currency || 'USDC',
+          status: 'active',
+        },
+      });
 
       res.status(201).json({
         success: true,
@@ -444,7 +462,21 @@ class DeployedContractController {
         }
       }
 
+      const oldStatus = deployedContract.status;
       await deployedContract.update({ status });
+
+      await logAction({
+        actorType: isEmployer ? 'employer' : isEmployee ? 'employee' : 'admin',
+        actorId: isEmployer ? deployedContract.employer_id : isEmployee ? deployedContract.employee_id : null,
+        actorName: isEmployer ? deployedContract.employer?.company_name : null,
+        actionType: 'contract_status_changed',
+        actionDescription: `Contract status changed from '${oldStatus}' to '${status}'`,
+        entityType: 'deployed_contract',
+        entityId: deployedContract.id,
+        entityIdentifier: deployedContract.contract_address,
+        oldValue: { status: oldStatus },
+        newValue: { status },
+      });
 
       // If contract moved to terminal state, check if job status should update
       if (TERMINAL_CONTRACT_STATUSES.includes(status)) {
@@ -917,6 +949,23 @@ class DeployedContractController {
 
       // Commit the transaction
       await transaction.commit();
+
+      await logAction({
+        actorType: 'employer',
+        actorId: deployedContract.employer_id,
+        actorName: deployedContract.employer?.company_name || null,
+        actionType: 'payment_processed',
+        actionDescription: `Payment of ${amount || deployedContract.payment_amount} ${currency || deployedContract.payment_currency || 'USDC'} processed for contract ${deployedContract.contract_address}`,
+        entityType: 'payment_transaction',
+        entityId: paymentTransaction.id,
+        entityIdentifier: tx_hash,
+        newValue: {
+          amount: amount || deployedContract.payment_amount,
+          currency: currency || deployedContract.payment_currency || 'USDC',
+          tx_hash,
+          status: 'completed',
+        },
+      });
 
       // Update job status if all contracts are complete (non-critical, outside transaction)
       await updateJobStatusIfAllContractsComplete(deployedContract.job_posting_id);
