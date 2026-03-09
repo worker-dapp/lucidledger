@@ -6,10 +6,9 @@ import LandingPage from "./pages/LandingPage";
 import EmployerLandingPage from "./pages/EmployerLandingPage";
 import AboutPage from "./pages/NewAbout";
 import WorkforceDashboard from "./EmployerPages/WorkforceDashboard";
-import Dispute from "./EmployerPages/Dispute";
+import ComplianceHub from "./EmployerPages/ComplianceHub";
 import EmployerProfile from "./EmployerPages/EmployerProfile";
 import EmployeeProfile from "./EmployeePages/EmployeeProfile";
-import ReviewCompletedContracts from "./EmployerPages/ReviewCompletedContracts";
 import ContractFactory from "./EmployerPages/ContractFactory";
 import EmployeeJobsPage from "./EmployeePages/EmployeeJobsPage";
 import JobTracker from "./EmployeePages/JobTracker";
@@ -406,14 +405,9 @@ const App = () => {
                   <WorkforceDashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/review-completed-contracts" element={
+              <Route path="/compliance" element={
                 <ProtectedRoute requiredRole="employer">
-                  <ReviewCompletedContracts />
-                </ProtectedRoute>
-              } />
-              <Route path="/dispute" element={
-                <ProtectedRoute requiredRole="employer">
-                  <Dispute />
+                  <ComplianceHub />
                 </ProtectedRoute>
               } />
               <Route path="/employer-support" element={

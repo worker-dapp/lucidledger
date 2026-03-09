@@ -194,12 +194,31 @@ const MediatorResolution = () => {
         }
       }
 
+      // Record employer refund payment if employer gets something back
+      if (pct < 100) {
+        try {
+          await apiService.createPaymentTransaction({
+            deployed_contract_id: selectedContract.id,
+            amount: employerAmount,
+            currency: selectedContract.payment_currency || "USDC",
+            payment_type: "refund",
+            status: "completed",
+            tx_hash: txHash,
+            from_address: selectedContract.contract_address,
+            to_address: selectedContract.employer?.wallet_address,
+            processed_at: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error("Failed to record employer refund transaction:", err);
+        }
+      }
+
       // Update dispute history record with resolution
       try {
         const disputeResponse = await apiService.getDisputesByContract(selectedContract.id);
         const openDispute = disputeResponse?.data?.find((d) => !d.resolved_at);
         if (openDispute) {
-          const resolutionLabel = pct === 100 ? "worker_paid" : pct === 0 ? "employer_refunded" : "split_resolution";
+          const resolutionLabel = pct === 100 ? "worker_paid" : pct === 0 ? "employer_refunded" : "split";
           await apiService.updateDisputeRecord(openDispute.id, {
             resolution: resolutionLabel,
             resolution_tx_hash: txHash,
