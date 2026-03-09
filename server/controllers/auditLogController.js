@@ -16,6 +16,7 @@ const logAction = async ({
   entityIdentifier,
   oldValue = null,
   newValue = null,
+  employerId = null,
 }) => {
   try {
     await AuditLog.create({
@@ -29,6 +30,7 @@ const logAction = async ({
       entity_identifier: entityIdentifier,
       old_value:         oldValue,
       new_value:         newValue,
+      employer_id:       employerId,
     });
   } catch (error) {
     console.error('Audit log write failed (non-blocking):', error.message);
@@ -53,8 +55,12 @@ const getAuditLog = async (req, res) => {
     const where = {};
 
     if (employer_id) {
-      where.actor_id   = employer_id;
-      where.actor_type = 'employer';
+      // Match entries directly tagged with this employer OR legacy entries
+      // where the employer was the actor (before employer_id column was added)
+      where[Op.or] = [
+        { employer_id: employer_id },
+        { actor_type: 'employer', actor_id: employer_id },
+      ];
     }
     if (action_type) where.action_type = action_type;
     if (entity_type)  where.entity_type  = entity_type;
