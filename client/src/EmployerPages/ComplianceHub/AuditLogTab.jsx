@@ -5,10 +5,9 @@ import apiService from "../../services/api";
 
 const ACTION_COLORS = {
   contract_deployed:        "bg-blue-100 text-blue-700",
-  contract_status_changed:  "bg-gray-100 text-gray-700",
   application_accepted:     "bg-green-100 text-green-700",
   application_rejected:     "bg-red-100 text-red-700",
-  applications_bulk_updated:"bg-orange-100 text-orange-700",
+  offer_declined:           "bg-orange-100 text-orange-700",
   payment_processed:        "bg-purple-100 text-purple-700",
   dispute_created:          "bg-yellow-100 text-yellow-800",
   dispute_resolved:         "bg-teal-100 text-teal-700",
@@ -91,10 +90,9 @@ const AuditLogTab = () => {
         >
           <option value="all">All Actions</option>
           <option value="contract_deployed">Contract Deployed</option>
-          <option value="contract_status_changed">Status Changed</option>
           <option value="application_accepted">Application Accepted</option>
           <option value="application_rejected">Application Rejected</option>
-          <option value="applications_bulk_updated">Bulk Updated</option>
+          <option value="offer_declined">Offer Declined (Worker)</option>
           <option value="payment_processed">Payment Processed</option>
           <option value="dispute_created">Dispute Created</option>
           <option value="dispute_resolved">Dispute Resolved</option>

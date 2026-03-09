@@ -483,6 +483,11 @@ class ApiService {
     return this.requestCsv(`/reports/oracle-verifications${query ? `?${query}` : ''}`);
   }
 
+  async exportDisputeReport(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.requestCsv(`/reports/dispute-report${query ? `?${query}` : ''}`);
+  }
+
   // Health check
   async healthCheck() {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');

@@ -188,21 +188,25 @@ class DeployedContractController {
 
       const deployedContract = await DeployedContract.create(createPayload);
 
+      const jobPostingForLog = await JobPosting.findByPk(job_posting_id, { attributes: ['title'] });
+      const jobTitleForLog = jobPostingForLog?.title || `Job #${job_posting_id}`;
+
       await logAction({
         actorType: 'employer',
         actorId: employer_id,
         actorName: null,
         actionType: 'contract_deployed',
-        actionDescription: `Contract deployed to ${deployedContract.contract_address} for ${deployedContract.payment_amount} ${deployedContract.payment_currency || 'USDC'}`,
+        actionDescription: `Contract deployed for "${jobTitleForLog}" — ${deployedContract.contract_address} (${deployedContract.payment_amount} ${deployedContract.payment_currency || 'USDC'})`,
         entityType: 'deployed_contract',
         entityId: deployedContract.id,
-        entityIdentifier: deployedContract.contract_address,
+        entityIdentifier: jobTitleForLog,
         newValue: {
           contract_address: deployedContract.contract_address,
           payment_amount: deployedContract.payment_amount,
           payment_currency: deployedContract.payment_currency || 'USDC',
           status: 'active',
         },
+        employerId: employer_id,
       });
 
       res.status(201).json({
@@ -465,21 +469,37 @@ class DeployedContractController {
       const oldStatus = deployedContract.status;
       await deployedContract.update({ status });
 
+      const jobPostingForLog = await JobPosting.findByPk(deployedContract.job_posting_id, { attributes: ['title'] });
+      const jobTitleForLog = jobPostingForLog?.title || `Job #${deployedContract.job_posting_id}`;
+
       await logAction({
         actorType: isEmployer ? 'employer' : isEmployee ? 'employee' : 'admin',
         actorId: isEmployer ? deployedContract.employer_id : isEmployee ? deployedContract.employee_id : null,
         actorName: isEmployer ? deployedContract.employer?.company_name : null,
         actionType: 'contract_status_changed',
-        actionDescription: `Contract status changed from '${oldStatus}' to '${status}'`,
+        actionDescription: `Contract status changed from '${oldStatus}' to '${status}' for "${jobTitleForLog}"`,
         entityType: 'deployed_contract',
         entityId: deployedContract.id,
-        entityIdentifier: deployedContract.contract_address,
+        entityIdentifier: jobTitleForLog,
         oldValue: { status: oldStatus },
         newValue: { status },
+        employerId: deployedContract.employer_id,
       });
 
-      // If contract moved to terminal state, check if job status should update
+      // If contract moved to terminal state, mark the application as completed
+      // so the worker can re-apply to the same job if positions remain open
       if (TERMINAL_CONTRACT_STATUSES.includes(status)) {
+        await JobApplication.update(
+          { application_status: 'completed' },
+          {
+            where: {
+              job_posting_id: deployedContract.job_posting_id,
+              employee_id: deployedContract.employee_id,
+              application_status: { [Op.notIn]: ['completed', 'declined', 'rejected'] },
+            },
+          }
+        );
+
         await updateJobStatusIfAllContractsComplete(deployedContract.job_posting_id);
       }
 
@@ -950,21 +970,25 @@ class DeployedContractController {
       // Commit the transaction
       await transaction.commit();
 
+      const jobPostingForLog = await JobPosting.findByPk(deployedContract.job_posting_id, { attributes: ['title'] });
+      const jobTitleForLog = jobPostingForLog?.title || `Job #${deployedContract.job_posting_id}`;
+
       await logAction({
         actorType: 'employer',
         actorId: deployedContract.employer_id,
         actorName: deployedContract.employer?.company_name || null,
         actionType: 'payment_processed',
-        actionDescription: `Payment of ${amount || deployedContract.payment_amount} ${currency || deployedContract.payment_currency || 'USDC'} processed for contract ${deployedContract.contract_address}`,
+        actionDescription: `Payment of ${amount || deployedContract.payment_amount} ${currency || deployedContract.payment_currency || 'USDC'} processed for "${jobTitleForLog}" — contract ${deployedContract.contract_address}`,
         entityType: 'payment_transaction',
         entityId: paymentTransaction.id,
-        entityIdentifier: tx_hash,
+        entityIdentifier: jobTitleForLog,
         newValue: {
           amount: amount || deployedContract.payment_amount,
           currency: currency || deployedContract.payment_currency || 'USDC',
           tx_hash,
           status: 'completed',
         },
+        employerId: deployedContract.employer_id,
       });
 
       // Update job status if all contracts are complete (non-critical, outside transaction)

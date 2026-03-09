@@ -8,5 +8,6 @@ router.get('/overview',             verifyToken, ReportController.getComplianceO
 router.get('/workforce-summary',    verifyToken, ReportController.exportWorkforceSummary);
 router.get('/payment-history',      verifyToken, ReportController.exportPaymentHistory);
 router.get('/oracle-verifications', verifyToken, ReportController.exportOracleVerifications);
+router.get('/dispute-report',       verifyToken, ReportController.exportDisputeReport);
 
 module.exports = router;

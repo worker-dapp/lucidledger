@@ -151,7 +151,10 @@ async function runMigrationsOnStartup() {
       '018-fix-email-wallet-constraints.sql',
       '019-add-contract-snapshot.sql',
       '020-add-snapshot-to-job-applications.sql',
-      '021-add-employee-profile-tier2.sql'
+      '021-add-employee-profile-tier2.sql',
+      '022-create-audit-log.sql',
+      '023-fix-payment-tx-hash-constraint.sql',
+      '024-add-employer-id-to-audit-log.sql'
     ];
 
     for (const file of migrationFiles) {

@@ -28,6 +28,14 @@ const REPORTS = [
     exportFn: (params) => apiService.exportOracleVerifications(params),
     filename: (date) => `oracle_verifications_${date}.csv`,
   },
+  {
+    id: "disputes",
+    title: "Dispute Report",
+    description: "All disputes raised, mediator assignments, and resolution outcomes.",
+    includes: "Worker names, job titles, dispute reasons, mediator names, resolution type, split percentages, resolution timestamps, Basescan links",
+    exportFn: (params) => apiService.exportDisputeReport(params),
+    filename: (date) => `dispute_report_${date}.csv`,
+  },
 ];
 
 const ReportsTab = () => {
