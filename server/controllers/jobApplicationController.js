@@ -1,6 +1,7 @@
 const { JobApplication, SavedJob, JobPosting, Employee, Employer } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
+const { logAction } = require('./auditLogController');
 
 // Save a job
 exports.saveJob = async (req, res) => {
@@ -405,6 +406,27 @@ exports.updateApplicationStatus = async (req, res) => {
     application.set(updates);
     await application.save();
 
+    if (status === 'accepted' || status === 'rejected' || status === 'declined') {
+      const jobForLog = await JobPosting.findByPk(application.job_posting_id, {
+        attributes: ['title', 'employer_id']
+      });
+      const isWorkerDecline = status === 'declined';
+      await logAction({
+        actorType: isWorkerDecline ? 'employee' : 'employer',
+        actorId: isWorkerDecline ? application.employee_id : (jobForLog?.employer_id || null),
+        actorName: null,
+        actionType: isWorkerDecline ? 'offer_declined' : (status === 'accepted' ? 'application_accepted' : 'application_rejected'),
+        actionDescription: isWorkerDecline
+          ? `Worker declined offer for "${jobForLog?.title || 'job'}"`
+          : `Application ${status} for "${jobForLog?.title || 'job'}"`,
+        entityType: 'job_application',
+        entityId: application.id,
+        entityIdentifier: jobForLog?.title || `Application #${application.id}`,
+        newValue: { status },
+        employerId: jobForLog?.employer_id || null,
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Application status updated successfully',
@@ -497,6 +519,29 @@ exports.bulkUpdateApplicationStatus = async (req, res) => {
         id: application_ids
       }
     });
+
+    // Log one audit entry per application — only for employer-facing accept/reject decisions
+    if (status === 'accepted' || status === 'rejected') {
+      const appsForLog = await JobApplication.findAll({
+        where: { id: application_ids },
+        include: [{ model: JobPosting, as: 'job', attributes: ['title', 'employer_id'] }]
+      });
+      const actionType = status === 'accepted' ? 'application_accepted' : 'application_rejected';
+      await Promise.all(appsForLog.map((app) =>
+        logAction({
+          actorType:         'employer',
+          actorId:           app.job?.employer_id || null,
+          actorName:         null,
+          actionType,
+          actionDescription: `Application ${status} for "${app.job?.title || 'job'}"`,
+          entityType:        'job_application',
+          entityId:          app.id,
+          entityIdentifier:  app.job?.title || `Application #${app.id}`,
+          newValue:          { status },
+          employerId:        app.job?.employer_id || null,
+        })
+      ));
+    }
 
     res.status(200).json({
       success: true,

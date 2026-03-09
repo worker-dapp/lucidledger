@@ -1,5 +1,6 @@
 const { DisputeHistory, DeployedContract, Employee, Employer, Mediator, JobPosting } = require('../models');
 const { Op } = require('sequelize');
+const { logAction } = require('./auditLogController');
 
 class DisputeHistoryController {
   // Create a dispute record
@@ -41,6 +42,26 @@ class DisputeHistoryController {
         raised_by_role,
         reason,
         raised_at: new Date()
+      });
+
+      const contractForLog = await DeployedContract.findByPk(deployed_contract_id, {
+        attributes: ['contract_address', 'employer_id', 'job_posting_id']
+      });
+      const jobPostingForLog = contractForLog?.job_posting_id
+        ? await JobPosting.findByPk(contractForLog.job_posting_id, { attributes: ['title'] })
+        : null;
+      const jobTitleForLog = jobPostingForLog?.title || contractForLog?.contract_address || `Contract #${deployed_contract_id}`;
+      await logAction({
+        actorType: raised_by_role,
+        actorId: raised_by_role === 'employee' ? raised_by_employee_id : raised_by_employer_id,
+        actorName: null,
+        actionType: 'dispute_created',
+        actionDescription: `Dispute raised by ${raised_by_role} for "${jobTitleForLog}": "${reason}"`,
+        entityType: 'dispute',
+        entityId: dispute.id,
+        entityIdentifier: jobTitleForLog,
+        newValue: { reason, raised_by_role, deployed_contract_id },
+        employerId: contractForLog?.employer_id || null,
       });
 
       res.status(201).json({
@@ -175,6 +196,32 @@ class DisputeHistoryController {
       }
 
       await dispute.update(updates);
+
+      if (updates.resolution) {
+        const contractForLog = await DeployedContract.findByPk(dispute.deployed_contract_id, {
+          attributes: ['employer_id', 'contract_address', 'job_posting_id'],
+        });
+        const jobPostingForLog = contractForLog?.job_posting_id
+          ? await JobPosting.findByPk(contractForLog.job_posting_id, { attributes: ['title'] })
+          : null;
+        const jobTitleForLog = jobPostingForLog?.title || contractForLog?.contract_address || `Contract #${dispute.deployed_contract_id}`;
+        await logAction({
+          actorType: 'mediator',
+          actorId: dispute.mediator_id || null,
+          actorName: null,
+          actionType: 'dispute_resolved',
+          actionDescription: `Dispute resolved for "${jobTitleForLog}": ${updates.resolution.replace(/_/g, ' ')}`,
+          entityType: 'dispute',
+          entityId: dispute.id,
+          entityIdentifier: jobTitleForLog,
+          newValue: {
+            resolution: updates.resolution,
+            resolution_notes: updates.resolution_notes || null,
+            resolution_tx_hash: updates.resolution_tx_hash || null,
+          },
+          employerId: contractForLog?.employer_id || null,
+        });
+      }
 
       res.status(200).json({
         success: true,

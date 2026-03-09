@@ -1,4 +1,5 @@
 const { PaymentTransaction, DeployedContract, JobPosting, Employer } = require('../models');
+const { Op } = require('sequelize');
 
 class PaymentTransactionController {
   // Get payment transactions for an employee (with job context)
@@ -14,6 +15,11 @@ class PaymentTransactionController {
       }
 
       const transactions = await PaymentTransaction.findAll({
+        where: {
+          // Exclude employer refund transactions — those go back to the employer,
+          // not to the worker, and should not appear in the worker's earnings.
+          payment_type: { [Op.ne]: 'refund' },
+        },
         include: [{
           model: DeployedContract,
           as: 'deployedContract',
@@ -34,7 +40,7 @@ class PaymentTransactionController {
         order: [['created_at', 'DESC']]
       });
 
-      // Calculate total earnings
+      // Calculate total earnings (only completed, worker-directed payments)
       const totalEarnings = transactions
         .filter(tx => tx.status === 'completed')
         .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);

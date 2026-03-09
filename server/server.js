@@ -20,6 +20,8 @@ const oracleVerificationRoutes = require('./routes/oracleVerificationRoutes');
 const paymentTransactionRoutes = require('./routes/paymentTransactionRoutes');
 const mediatorRoutes = require('./routes/mediatorRoutes');
 const disputeHistoryRoutes = require('./routes/disputeHistoryRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const adminEmployerRoutes = require('./routes/adminEmployerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { validateWalletAddress } = require('./middleware/authMiddleware');
@@ -92,6 +94,8 @@ app.use('/api/oracle-verifications', oracleVerificationRoutes);
 app.use('/api/payment-transactions', paymentTransactionRoutes);
 app.use('/api/mediators', mediatorRoutes);
 app.use('/api/dispute-history', disputeHistoryRoutes);
+app.use('/api/audit-log', auditLogRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/employers', adminEmployerRoutes);
 
@@ -147,7 +151,10 @@ async function runMigrationsOnStartup() {
       '018-fix-email-wallet-constraints.sql',
       '019-add-contract-snapshot.sql',
       '020-add-snapshot-to-job-applications.sql',
-      '021-add-employee-profile-tier2.sql'
+      '021-add-employee-profile-tier2.sql',
+      '022-create-audit-log.sql',
+      '023-fix-payment-tx-hash-constraint.sql',
+      '024-add-employer-id-to-audit-log.sql'
     ];
 
     for (const file of migrationFiles) {

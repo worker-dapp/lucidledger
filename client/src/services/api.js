@@ -75,6 +75,22 @@ class ApiService {
     }
   }
 
+  // Fetch a CSV blob — used for report exports that return text/csv instead of JSON
+  async requestCsv(endpoint) {
+    const token = await getAuthToken();
+    const url = `${API_BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(currentWalletAddress ? { 'x-wallet-address': currentWalletAddress } : {}),
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    return response.blob();
+  }
+
   // Employee API methods
   async createEmployee(employeeData) {
     return this.request('/employees', {
@@ -440,6 +456,36 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify(disputeData),
     });
+  }
+
+  async getAuditLog(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/audit-log${query ? `?${query}` : ''}`);
+  }
+
+  async getComplianceOverview(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/reports/overview${query ? `?${query}` : ''}`);
+  }
+
+  async exportWorkforceSummary(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.requestCsv(`/reports/workforce-summary${query ? `?${query}` : ''}`);
+  }
+
+  async exportPaymentHistory(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.requestCsv(`/reports/payment-history${query ? `?${query}` : ''}`);
+  }
+
+  async exportOracleVerifications(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.requestCsv(`/reports/oracle-verifications${query ? `?${query}` : ''}`);
+  }
+
+  async exportDisputeReport(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.requestCsv(`/reports/dispute-report${query ? `?${query}` : ''}`);
   }
 
   // Health check
