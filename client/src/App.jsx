@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
 import { baseSepolia } from "viem/chains";
@@ -203,7 +203,7 @@ const AppContent = () => {
                   profileExists = true;
                 }
               }
-            } catch (err) {
+            } catch {
               // Ignore 404s (expected if profile doesn't exist)
             }
           }
@@ -228,7 +228,7 @@ const AppContent = () => {
                   profileExists = true;
                 }
               }
-            } catch (err) { /* 404 expected */ }
+            } catch { /* 404 expected */ }
           }
 
           // Check if user has both roles (for role switcher UI)
@@ -240,7 +240,7 @@ const AppContent = () => {
               if (response?.data) {
                 hasOtherRole = true;
               }
-            } catch (err) {
+            } catch {
               // Ignore 404s
             }
           }
@@ -386,9 +386,6 @@ const App = () => {
             </Route>
 
             {/* Employer Routes */}
-            <Route path="/employerDashboard" element={<Navigate to="/contract-factory" replace />} />
-            {/* Redirect old job posting route to Recruitment Hub */}
-            <Route path="/job" element={<Navigate to="/contract-factory" replace />} />
             <Route element={<EmployerLayout />}>
               <Route path="/employer-profile" element={
                 <ProtectedRoute requiredRole="employer">

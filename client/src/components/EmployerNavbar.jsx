@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { NavLink, Link, useNavigate } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import SmartWalletInfo from "./SmartWalletInfo";
@@ -14,7 +14,6 @@ const EmployerNavbar = () => {
 
   const { user, smartWalletAddress } = useAuth();
   const mobileMenuRef = useRef(null);
-  const navigate = useNavigate();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -52,11 +51,6 @@ const EmployerNavbar = () => {
     }
   }, [smartWalletAddress, user?.email?.address]);
 
-  const handleHomeClick = () => {
-    navigate('/employerDashboard');
-    setIsMobileMenuOpen(false);
-  };
-
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);
   };
@@ -68,7 +62,7 @@ const EmployerNavbar = () => {
         <div className="max-w-7xl w-full mx-auto flex items-center justify-between px-4 sm:px-8 py-3">
         {/* Enhanced Brand Name */}
         <Link
-          to="/employerDashboard"
+          to="/contract-factory"
           className="flex items-center gap-1 text-2xl sm:text-3xl font-bold tracking-wide">
           <img
             src={logo}
@@ -82,17 +76,6 @@ const EmployerNavbar = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center gap-6 text-md">
-          <NavLink
-            to="/employerDashboard"
-            className={({ isActive }) =>
-              `transition-all font-medium flex items-center gap-2 px-3 py-2 rounded ${
-                isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
-              }`
-            }>
-            <span>🏠</span>
-            Home
-          </NavLink>
-
           <NavLink
             to="/contract-factory"
             className={({ isActive }) =>
@@ -215,17 +198,6 @@ const EmployerNavbar = () => {
 
             {/* Navigation Links */}
             <div className="space-y-3">
-              <NavLink
-                to="/employerDashboard"
-                onClick={handleNavClick}
-                className={({ isActive }) =>
-                  `block w-full text-left transition-all font-medium py-2 px-3 rounded ${
-                    isActive ? "text-[#EE964B] font-semibold bg-[#1a4a7a]" : "text-white hover:text-[#F4D35E] hover:bg-[#1a4a7a]"
-                  }`
-                }>
-                🏠 Home
-              </NavLink>
-
               <NavLink
                 to="/contract-factory"
                 onClick={handleNavClick}

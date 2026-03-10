@@ -127,5 +127,8 @@ resolving
 conflict-*
 *.orig
 
+# docs
+docs/ip-audit
+
 # Local notes (now tracked for backup)
 # notes/

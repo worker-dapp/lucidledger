@@ -18,6 +18,9 @@ const CompletedContractsTab = () => {
   const { employerId } = useEmployer();
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     const fetchContracts = async () => {
@@ -37,6 +40,18 @@ const CompletedContractsTab = () => {
     };
     fetchContracts();
   }, [employerId]);
+
+  const filtered = contracts.filter((c) => {
+    const term = search.toLowerCase();
+    if (term) {
+      const title = c.jobPosting?.title || "";
+      const worker = `${c.employee?.first_name || ""} ${c.employee?.last_name || ""}`.trim();
+      if (!title.toLowerCase().includes(term) && !worker.toLowerCase().includes(term)) return false;
+    }
+    if (startDate && new Date(c.updated_at) < new Date(startDate)) return false;
+    if (endDate && new Date(c.updated_at) > new Date(endDate + "T23:59:59")) return false;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -59,7 +74,43 @@ const CompletedContractsTab = () => {
 
   return (
     <div className="space-y-4">
-      {contracts.map((contract) => {
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          placeholder="Search by job title or worker name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 p-3 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+        />
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="p-3 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="p-3 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+        />
+        {(search || startDate || endDate) && (
+          <button
+            onClick={() => { setSearch(""); setStartDate(""); setEndDate(""); }}
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <CheckCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm text-gray-500">No contracts match your filters.</p>
+        </div>
+      ) : filtered.map((contract) => {
         const worker = `${contract.employee?.first_name || ""} ${contract.employee?.last_name || ""}`.trim() || "—";
         const isMock = contract.contract_address?.startsWith("0x000000");
 
@@ -124,5 +175,6 @@ const CompletedContractsTab = () => {
     </div>
   );
 };
+
 
 export default CompletedContractsTab;

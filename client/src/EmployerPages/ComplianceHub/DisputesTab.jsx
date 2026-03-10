@@ -55,6 +55,8 @@ const DisputesTab = () => {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     const fetchDisputes = async () => {
@@ -79,6 +81,8 @@ const DisputesTab = () => {
   const filtered = disputes.filter((d) => {
     if (filter === "pending" && d.resolved_at) return false;
     if (filter === "resolved" && !d.resolved_at) return false;
+    if (startDate && new Date(d.raised_at) < new Date(startDate)) return false;
+    if (endDate && new Date(d.raised_at) > new Date(endDate + "T23:59:59")) return false;
     const term = search.toLowerCase();
     if (!term) return true;
     const title = d.deployedContract?.jobPosting?.title || "";
@@ -133,6 +137,26 @@ const DisputesTab = () => {
           <option value="pending">Pending</option>
           <option value="resolved">Resolved</option>
         </select>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="p-3 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="p-3 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+        />
+        {(startDate || endDate) && (
+          <button
+            onClick={() => { setStartDate(""); setEndDate(""); }}
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {loading ? (

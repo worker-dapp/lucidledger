@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import PublicEmployerNavbar from "../components/PublicEmployerNavbar";
@@ -12,6 +12,13 @@ const EmployerLandingPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   // Note: Redirect logic handled by App.jsx, same as employee landing page
+
+  // Set role on mount so returning authenticated users get the correct intendedRole
+  // in the App.jsx profile check (not just users who click the login button)
+  useEffect(() => {
+    localStorage.setItem('pendingRole', 'employer');
+    localStorage.setItem('userRole', 'employer');
+  }, []);
 
   const handleEmployerLogin = () => {
     localStorage.setItem('pendingRole', 'employer');
