@@ -8,6 +8,7 @@ import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { raiseDispute, ContractState } from "../contracts/workContractInteractions";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
+import QrClockModal from "./QrClockModal";
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
 
@@ -77,6 +78,9 @@ const JobTrackerInner = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [groupBy, setGroupBy] = useState("none"); // "none" | "employer" | "month"
+
+  // QR clock modal state
+  const [showQrModal, setShowQrModal] = useState(false);
 
   // Dispute modal state
   const [showDisputeModal, setShowDisputeModal] = useState(false);
@@ -932,7 +936,17 @@ const JobTrackerInner = () => {
 
                       {/* Action buttons for deployed contracts */}
                       {activeTab === "open" && selectedContract.application_status === "deployed" && selectedContract.contract_address && (
-                        <div className="pt-4 border-t border-gray-200">
+                        <div className="pt-4 border-t border-gray-200 flex flex-col gap-2">
+                          {/* QR Clock In/Out — shown when contract uses the QR oracle */}
+                          {selectedContract.selected_oracles?.split(",").map(s => s.trim()).includes("qr") && (
+                            <button
+                              onClick={() => setShowQrModal(true)}
+                              className="w-full py-3 px-4 rounded-lg font-semibold text-sm bg-[#0D3B66] text-white hover:bg-[#0a2f52] flex items-center justify-center gap-2"
+                            >
+                              <Zap className="h-4 w-4" />
+                              Clock In / Out
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setDisputeMessage("");
@@ -1096,6 +1110,14 @@ const JobTrackerInner = () => {
         </div>
       )}
       
+      {/* QR Clock In/Out modal */}
+      {showQrModal && selectedContract && (
+        <QrClockModal
+          contract={selectedContract}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
+
       <Footer />
     </div>
   );

@@ -312,4 +312,33 @@ const validateWalletAddress = (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken, optionalAuth, verifyAdmin, requireApprovedEmployer, validateWalletAddress };
+// Authenticates requests from registered kiosk devices.
+// Reads the raw bearer token from x-kiosk-token, hashes it, and looks up
+// the matching kiosk_devices row. Attaches req.kioskDevice on success.
+const kioskAuth = async (req, res, next) => {
+  const rawToken = req.headers['x-kiosk-token'];
+  if (!rawToken) {
+    return res.status(401).json({ success: false, message: 'Kiosk token required' });
+  }
+
+  try {
+    const crypto = require('crypto');
+    const { KioskDevice } = require('../models');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const kiosk = await KioskDevice.findOne({
+      where: { device_token_hash: tokenHash, status: 'active' }
+    });
+
+    if (!kiosk) {
+      return res.status(401).json({ success: false, message: 'Invalid or inactive kiosk token' });
+    }
+
+    req.kioskDevice = kiosk;
+    next();
+  } catch (error) {
+    console.error('kioskAuth error:', error.message);
+    return res.status(500).json({ success: false, message: 'Error verifying kiosk token' });
+  }
+};
+
+module.exports = { verifyToken, optionalAuth, verifyAdmin, requireApprovedEmployer, validateWalletAddress, kioskAuth };
