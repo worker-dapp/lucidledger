@@ -10,6 +10,9 @@ import {
   XCircle,
   Zap,
   PlusCircle,
+  Monitor,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useEmployer } from "../components/EmployerLayout";
 import apiService from "../services/api";
@@ -22,7 +25,6 @@ import {
   ContractState,
   StateNames,
 } from "../contracts/workContractInteractions";
-import { getBasescanUrl } from "../contracts/aaClient";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 import { useAuth } from "../hooks/useAuth";
 
@@ -59,6 +61,20 @@ const WorkforceDashboard = () => {
   const [blockchainState, setBlockchainState] = useState(null);
   const [blockchainLoading, setBlockchainLoading] = useState(false);
   const [permissions, setPermissions] = useState(null);
+
+  // Attendance log
+  const [presenceEvents, setPresenceEvents] = useState([]);
+  const [presenceEventsLoading, setPresenceEventsLoading] = useState(false);
+
+  // Kiosk management
+  const [kiosks, setKiosks] = useState([]);
+  const [kioskLoading, setKioskLoading] = useState(false);
+  const [showKioskModal, setShowKioskModal] = useState(false);
+  const [kioskSiteName, setKioskSiteName] = useState("");
+  const [registeringKiosk, setRegisteringKiosk] = useState(false);
+  const [newKioskToken, setNewKioskToken] = useState(null); // shown once after registration
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [kioskError, setKioskError] = useState("");
 
   // Action states
   const [approving, setApproving] = useState(false);
@@ -173,6 +189,61 @@ const WorkforceDashboard = () => {
 
     fetchBlockchainState();
   }, [selectedContract?.contract_address, smartWalletAddress]);
+
+  // Fetch presence events when selected contract changes (QR/NFC oracle only)
+  useEffect(() => {
+    const contractId = selectedContract?.id;
+    const oracles = selectedContract?.jobPosting?.selected_oracles || selectedContract?.selected_oracles || "";
+    const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+    if (!contractId || !hasAttendanceOracle) { setPresenceEvents([]); return; }
+    setPresenceEventsLoading(true);
+    apiService.getPresenceEvents(contractId)
+      .then(res => setPresenceEvents(res?.data || []))
+      .catch(() => setPresenceEvents([]))
+      .finally(() => setPresenceEventsLoading(false));
+  }, [selectedContract?.id]);
+
+  // Fetch kiosks when employer is loaded
+  useEffect(() => {
+    if (!employerId) return;
+    setKioskLoading(true);
+    apiService.getKioskDevices()
+      .then(res => setKiosks(res?.data || []))
+      .catch(() => setKiosks([]))
+      .finally(() => setKioskLoading(false));
+  }, [employerId]);
+
+  const handleRegisterKiosk = async () => {
+    setRegisteringKiosk(true);
+    setKioskError("");
+    try {
+      const res = await apiService.registerKioskDevice(kioskSiteName.trim() || undefined);
+      setNewKioskToken(res?.data?.rawToken || res?.data?.device_token || null);
+      setKiosks(prev => [res?.data?.kiosk || res?.data, ...prev].filter(Boolean));
+      setKioskSiteName("");
+    } catch (err) {
+      setKioskError(err.message || "Failed to register kiosk");
+    } finally {
+      setRegisteringKiosk(false);
+    }
+  };
+
+  const handleSuspendKiosk = async (kioskId) => {
+    try {
+      await apiService.suspendKioskDevice(kioskId);
+      setKiosks(prev => prev.map(k => k.id === kioskId ? { ...k, status: "suspended" } : k));
+    } catch {
+      // silently fail — user can retry
+    }
+  };
+
+  const handleCopyToken = () => {
+    if (!newKioskToken) return;
+    navigator.clipboard.writeText(newKioskToken).then(() => {
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    });
+  };
 
   const handleApproveAndPay = async () => {
     if (!selectedContract?.contract_address || !smartWalletClient || !smartWalletAddress) return;
@@ -748,6 +819,42 @@ const WorkforceDashboard = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Attendance Log — QR/NFC oracle contracts only */}
+                {(() => {
+                  const oracles = selectedContract.jobPosting?.selected_oracles || selectedContract.selected_oracles || "";
+                  const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+                  if (!hasAttendanceOracle) return null;
+                  return (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-[#0D3B66]">Attendance Log</h3>
+                        {presenceEventsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
+                      </div>
+                      {!presenceEventsLoading && presenceEvents.length === 0 ? (
+                        <p className="text-xs text-gray-400">No clock-in/out events yet.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {presenceEvents.map((evt) => (
+                            <div key={evt.id} className="flex items-start justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`px-1.5 py-0.5 rounded-full font-semibold ${evt.event_type === "clock_in" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {evt.event_type === "clock_in" ? "In" : "Out"}
+                                </span>
+                                {evt.kiosk_device?.site_name && (
+                                  <span className="text-gray-500 truncate">{evt.kiosk_device.site_name}</span>
+                                )}
+                              </div>
+                              <span className="text-gray-500 shrink-0">
+                                {new Date(evt.server_timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -873,6 +980,147 @@ const WorkforceDashboard = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Kiosk Management */}
+        <div className="mt-8 bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Monitor className="h-5 w-5 text-[#0D3B66]" />
+              <h2 className="text-lg font-semibold text-[#0D3B66]">Kiosk Devices</h2>
+            </div>
+            <button
+              onClick={() => { setShowKioskModal(true); setNewKioskToken(null); setKioskError(""); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0D3B66] text-white text-sm font-medium hover:bg-[#0a2f52] transition-colors"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Register Kiosk
+            </button>
+          </div>
+          {kioskLoading ? (
+            <div className="px-6 py-6 text-sm text-gray-400 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading kiosks…
+            </div>
+          ) : kiosks.length === 0 ? (
+            <div className="px-6 py-6 text-sm text-gray-400">
+              No kiosks registered. Register a kiosk device to enable QR clock-in/out at your worksite.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500">
+                  <tr>
+                    <th className="text-left font-medium px-6 py-3">Device ID</th>
+                    <th className="text-left font-medium px-6 py-3">Site Name</th>
+                    <th className="text-left font-medium px-6 py-3">Status</th>
+                    <th className="text-left font-medium px-6 py-3">Registered</th>
+                    <th className="text-left font-medium px-6 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kiosks.map((kiosk) => (
+                    <tr key={kiosk.id} className="border-t border-gray-100">
+                      <td className="px-6 py-3 font-mono text-xs text-gray-600">{kiosk.device_id}</td>
+                      <td className="px-6 py-3 text-gray-700">{kiosk.site_name || <span className="text-gray-400">—</span>}</td>
+                      <td className="px-6 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${kiosk.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                          {kiosk.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-gray-500 text-xs">{formatDate(kiosk.registered_at)}</td>
+                      <td className="px-6 py-3">
+                        {kiosk.status === "active" && (
+                          <button
+                            onClick={() => handleSuspendKiosk(kiosk.id)}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Register Kiosk Modal */}
+        {showKioskModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-[#0D3B66]">Register New Kiosk</h3>
+                <button
+                  onClick={() => { setShowKioskModal(false); setNewKioskToken(null); setKioskSiteName(""); setKioskError(""); }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+
+              {!newKioskToken ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    A unique one-time device token will be generated. Copy it to your kiosk device — it cannot be retrieved again.
+                  </p>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Site / Location Name</label>
+                    <input
+                      type="text"
+                      value={kioskSiteName}
+                      onChange={(e) => setKioskSiteName(e.target.value)}
+                      placeholder="e.g. Main Entrance, Warehouse A"
+                      className="w-full rounded-lg border border-gray-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D3B66]"
+                    />
+                  </div>
+                  {kioskError && <p className="text-xs text-red-600 mb-3">{kioskError}</p>}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setShowKioskModal(false); setKioskSiteName(""); setKioskError(""); }}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRegisterKiosk}
+                      disabled={registeringKiosk}
+                      className="flex-1 bg-[#0D3B66] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0a2f52] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {registeringKiosk ? <><Loader2 className="h-4 w-4 animate-spin" /> Registering…</> : "Generate Token"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                    <p className="text-sm text-green-800 font-medium">Kiosk registered successfully</p>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Copy this token now — it will not be shown again. Paste it into the kiosk setup screen at <span className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">/kiosk</span>.
+                  </p>
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+                    <span className="font-mono text-xs text-gray-700 break-all flex-1">{newKioskToken}</span>
+                    <button
+                      onClick={handleCopyToken}
+                      className="shrink-0 text-gray-500 hover:text-gray-700"
+                      title="Copy token"
+                    >
+                      {tokenCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => { setShowKioskModal(false); setNewKioskToken(null); }}
+                    className="w-full bg-[#0D3B66] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0a2f52] transition-colors"
+                  >
+                    Done
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
