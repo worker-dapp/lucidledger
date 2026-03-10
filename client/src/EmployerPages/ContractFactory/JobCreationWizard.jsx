@@ -302,7 +302,8 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       : [];
     const oracleLabels = {
       manual: "Manual Verification",
-      "time-clock": "Badge Scan",
+      qr: "QR Clock-In",
+      nfc: "NFC Badge Scan",
       "ble-beacon": "Bluetooth Beacon",
       gps: "GPS",
       weight: "Scale/Weight",

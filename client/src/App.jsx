@@ -17,6 +17,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import UserProfile from "./pages/UserProfile";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import MediatorResolution from "./pages/MediatorResolution";
+import KioskPage from "./pages/KioskPage";
 import AdminMediators from "./pages/AdminMediators";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminDeployFactory from "./pages/AdminDeployFactory";
@@ -416,6 +417,9 @@ const App = () => {
                 </ProtectedRoute>
               } />
             </Route>
+
+            {/* Kiosk — standalone full-screen page, no auth wrapper */}
+            <Route path="/kiosk" element={<KioskPage />} />
 
             {/* Mediator Route - Self-validates via DB-backed mediator list */}
             <Route path="/resolve-disputes" element={<MediatorResolution />} />
