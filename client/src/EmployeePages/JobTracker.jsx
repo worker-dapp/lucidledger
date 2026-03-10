@@ -82,6 +82,10 @@ const JobTrackerInner = () => {
   // QR clock modal state
   const [showQrModal, setShowQrModal] = useState(false);
 
+  // Attendance log state
+  const [presenceEvents, setPresenceEvents] = useState([]);
+  const [presenceEventsLoading, setPresenceEventsLoading] = useState(false);
+
   // Dispute modal state
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
@@ -298,6 +302,24 @@ const JobTrackerInner = () => {
     }
     // No selection needed for earnings tab
   }, [activeTab, openContracts, completedContracts, closedContracts]);
+
+  // Fetch presence events when selected contract changes (QR/NFC oracle only)
+  useEffect(() => {
+    const contractId = selectedContract?.deployed_contract_id;
+    const oracles = selectedContract?.selected_oracles || "";
+    const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+
+    if (!contractId || !hasAttendanceOracle) {
+      setPresenceEvents([]);
+      return;
+    }
+
+    setPresenceEventsLoading(true);
+    apiService.getPresenceEvents(contractId)
+      .then(res => setPresenceEvents(res?.data || []))
+      .catch(() => setPresenceEvents([]))
+      .finally(() => setPresenceEventsLoading(false));
+  }, [selectedContract]);
 
   // Filtered earnings (apply date range)
   const filteredEarnings = useMemo(() => {
@@ -933,6 +955,51 @@ const JobTrackerInner = () => {
                           )}
                         </div>
                       )}
+
+                      {/* Attendance Log — shown for QR/NFC oracle contracts */}
+                      {(() => {
+                        const oracles = selectedContract.selected_oracles || "";
+                        const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+                        if (!hasAttendanceOracle) return null;
+                        return (
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="bg-gray-50 px-4 py-2 flex items-center justify-between border-b border-gray-200">
+                              <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Attendance Log</h4>
+                              {presenceEventsLoading && (
+                                <span className="text-xs text-gray-400">Loading…</span>
+                              )}
+                            </div>
+                            {!presenceEventsLoading && presenceEvents.length === 0 ? (
+                              <p className="text-sm text-gray-400 text-center py-6">No clock-in/out events yet.</p>
+                            ) : (
+                              <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                                {presenceEvents.map((evt) => (
+                                  <div key={evt.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${evt.event_type === "clock_in" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                        {evt.event_type === "clock_in" ? "In" : "Out"}
+                                      </span>
+                                      {evt.kiosk_device?.site_name && (
+                                        <span className="text-xs text-gray-500 truncate">{evt.kiosk_device.site_name}</span>
+                                      )}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <p className="text-xs font-medium text-gray-700">
+                                        {new Date(evt.server_timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                      </p>
+                                      {evt.latitude && evt.longitude && (
+                                        <p className="text-xs text-gray-400">
+                                          {Number(evt.latitude).toFixed(4)}, {Number(evt.longitude).toFixed(4)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Action buttons for deployed contracts */}
                       {activeTab === "open" && selectedContract.application_status === "deployed" && selectedContract.contract_address && (

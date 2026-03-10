@@ -35,6 +35,8 @@ const MediatorResolution = () => {
   const [message, setMessage] = useState("");
   const [txStep, setTxStep] = useState(TxSteps.IDLE);
   const [txMessage, setTxMessage] = useState("");
+  const [presenceEvents, setPresenceEvents] = useState([]);
+  const [presenceEventsLoading, setPresenceEventsLoading] = useState(false);
 
   const handleTxStatusChange = ({ step, message }) => {
     setTxStep(step);
@@ -102,9 +104,18 @@ const MediatorResolution = () => {
     fetchDisputedContracts();
   }, [isAuthorized, mediatorData?.id]);
 
-  // Reset percentage slider when a new contract is selected
+  // Reset percentage slider and fetch presence events when a new contract is selected
   useEffect(() => {
     setWorkerPercentage(100);
+    const contractId = selectedContract?.id;
+    const oracles = selectedContract?.jobPosting?.selected_oracles || selectedContract?.selected_oracles || "";
+    const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+    if (!contractId || !hasAttendanceOracle) { setPresenceEvents([]); return; }
+    setPresenceEventsLoading(true);
+    apiService.getPresenceEvents(contractId)
+      .then(res => setPresenceEvents(res?.data || []))
+      .catch(() => setPresenceEvents([]))
+      .finally(() => setPresenceEventsLoading(false));
   }, [selectedContract?.id]);
 
   // Fetch blockchain state for selected contract
@@ -495,6 +506,42 @@ const MediatorResolution = () => {
                     </p>
                   </div>
                 )}
+
+                {/* Attendance Log — read-only, QR/NFC oracle contracts only */}
+                {(() => {
+                  const oracles = selectedContract.jobPosting?.selected_oracles || selectedContract.selected_oracles || "";
+                  const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+                  if (!hasAttendanceOracle) return null;
+                  return (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-3 py-2 flex items-center justify-between border-b border-gray-200">
+                        <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Attendance Log</h4>
+                        {presenceEventsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
+                      </div>
+                      {!presenceEventsLoading && presenceEvents.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">No clock-in/out events recorded.</p>
+                      ) : (
+                        <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                          {presenceEvents.map((evt) => (
+                            <div key={evt.id} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${evt.event_type === "clock_in" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {evt.event_type === "clock_in" ? "In" : "Out"}
+                                </span>
+                                {evt.kiosk_device?.site_name && (
+                                  <span className="text-gray-500 truncate">{evt.kiosk_device.site_name}</span>
+                                )}
+                              </div>
+                              <span className="text-gray-500 shrink-0">
+                                {new Date(evt.server_timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="pt-4 border-t border-gray-200">
                   {/* Gas Sponsorship Notice */}
