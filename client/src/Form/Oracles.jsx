@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 // Oracle types currently registered on-chain. Expand as new oracles are deployed.
-const AVAILABLE_ORACLES = ["manual"];
+const AVAILABLE_ORACLES = ["manual", "qr"];
 
 export default function OracleConfiguration({ formData, handleChange }) {
   const [selectedOracles, setSelectedOracles] = useState(formData.selectedOracles || []);
@@ -13,11 +13,11 @@ export default function OracleConfiguration({ formData, handleChange }) {
       suitableFor: ["all"],
       features: ["Supervisor approval", "Quality control", "Custom verification"]
     },
-    "time-clock": {
-      name: "Badge Scan",
-      description: "Badge-based clock in/out at a terminal",
+    qr: {
+      name: "QR Clock-In",
+      description: "Worker displays a QR code on their phone; employer kiosk scans it to record clock-in/out",
       suitableFor: ["time-based"],
-      features: ["Clock in/out", "Break tracking", "Overtime calculation"]
+      features: ["Clock in/out", "GPS audit trail", "Supervisor confirmation screen"]
     },
     "ble-beacon": {
       name: "Bluetooth Beacon",

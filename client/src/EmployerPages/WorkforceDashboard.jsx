@@ -22,7 +22,6 @@ import {
   ContractState,
   StateNames,
 } from "../contracts/workContractInteractions";
-import { getBasescanUrl } from "../contracts/aaClient";
 import { TxSteps, parseAAError } from "../contracts/aaClient";
 import { useAuth } from "../hooks/useAuth";
 
@@ -59,6 +58,11 @@ const WorkforceDashboard = () => {
   const [blockchainState, setBlockchainState] = useState(null);
   const [blockchainLoading, setBlockchainLoading] = useState(false);
   const [permissions, setPermissions] = useState(null);
+
+  // Attendance log
+  const [presenceEvents, setPresenceEvents] = useState([]);
+  const [presenceEventsLoading, setPresenceEventsLoading] = useState(false);
+
 
   // Action states
   const [approving, setApproving] = useState(false);
@@ -173,6 +177,20 @@ const WorkforceDashboard = () => {
 
     fetchBlockchainState();
   }, [selectedContract?.contract_address, smartWalletAddress]);
+
+  // Fetch presence events when selected contract changes (QR/NFC oracle only)
+  useEffect(() => {
+    const contractId = selectedContract?.id;
+    const oracles = selectedContract?.jobPosting?.selected_oracles || selectedContract?.selected_oracles || "";
+    const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+    if (!contractId || !hasAttendanceOracle) { setPresenceEvents([]); return; }
+    setPresenceEventsLoading(true);
+    apiService.getPresenceEvents(contractId)
+      .then(res => setPresenceEvents(res?.data || []))
+      .catch(() => setPresenceEvents([]))
+      .finally(() => setPresenceEventsLoading(false));
+  }, [selectedContract?.id]);
+
 
   const handleApproveAndPay = async () => {
     if (!selectedContract?.contract_address || !smartWalletClient || !smartWalletAddress) return;
@@ -349,12 +367,6 @@ const WorkforceDashboard = () => {
     return `${currency || "USDC"} ${formatted}`;
   };
 
-  const formatDate = (value) => {
-    if (!value) return "--";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "--";
-    return date.toLocaleDateString();
-  };
 
   const isRealContract = (contract) => {
     return contract?.contract_address && !contract.contract_address.startsWith("0x00");
@@ -748,6 +760,42 @@ const WorkforceDashboard = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Attendance Log — QR/NFC oracle contracts only */}
+                {(() => {
+                  const oracles = selectedContract.jobPosting?.selected_oracles || selectedContract.selected_oracles || "";
+                  const hasAttendanceOracle = oracles.split(",").map(s => s.trim()).some(o => o === "qr" || o === "nfc");
+                  if (!hasAttendanceOracle) return null;
+                  return (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-[#0D3B66]">Attendance Log</h3>
+                        {presenceEventsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
+                      </div>
+                      {!presenceEventsLoading && presenceEvents.length === 0 ? (
+                        <p className="text-xs text-gray-400">No clock-in/out events yet.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {presenceEvents.map((evt) => (
+                            <div key={evt.id} className="flex items-start justify-between gap-2 text-xs">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`px-1.5 py-0.5 rounded-full font-semibold ${evt.event_type === "clock_in" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {evt.event_type === "clock_in" ? "In" : "Out"}
+                                </span>
+                                {evt.kiosk_device?.site_name && (
+                                  <span className="text-gray-500 truncate">{evt.kiosk_device.site_name}</span>
+                                )}
+                              </div>
+                              <span className="text-gray-500 shrink-0">
+                                {new Date(evt.server_timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -876,6 +924,7 @@ const WorkforceDashboard = () => {
             </div>
           </div>
         )}
+
     </main>
   );
 };

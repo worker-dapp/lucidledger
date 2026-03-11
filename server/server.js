@@ -24,6 +24,7 @@ const auditLogRoutes = require('./routes/auditLogRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const adminEmployerRoutes = require('./routes/adminEmployerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const qrOracleRoutes = require('./routes/qrOracleRoutes');
 const { validateWalletAddress } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -98,6 +99,7 @@ app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/employers', adminEmployerRoutes);
+app.use('/api', qrOracleRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -154,7 +156,8 @@ async function runMigrationsOnStartup() {
       '021-add-employee-profile-tier2.sql',
       '022-create-audit-log.sql',
       '023-fix-payment-tx-hash-constraint.sql',
-      '024-add-employer-id-to-audit-log.sql'
+      '024-add-employer-id-to-audit-log.sql',
+      '025-qr-oracle.sql'
     ];
 
     for (const file of migrationFiles) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { NavLink, Link, Outlet } from "react-router-dom";
-import { LayoutGrid, Users, AlertTriangle, User, Menu, X } from "lucide-react";
+import { LayoutGrid, Users, AlertTriangle, User, Menu, X, Monitor } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
@@ -118,8 +118,25 @@ const EmployerLayout = ({ children }) => {
               </NavLink>
             ))}
 
+            {approvalStatus === 'approved' && (
+              <NavLink
+                to="/kiosks"
+                onClick={closeSidebar}
+                className={({ isActive }) =>
+                  `mt-4 flex items-center gap-2 px-3 py-1.5 w-full rounded-lg text-xs transition-colors ${
+                    isActive
+                      ? "text-[#0D3B66] bg-[#EEF5FF]"
+                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  }`
+                }
+              >
+                <Monitor className="h-3.5 w-3.5" />
+                Kiosk Devices
+              </NavLink>
+            )}
+
             {user && (
-              <div className="mt-6 px-3 py-2 rounded-lg bg-gray-50 text-xs text-gray-500">
+              <div className="mt-2 px-3 py-2 rounded-lg bg-gray-50 text-xs text-gray-500">
                 Signed in as{" "}
                 <span className="font-semibold text-gray-700">
                   {user.first_name ||
