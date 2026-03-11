@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import jsQR from "jsqr";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -9,9 +10,11 @@ const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
 // Auth is via x-kiosk-token stored in localStorage after setup.
 // ---------------------------------------------------------------------------
 export default function KioskPage() {
+  const [searchParams] = useSearchParams();
+
   const [kioskToken, setKioskToken] = useState(() => localStorage.getItem("kioskToken") || "");
   const [setupMode, setSetupMode] = useState(!localStorage.getItem("kioskToken"));
-  const [tokenInput, setTokenInput] = useState("");
+  const [tokenInput, setTokenInput] = useState(() => searchParams.get("token") || "");
   const [setupError, setSetupError] = useState("");
 
   // Scan state
@@ -25,6 +28,16 @@ export default function KioskPage() {
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const processingRef = useRef(false); // prevent concurrent submissions
+
+  // Auto-activate if token provided via ?token= query param
+  useEffect(() => {
+    const paramToken = searchParams.get("token");
+    if (paramToken && !localStorage.getItem("kioskToken")) {
+      localStorage.setItem("kioskToken", paramToken);
+      setKioskToken(paramToken);
+      setSetupMode(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Camera setup / teardown
