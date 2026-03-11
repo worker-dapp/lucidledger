@@ -488,6 +488,46 @@ class ApiService {
     return this.requestCsv(`/reports/dispute-report${query ? `?${query}` : ''}`);
   }
 
+  // -------------------------------------------------------------------------
+  // QR Oracle
+  // -------------------------------------------------------------------------
+
+  // Worker: generate a QR token for an active contract
+  async generateQrToken(contractId) {
+    return this.request('/qr-tokens', {
+      method: 'POST',
+      body: JSON.stringify({ contract_id: contractId }),
+    });
+  }
+
+  // Worker or employer: fetch presence event history for a contract
+  async getPresenceEvents(contractId) {
+    return this.request(`/presence-events?contract_id=${contractId}`);
+  }
+
+  // Employer: register a kiosk device
+  async registerKioskDevice(siteName) {
+    return this.request('/kiosk-devices', {
+      method: 'POST',
+      body: JSON.stringify({ site_name: siteName }),
+    });
+  }
+
+  // Employer: list registered kiosk devices
+  async getKioskDevices() {
+    return this.request('/kiosk-devices');
+  }
+
+  // Employer: suspend a kiosk device
+  async suspendKioskDevice(kioskId) {
+    return this.request(`/kiosk-devices/${kioskId}/suspend`, { method: 'PATCH' });
+  }
+
+  // Employer: regenerate kiosk device token (invalidates old token)
+  async regenerateKioskToken(kioskId) {
+    return this.request(`/kiosk-devices/${kioskId}/regenerate-token`, { method: 'POST' });
+  }
+
   // Health check
   async healthCheck() {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');

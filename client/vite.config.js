@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['lucidledger.co', 'www.lucidledger.co', 'frontend', 'localhost']
+    allowedHosts: 'all'
   },
   build: {
     // Increase the warning threshold for chunk sizes (in kB)
