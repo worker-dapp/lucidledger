@@ -148,7 +148,7 @@ export default function KioskPage() {
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "dontInvert"
+      inversionAttempts: "attemptBoth"
     });
 
     if (code?.data && !processingRef.current && Date.now() - lastScanAt >= SCAN_COOLDOWN_MS) {
