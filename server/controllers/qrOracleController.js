@@ -60,8 +60,8 @@ class QrOracleController {
 
       // Generate QR code as a data URL (PNG) server-side
       const qrDataUrl = await QRCode.toDataURL(token, {
-        errorCorrectionLevel: 'M',
-        width: 300,
+        errorCorrectionLevel: 'L',
+        width: 400,
         margin: 2
       });
 
