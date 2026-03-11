@@ -49,7 +49,7 @@ class QrOracleController {
       // Generate a cryptographically random token (stored in plaintext — it is
       // the QR payload and has a 30-second TTL, so storing as plaintext is fine)
       const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes (TODO: reduce to 30s for production)
+      const expiresAt = new Date(Date.now() + 30 * 1000); // 30 seconds
 
       await QrToken.create({
         token,
