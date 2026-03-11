@@ -16,5 +16,6 @@ router.get('/presence-events', verifyToken, QrOracleController.getPresenceEvents
 router.post('/kiosk-devices', verifyToken, requireApprovedEmployer, QrOracleController.registerKiosk);
 router.get('/kiosk-devices', verifyToken, requireApprovedEmployer, QrOracleController.getKiosks);
 router.patch('/kiosk-devices/:id/suspend', verifyToken, requireApprovedEmployer, QrOracleController.suspendKiosk);
+router.post('/kiosk-devices/:id/regenerate-token', verifyToken, requireApprovedEmployer, QrOracleController.regenerateKioskToken);
 
 module.exports = router;

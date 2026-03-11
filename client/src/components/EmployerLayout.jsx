@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { NavLink, Link, Outlet } from "react-router-dom";
-import { LayoutGrid, Users, AlertTriangle, User, Menu, X, Monitor, Copy, Check, PlusCircle, Loader2, XCircle, CheckCircle } from "lucide-react";
+import { LayoutGrid, Users, AlertTriangle, User, Menu, X, Monitor } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import LogoutButton from "./LogoutButton";
@@ -24,61 +24,10 @@ const EmployerLayout = ({ children }) => {
   const { user, smartWalletAddress } = useAuth();
   const [employerData, setEmployerData] = useState(null);
 
-  // Kiosk management modal state
-  const [showKioskModal, setShowKioskModal] = useState(false);
-  const [kiosks, setKiosks] = useState([]);
-  const [kioskLoading, setKioskLoading] = useState(false);
-  const [kioskSiteName, setKioskSiteName] = useState("");
-  const [registeringKiosk, setRegisteringKiosk] = useState(false);
-  const [newKioskToken, setNewKioskToken] = useState(null);
-  const [tokenCopied, setTokenCopied] = useState(false);
-  const [kioskError, setKioskError] = useState("");
-
   const approvalStatus = employerData?.approval_status ?? null;
   const rejectionReason = employerData?.rejection_reason ?? null;
 
   const closeSidebar = () => setSidebarOpen(false);
-
-  const openKioskModal = () => {
-    setShowKioskModal(true);
-    setNewKioskToken(null);
-    setKioskError("");
-    setKioskLoading(true);
-    apiService.getKioskDevices()
-      .then(res => setKiosks(res?.data || []))
-      .catch(() => setKiosks([]))
-      .finally(() => setKioskLoading(false));
-  };
-
-  const handleRegisterKiosk = async () => {
-    setRegisteringKiosk(true);
-    setKioskError("");
-    try {
-      const res = await apiService.registerKioskDevice(kioskSiteName.trim() || undefined);
-      setNewKioskToken(res?.data?.rawToken || res?.data?.device_token || null);
-      setKiosks(prev => [res?.data?.kiosk || res?.data, ...prev].filter(Boolean));
-      setKioskSiteName("");
-    } catch (err) {
-      setKioskError(err.message || "Failed to register kiosk");
-    } finally {
-      setRegisteringKiosk(false);
-    }
-  };
-
-  const handleSuspendKiosk = async (kioskId) => {
-    try {
-      await apiService.suspendKioskDevice(kioskId);
-      setKiosks(prev => prev.map(k => k.id === kioskId ? { ...k, status: "suspended" } : k));
-    } catch { /* silently fail */ }
-  };
-
-  const handleCopyToken = () => {
-    if (!newKioskToken) return;
-    navigator.clipboard.writeText(newKioskToken).then(() => {
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
-    });
-  };
 
   // Fetch employer data once — shared with all child pages via EmployerContext
   useEffect(() => {
@@ -170,13 +119,20 @@ const EmployerLayout = ({ children }) => {
             ))}
 
             {approvalStatus === 'approved' && (
-              <button
-                onClick={openKioskModal}
-                className="mt-4 flex items-center gap-2 px-3 py-1.5 w-full rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              <NavLink
+                to="/kiosks"
+                onClick={closeSidebar}
+                className={({ isActive }) =>
+                  `mt-4 flex items-center gap-2 px-3 py-1.5 w-full rounded-lg text-xs transition-colors ${
+                    isActive
+                      ? "text-[#0D3B66] bg-[#EEF5FF]"
+                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  }`
+                }
               >
                 <Monitor className="h-3.5 w-3.5" />
                 Kiosk Devices
-              </button>
+              </NavLink>
             )}
 
             {user && (
@@ -212,108 +168,6 @@ const EmployerLayout = ({ children }) => {
           </div>
         </div>
       </div>
-      {/* Kiosk Management Modal */}
-      {showKioskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Monitor className="h-5 w-5 text-[#0D3B66]" />
-                <h3 className="text-lg font-semibold text-[#0D3B66]">Kiosk Devices</h3>
-              </div>
-              <button onClick={() => { setShowKioskModal(false); setNewKioskToken(null); }} className="text-gray-400 hover:text-gray-600">
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Existing kiosks */}
-            {kioskLoading ? (
-              <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-              </div>
-            ) : kiosks.length > 0 && (
-              <div className="mb-5 border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full text-xs">
-                  <thead className="bg-gray-50 text-gray-500">
-                    <tr>
-                      <th className="text-left font-medium px-4 py-2">Site</th>
-                      <th className="text-left font-medium px-4 py-2">Device ID</th>
-                      <th className="text-left font-medium px-4 py-2">Status</th>
-                      <th className="px-4 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {kiosks.map((kiosk) => (
-                      <tr key={kiosk.id} className="border-t border-gray-100">
-                        <td className="px-4 py-2 text-gray-700">{kiosk.site_name || <span className="text-gray-400">—</span>}</td>
-                        <td className="px-4 py-2 font-mono text-gray-500">{kiosk.device_id?.slice(0, 12)}…</td>
-                        <td className="px-4 py-2">
-                          <span className={`px-1.5 py-0.5 rounded-full font-semibold ${kiosk.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                            {kiosk.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">
-                          {kiosk.status === "active" && (
-                            <button onClick={() => handleSuspendKiosk(kiosk.id)} className="text-red-500 hover:text-red-700 font-medium">
-                              Suspend
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Register new kiosk */}
-            {!newKioskToken ? (
-              <>
-                <p className="text-sm font-medium text-gray-700 mb-2">Register a new kiosk</p>
-                <p className="text-xs text-gray-500 mb-3">A one-time device token will be generated. Copy it to your kiosk setup screen — it cannot be retrieved again.</p>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={kioskSiteName}
-                    onChange={(e) => setKioskSiteName(e.target.value)}
-                    placeholder="Site name (e.g. Main Entrance)"
-                    className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0D3B66]"
-                  />
-                  <button
-                    onClick={handleRegisterKiosk}
-                    disabled={registeringKiosk}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#0D3B66] text-white text-sm font-medium rounded-lg hover:bg-[#0a2f52] disabled:opacity-50"
-                  >
-                    {registeringKiosk ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
-                    Add
-                  </button>
-                </div>
-                {kioskError && <p className="text-xs text-red-600">{kioskError}</p>}
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                  <p className="text-sm text-green-800 font-medium">Kiosk registered. Copy this token now — it won't be shown again.</p>
-                </div>
-                <p className="text-xs text-gray-500 mb-2">Paste it into the kiosk setup screen at <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">/kiosk</span>.</p>
-                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
-                  <span className="font-mono text-xs text-gray-700 break-all flex-1">{newKioskToken}</span>
-                  <button onClick={handleCopyToken} className="shrink-0 text-gray-500 hover:text-gray-700" title="Copy token">
-                    {tokenCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                  </button>
-                </div>
-                <button
-                  onClick={() => setNewKioskToken(null)}
-                  className="text-sm text-[#0D3B66] hover:underline"
-                >
-                  Register another
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

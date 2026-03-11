@@ -42,14 +42,14 @@ class QrOracleController {
       if (!contract) {
         return res.status(404).json({ success: false, message: 'Contract not found' });
       }
-      if (contract.status !== 'in_progress') {
+      if (contract.status !== 'active') {
         return res.status(400).json({ success: false, message: 'Contract is not active' });
       }
 
       // Generate a cryptographically random token (stored in plaintext — it is
       // the QR payload and has a 30-second TTL, so storing as plaintext is fine)
       const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 30 * 1000); // 30 seconds
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes (TODO: reduce to 30s for production)
 
       await QrToken.create({
         token,
@@ -100,7 +100,7 @@ class QrOracleController {
       result = await sequelize.transaction(async (t) => {
         // Atomically consume the token: UPDATE where unused and not expired.
         // Returns 0 rows if already used or expired — no separate read needed.
-        const [updatedCount, updatedRows] = await sequelize.query(
+        const [updatedRows] = await sequelize.query(
           `UPDATE qr_tokens
            SET used_at = NOW()
            WHERE token = :token
@@ -131,7 +131,7 @@ class QrOracleController {
 
         // Verify contract is still active at scan time
         const contract = await DeployedContract.findByPk(deployed_contract_id, { transaction: t });
-        if (!contract || contract.status !== 'in_progress') {
+        if (!contract || contract.status !== 'active') {
           throw Object.assign(new Error('Contract is no longer active'), { status: 400, code: 'CONTRACT_INACTIVE' });
         }
 
@@ -311,13 +311,70 @@ class QrOracleController {
       const employer = req.employer;
       const kiosks = await KioskDevice.findAll({
         where: { employer_id: employer.id },
-        attributes: ['id', 'device_id', 'site_name', 'status', 'registered_at'],
+        attributes: [
+          'id', 'device_id', 'site_name', 'status', 'registered_at',
+          [sequelize.fn('COUNT', sequelize.col('presenceEvents.id')), 'scan_count'],
+          [sequelize.fn('MAX', sequelize.col('presenceEvents.server_timestamp')), 'last_used_at']
+        ],
+        include: [{
+          model: PresenceEvent,
+          as: 'presenceEvents',
+          attributes: [],
+          required: false
+        }],
+        group: ['KioskDevice.id'],
         order: [['registered_at', 'DESC']]
       });
       return res.status(200).json({ success: true, data: kiosks });
     } catch (error) {
       console.error('getKiosks error:', error);
       return res.status(500).json({ success: false, message: 'Error fetching kiosks', error: error.message });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // POST /api/kiosk-devices/:id/regenerate-token
+  // Generate a new token for an existing kiosk (invalidates old token).
+  // Auth: verifyToken + requireApprovedEmployer
+  // ---------------------------------------------------------------------------
+  static async regenerateKioskToken(req, res) {
+    try {
+      const employer = req.employer;
+      const kiosk = await KioskDevice.findOne({
+        where: { id: req.params.id, employer_id: employer.id }
+      });
+      if (!kiosk) {
+        return res.status(404).json({ success: false, message: 'Kiosk not found' });
+      }
+
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      await kiosk.update({ device_token_hash: tokenHash, status: 'active' });
+
+      logAction({
+        actorType: 'employer',
+        actorId: employer.id,
+        actorName: employer.company_name,
+        actionType: 'kiosk_token_regenerated',
+        actionDescription: `Kiosk token regenerated: ${kiosk.site_name || kiosk.device_id}`,
+        entityType: 'kiosk_device',
+        entityId: kiosk.id,
+        employerId: employer.id
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: kiosk.id,
+          deviceId: kiosk.device_id,
+          siteName: kiosk.site_name,
+          kioskToken: rawToken
+        },
+        message: 'Save this token now — it will not be shown again'
+      });
+    } catch (error) {
+      console.error('regenerateKioskToken error:', error);
+      return res.status(500).json({ success: false, message: 'Error regenerating token', error: error.message });
     }
   }
 

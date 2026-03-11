@@ -18,6 +18,7 @@ import UserProfile from "./pages/UserProfile";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import MediatorResolution from "./pages/MediatorResolution";
 import KioskPage from "./pages/KioskPage";
+import KioskManagement from "./EmployerPages/KioskManagement";
 import AdminMediators from "./pages/AdminMediators";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminDeployFactory from "./pages/AdminDeployFactory";
@@ -325,6 +326,11 @@ const AppContent = () => {
 };
 
 const App = () => {
+  // Kiosk page is fully standalone — no Privy, no auth, works over HTTP
+  if (window.location.pathname === '/kiosk') {
+    return <KioskPage />;
+  }
+
   // Check if Privy app ID is configured
   const privyAppId = import.meta.env.VITE_PRIVY_APP_ID;
 
@@ -416,10 +422,12 @@ const App = () => {
                   <EmployerSupportCenter />
                 </ProtectedRoute>
               } />
+              <Route path="/kiosks" element={
+                <ProtectedRoute requiredRole="employer">
+                  <KioskManagement />
+                </ProtectedRoute>
+              } />
             </Route>
-
-            {/* Kiosk — standalone full-screen page, no auth wrapper */}
-            <Route path="/kiosk" element={<KioskPage />} />
 
             {/* Mediator Route - Self-validates via DB-backed mediator list */}
             <Route path="/resolve-disputes" element={<MediatorResolution />} />

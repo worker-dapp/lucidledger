@@ -523,6 +523,11 @@ class ApiService {
     return this.request(`/kiosk-devices/${kioskId}/suspend`, { method: 'PATCH' });
   }
 
+  // Employer: regenerate kiosk device token (invalidates old token)
+  async regenerateKioskToken(kioskId) {
+    return this.request(`/kiosk-devices/${kioskId}/regenerate-token`, { method: 'POST' });
+  }
+
   // Health check
   async healthCheck() {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');
