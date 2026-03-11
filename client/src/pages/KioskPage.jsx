@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import jsQR from "jsqr";
+import { BrowserQRCodeReader } from "@zxing/browser";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
@@ -8,6 +8,7 @@ const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
 // ---------------------------------------------------------------------------
 // Kiosk page — full-screen, standalone (no app layout, no Privy auth).
 // Auth is via x-kiosk-token stored in localStorage after setup.
+// Uses ZXing BrowserQRCodeReader for robust cross-device QR scanning.
 // ---------------------------------------------------------------------------
 export default function KioskPage() {
   const [searchParams] = useSearchParams();
@@ -17,17 +18,13 @@ export default function KioskPage() {
   const [tokenInput, setTokenInput] = useState(() => searchParams.get("token") || "");
   const [setupError, setSetupError] = useState("");
 
-  // Scan state
-  const [scanning, setScanning] = useState(false);
-  const [confirmation, setConfirmation] = useState(null); // { eventType, worker, timestamp, gps }
+  const [confirmation, setConfirmation] = useState(null);
   const [scanError, setScanError] = useState(null);
-  const [lastScanAt, setLastScanAt] = useState(0);
 
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
-  const rafRef = useRef(null);
-  const processingRef = useRef(false); // prevent concurrent submissions
+  const controlsRef = useRef(null); // ZXing scanner controls
+  const lastScanAt = useRef(0);
+  const processingRef = useRef(false);
 
   // Auto-activate if token provided via ?token= query param
   useEffect(() => {
@@ -40,59 +37,56 @@ export default function KioskPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
-  // Camera setup / teardown
+  // ZXing scanner setup / teardown
   // -------------------------------------------------------------------------
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setScanning(true);
-      }
-    } catch (err) {
-      setScanError("Camera access denied. Please allow camera access and reload.");
-    }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    setScanning(false);
-  }, []);
-
   useEffect(() => {
-    if (!setupMode) startCamera();
-    return () => stopCamera();
-  }, [setupMode, startCamera, stopCamera]);
+    if (setupMode || !videoRef.current) return;
+
+    const reader = new BrowserQRCodeReader();
+
+    reader.decodeFromConstraints(
+      { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+      videoRef.current,
+      (result, error, controls) => {
+        controlsRef.current = controls;
+        if (!result) return;
+
+        const token = result.getText();
+        const now = Date.now();
+        if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
+
+        lastScanAt.current = now;
+        submitToken(token, kioskToken);
+      }
+    ).catch((err) => {
+      if (err?.name !== "AbortError") {
+        setScanError("Camera access denied. Please allow camera access and reload.");
+      }
+    });
+
+    return () => {
+      controlsRef.current?.stop();
+    };
+  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
-  // QR decode loop
+  // Submit scan to backend
   // -------------------------------------------------------------------------
-  const submitToken = useCallback(async (token) => {
+  const submitToken = async (token, kiosk) => {
     if (processingRef.current) return;
-    if (Date.now() - lastScanAt < SCAN_COOLDOWN_MS) return;
     processingRef.current = true;
     setScanError(null);
 
-    // Capture GPS (non-blocking — don't await before submission)
+    // Capture GPS (non-blocking)
     let gps = {};
     try {
       await new Promise((resolve) => {
         navigator.geolocation?.getCurrentPosition(
           (pos) => {
-            gps = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              gps_accuracy: pos.coords.accuracy
-            };
+            gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, gps_accuracy: pos.coords.accuracy };
             resolve();
           },
-          () => resolve(), // fail silently
+          () => resolve(),
           { timeout: 2000, maximumAge: 30000 }
         );
       });
@@ -101,69 +95,26 @@ export default function KioskPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/presence-events`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-kiosk-token": kioskToken
-        },
-        body: JSON.stringify({
-          token,
-          client_timestamp: new Date().toISOString(),
-          nonce: crypto.randomUUID(),
-          ...gps
-        })
+        headers: { "Content-Type": "application/json", "x-kiosk-token": kiosk },
+        body: JSON.stringify({ token, client_timestamp: new Date().toISOString(), nonce: crypto.randomUUID(), ...gps })
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
         setConfirmation(data.data);
-        setLastScanAt(Date.now());
-        // Return to scan mode after 3 seconds
         setTimeout(() => setConfirmation(null), 3000);
       } else {
         setScanError(data.message || "Scan failed");
-        setLastScanAt(Date.now()); // still apply cooldown on error
         setTimeout(() => setScanError(null), 3000);
       }
-    } catch (err) {
+    } catch {
       setScanError("Network error — please check connection");
       setTimeout(() => setScanError(null), 3000);
     } finally {
       processingRef.current = false;
     }
-  }, [kioskToken, lastScanAt]);
-
-  const scanFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
-      rafRef.current = requestAnimationFrame(scanFrame);
-      return;
-    }
-
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "attemptBoth"
-    });
-
-    if (code?.data && !processingRef.current && Date.now() - lastScanAt >= SCAN_COOLDOWN_MS) {
-      submitToken(code.data);
-    }
-
-    rafRef.current = requestAnimationFrame(scanFrame);
-  }, [submitToken, lastScanAt]);
-
-  useEffect(() => {
-    if (scanning) {
-      rafRef.current = requestAnimationFrame(scanFrame);
-    }
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [scanning, scanFrame]);
+  };
 
   // -------------------------------------------------------------------------
   // Setup flow
@@ -178,7 +129,7 @@ export default function KioskPage() {
   };
 
   const handleReset = () => {
-    stopCamera();
+    controlsRef.current?.stop();
     localStorage.removeItem("kioskToken");
     setKioskToken("");
     setTokenInput("");
@@ -244,25 +195,19 @@ export default function KioskPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-[#0D3B66]">
         <span className="text-white font-bold text-lg tracking-wide">Lucid Ledger Kiosk</span>
-        <button
-          onClick={handleReset}
-          className="text-xs text-white/50 hover:text-white/80 transition-colors"
-        >
+        <button onClick={handleReset} className="text-xs text-white/50 hover:text-white/80 transition-colors">
           Reset
         </button>
       </div>
 
       {/* Camera + overlays */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {/* Live camera feed */}
         <video
           ref={videoRef}
           className="absolute inset-0 w-full h-full object-cover"
           playsInline
           muted
         />
-        {/* Hidden canvas for frame decoding */}
-        <canvas ref={canvasRef} className="hidden" />
 
         {/* Scan frame overlay */}
         {!confirmation && !scanError && (
