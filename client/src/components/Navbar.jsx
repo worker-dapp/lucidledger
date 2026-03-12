@@ -15,6 +15,16 @@ const Navbar = () => {
   const handleEmployeeLogin = () => {
     localStorage.setItem('pendingRole', 'employee');
     localStorage.setItem('userRole', 'employee');
+    localStorage.setItem('loginIntent', 'login');
+    window.dispatchEvent(new Event('roleSelected'));
+    login();
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleEmployeeSignUp = () => {
+    localStorage.setItem('pendingRole', 'employee');
+    localStorage.setItem('userRole', 'employee');
+    localStorage.setItem('loginIntent', 'signup');
     window.dispatchEvent(new Event('roleSelected'));
     login();
     setIsMobileMenuOpen(false);
@@ -107,7 +117,7 @@ const Navbar = () => {
             Log In
           </button>
           <button
-            onClick={handleEmployeeLogin}
+            onClick={handleEmployeeSignUp}
             className="px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
           >
             Sign Up
@@ -208,7 +218,7 @@ const Navbar = () => {
                 Log In
               </button>
               <button
-                onClick={handleEmployeeLogin}
+                onClick={handleEmployeeSignUp}
                 className="block w-full text-center px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
               >
                 Sign Up
