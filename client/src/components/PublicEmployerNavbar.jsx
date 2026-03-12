@@ -15,6 +15,16 @@ const PublicEmployerNavbar = () => {
   const handleEmployerLogin = () => {
     localStorage.setItem('pendingRole', 'employer');
     localStorage.setItem('userRole', 'employer');
+    localStorage.setItem('loginIntent', 'login');
+    window.dispatchEvent(new Event('roleSelected'));
+    login();
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleEmployerSignUp = () => {
+    localStorage.setItem('pendingRole', 'employer');
+    localStorage.setItem('userRole', 'employer');
+    localStorage.setItem('loginIntent', 'signup');
     window.dispatchEvent(new Event('roleSelected'));
     login();
     setIsMobileMenuOpen(false);
@@ -49,7 +59,7 @@ const PublicEmployerNavbar = () => {
             Log In
           </button>
           <button
-            onClick={handleEmployerLogin}
+            onClick={handleEmployerSignUp}
             className="px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
           >
             Sign Up
@@ -114,7 +124,7 @@ const PublicEmployerNavbar = () => {
                 Log In
               </button>
               <button
-                onClick={handleEmployerLogin}
+                onClick={handleEmployerSignUp}
                 className="block w-full text-center px-4 py-2 bg-[#EE964B] text-white rounded-lg hover:bg-[#d97b33] transition-all font-medium"
               >
                 Sign Up

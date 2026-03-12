@@ -49,6 +49,8 @@ const AppContent = () => {
   const [hasRedirected, setHasRedirected] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [roleModalContext, setRoleModalContext] = useState({ intendedRole: 'employee', otherRoleExists: false });
 
   // Track live auth state so the profile-check timeout can abort on logout
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -260,6 +262,7 @@ const AppContent = () => {
 
           if (profileExists) {
             // User has a profile → redirect to dashboard for their role
+            localStorage.removeItem('loginIntent');
             if (intendedRole === 'employer') {
               navigate('/contract-factory', { replace: true });
             } else {
@@ -283,11 +286,21 @@ const AppContent = () => {
               setHasRedirected(true);
             }
           } else {
-            // No profile exists for either role → redirect to onboarding
-            // Keep pendingRole for onboarding page to know which profile to create
-            // Mediators/admins who land here by mistake can use the Exit button
-            // to log out and follow the correct link from the landing page
-            navigate('/user-profile', { replace: true });
+            // No profile exists for the intended role
+            const loginIntent = localStorage.getItem('loginIntent');
+            localStorage.removeItem('loginIntent');
+            if (loginIntent === 'login') {
+              // User tried to log in but has no profile — show a modal instead of
+              // silently routing them to onboarding
+              setRoleModalContext({ intendedRole, otherRoleExists });
+              setShowRoleModal(true);
+            } else {
+              // Sign up flow (or no intent set) → proceed to onboarding
+              // Keep pendingRole for onboarding page to know which profile to create
+              // Mediators/admins who land here by mistake can use the Exit button
+              // to log out and follow the correct link from the landing page
+              navigate('/user-profile', { replace: true });
+            }
           }
         } catch (error) {
           console.error('Error during profile check:', error);
@@ -315,13 +328,88 @@ const AppContent = () => {
     onTimeout: handleIdleTimeout,
   });
 
-  if (!showWarning) return null;
+  const handleRoleModalSignUp = (role) => {
+    setShowRoleModal(false);
+    localStorage.setItem('pendingRole', role);
+    localStorage.setItem('userRole', role);
+    setHasRedirected(false);
+    navigate('/user-profile', { replace: true });
+  };
+
+  const handleRoleModalGoOtherSide = () => {
+    setShowRoleModal(false);
+    setHasRedirected(false);
+    const otherRole = roleModalContext.intendedRole === 'employer' ? 'employee' : 'employer';
+    localStorage.setItem('pendingRole', otherRole);
+    localStorage.setItem('userRole', otherRole);
+    navigate(otherRole === 'employer' ? '/employers' : '/', { replace: true });
+  };
+
+  const handleRoleModalCancel = async () => {
+    setShowRoleModal(false);
+    await logout();
+    navigate('/', { replace: true });
+  };
+
+  if (!showWarning && !showRoleModal) return null;
 
   return (
-    <IdleTimeoutWarning
-      onStayLoggedIn={stayLoggedIn}
-      onLogOut={handleIdleTimeout}
-    />
+    <>
+      {showWarning && (
+        <IdleTimeoutWarning
+          onStayLoggedIn={stayLoggedIn}
+          onLogOut={handleIdleTimeout}
+        />
+      )}
+      {showRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
+            <h2 className="text-xl font-bold text-[#0D3B66] mb-2">No account found</h2>
+            <p className="text-gray-600 mb-6">
+              We couldn't find an account matching your credentials.
+              {roleModalContext.otherRoleExists && (
+                <> However, you have an account on the other side of the platform.</>
+              )}
+            </p>
+
+            {roleModalContext.otherRoleExists && (
+              <button
+                onClick={handleRoleModalGoOtherSide}
+                className="w-full mb-3 px-4 py-3 bg-[#0D3B66] text-white rounded-lg font-semibold hover:bg-[#0a2e52] transition-colors"
+              >
+                Go to {roleModalContext.intendedRole === 'employer' ? 'Worker' : 'Employer'} Dashboard
+              </button>
+            )}
+
+            <p className="text-sm font-medium text-gray-700 mb-3">
+              {roleModalContext.otherRoleExists ? 'Or create a new account:' : 'Would you like to sign up?'}
+            </p>
+
+            <div className="flex gap-3 mb-4">
+              <button
+                onClick={() => handleRoleModalSignUp('employee')}
+                className="flex-1 px-4 py-3 border-2 border-[#0D3B66] text-[#0D3B66] rounded-lg font-semibold hover:bg-[#0D3B66] hover:text-white transition-colors"
+              >
+                Sign up as a Worker
+              </button>
+              <button
+                onClick={() => handleRoleModalSignUp('employer')}
+                className="flex-1 px-4 py-3 bg-[#EE964B] text-white rounded-lg font-semibold hover:bg-[#d97b33] transition-colors"
+              >
+                Sign up as an Employer
+              </button>
+            </div>
+
+            <button
+              onClick={handleRoleModalCancel}
+              className="w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Cancel &amp; Log Out
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
