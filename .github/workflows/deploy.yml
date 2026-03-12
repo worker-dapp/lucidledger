@@ -157,6 +157,12 @@ jobs:
 
         # Admin Configuration
         ADMIN_EMAILS=${{ vars.ADMIN_EMAILS }}
+
+        # QR Oracle
+        QR_ORACLE_ADDRESS=${{ vars.QR_ORACLE_ADDRESS }}
+        ORACLE_BACKEND_ADDRESS=${{ vars.ORACLE_BACKEND_ADDRESS }}
+        ORACLE_PRIVATE_KEY=${{ secrets.ORACLE_PRIVATE_KEY }}
+        BASE_RPC_URL=${{ vars.BASE_RPC_URL }}
         SERVER_ENV_EOF
 
         # Remove leading whitespace from heredoc indentation
