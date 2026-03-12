@@ -83,7 +83,7 @@ const EmployerLayout = ({ children }) => {
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-3">
             {approvalStatus === 'approved' && <SmartWalletInfo />}
             <LogoutButton className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all" />
           </div>
@@ -148,6 +148,11 @@ const EmployerLayout = ({ children }) => {
                 </span>
               </div>
             )}
+
+            <div className="lg:hidden mt-4 pt-4 border-t border-gray-200 space-y-2">
+              {approvalStatus === 'approved' && <SmartWalletInfo compact />}
+              <LogoutButton className="w-full bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all text-sm" />
+            </div>
           </div>
         </aside>
 
