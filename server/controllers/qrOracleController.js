@@ -4,7 +4,7 @@ const { sequelize } = require('../config/database');
 const { QrToken, PresenceEvent, KioskDevice, OracleVerification, DeployedContract, Employee, Employer } = require('../models');
 const { Op } = require('sequelize');
 const { logAction } = require('./auditLogController');
-const { recordVerificationOnChain } = require('../services/qrOracleService');
+const { recordScanOnChain } = require('../services/qrOracleService');
 
 // Per-kiosk cooldown: track last accepted scan timestamp in memory.
 // Prevents duplicate scans from the camera decode loop (jsQR fires on every frame).
@@ -193,9 +193,9 @@ class QrOracleController {
     const lastName = employee?.last_name || '';
     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
-    // On-chain oracle verification (non-blocking — never delays kiosk response)
+    // On-chain scan record (non-blocking — never delays kiosk response)
     if (contract.contract_address) {
-      recordVerificationOnChain(contract.contract_address);
+      recordScanOnChain(contract.contract_address, eventType);
     }
 
     // Audit log (non-blocking)

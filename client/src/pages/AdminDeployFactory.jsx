@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import apiService from "../services/api";
-import { getOnChainAdminAddress, registerOracle, getRegisteredOracle } from "../contracts/adminUtils";
+import { getOnChainAdminAddress, registerOracle, removeOracle, getRegisteredOracle } from "../contracts/adminUtils";
 import { useAuth } from "../hooks/useAuth";
 import { parseAAError } from "../contracts/aaClient";
 import LogoutButton from "../components/LogoutButton";
@@ -32,6 +32,10 @@ const AdminDeployFactory = () => {
   const [registerResult, setRegisterResult] = useState(null);
   const [registerError, setRegisterError] = useState(null);
   const [manualOracleStatus, setManualOracleStatus] = useState(null);
+  const [qrOracleStatus, setQrOracleStatus] = useState(null);
+  const [removing, setRemoving] = useState(null); // oracle type currently being removed
+  const [removeResult, setRemoveResult] = useState(null);
+  const [removeError, setRemoveError] = useState(null);
 
   const userEmail = user?.email?.address?.toLowerCase() || "";
 
@@ -67,11 +71,36 @@ const AdminDeployFactory = () => {
   // Check oracle registry status
   useEffect(() => {
     const checkOracles = async () => {
-      const addr = await getRegisteredOracle("manual");
-      setManualOracleStatus(addr);
+      const [manual, qr] = await Promise.all([
+        getRegisteredOracle("manual"),
+        getRegisteredOracle("qr"),
+      ]);
+      setManualOracleStatus(manual);
+      setQrOracleStatus(qr);
     };
     checkOracles();
-  }, [registerResult]);
+  }, [registerResult, removeResult]);
+
+  const handleRemoveOracle = async (oracleType) => {
+    if (!smartWalletClient) return;
+    setRemoving(oracleType);
+    setRemoveResult(null);
+    setRemoveError(null);
+    try {
+      const result = await removeOracle({
+        smartWalletClient,
+        oracleType,
+        onStatusChange: ({ step, message }) => {
+          console.log(`Remove oracle: ${step} - ${message}`);
+        },
+      });
+      setRemoveResult(result);
+    } catch (error) {
+      setRemoveError(parseAAError(error));
+    } finally {
+      setRemoving(null);
+    }
+  };
 
   const handleRegisterOracle = async () => {
     if (!oracleAddress || !smartWalletClient) return;
@@ -293,21 +322,58 @@ npx hardhat run scripts/deployFactory.js --network baseSepolia`}
           {/* Current status */}
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
             <p className="text-xs text-gray-500 mb-2">Registered Oracles:</p>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-600">manual:</span>
-              {manualOracleStatus ? (
-                <span className="font-mono text-xs text-green-700 flex items-center gap-1">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  {manualOracleStatus}
-                </span>
-              ) : (
-                <span className="text-amber-600 flex items-center gap-1 text-xs">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Not registered
-                </span>
-              )}
+            <div className="space-y-2">
+              {[{ type: "manual", addr: manualOracleStatus }, { type: "qr", addr: qrOracleStatus }].map(({ type, addr }) => (
+                <div key={type} className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-gray-600 shrink-0">{type}:</span>
+                    {addr ? (
+                      <span className="font-mono text-xs text-green-700 flex items-center gap-1 truncate">
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                        {addr}
+                      </span>
+                    ) : (
+                      <span className="text-amber-600 flex items-center gap-1 text-xs">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Not registered
+                      </span>
+                    )}
+                  </div>
+                  {addr && (
+                    <button
+                      onClick={() => handleRemoveOracle(type)}
+                      disabled={removing === type || !smartWalletClient}
+                      className="shrink-0 px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      {removing === type ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+
+          {removeResult && (
+            <div className="mb-3 bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-800 flex items-center gap-1">
+                <CheckCircle className="h-4 w-4" />
+                Oracle removed successfully.
+              </p>
+              <a href={removeResult.basescanUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 underline mt-1 block">
+                View transaction
+              </a>
+            </div>
+          )}
+
+          {removeError && (
+            <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800 flex items-center gap-1">
+                <XCircle className="h-4 w-4" />
+                Remove failed: {removeError}
+              </p>
+            </div>
+          )}
 
           {/* Register form */}
           <div className="space-y-3">
