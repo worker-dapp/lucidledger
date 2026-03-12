@@ -3,6 +3,7 @@ import apiService from "../../services/api";
 import ContractCard from "./ContractCard";
 import JobCreationWizard from "./JobCreationWizard";
 import PostJobModal from "./PostJobModal";
+import EditTemplateModal from "./EditTemplateModal";
 import { Plus, AlertCircle, FileText } from "lucide-react";
 
 const ContractLibrary = ({ employerId }) => {
@@ -12,6 +13,7 @@ const ContractLibrary = ({ employerId }) => {
   const [wizardActive, setWizardActive] = useState(false);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState(null);
+  const [editingContract, setEditingContract] = useState(null);
 
   useEffect(() => {
     if (employerId) {
@@ -165,12 +167,25 @@ const ContractLibrary = ({ employerId }) => {
                 key={contract.id}
                 contract={contract}
                 onUse={handleUseContract}
-                onEdit={() => alert("Edit functionality coming soon")}
+                onEdit={(contract) => setEditingContract(contract)}
                 onDelete={handleDeleteContract}
               />
             ))
           )}
         </div>
+      )}
+
+      {/* Edit Template Modal */}
+      {editingContract && (
+        <EditTemplateModal
+          template={editingContract}
+          employerId={employerId}
+          onClose={() => setEditingContract(null)}
+          onSuccess={() => {
+            setEditingContract(null);
+            fetchContracts();
+          }}
+        />
       )}
 
       {/* Post Job Modal (for reusing templates) */}

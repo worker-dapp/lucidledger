@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL: Never Push Without Explicit User Approval
+
+**NEVER run `git push` without the user explicitly asking you to push.** Pushing to `main` triggers a CI/CD pipeline that takes ~10 minutes. Always commit locally and wait for the user to say "push" or "deploy". This applies even after committing — stop at `git commit` and report back.
+
 ## Common Commands
 
 ### Development
