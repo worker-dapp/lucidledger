@@ -38,11 +38,12 @@ const PostedJobsTab = ({ employerId }) => {
   };
 
   const filterPostings = () => {
-    // Show active, draft, and in_progress jobs that still have open positions
+    // Show active, draft, in_progress, and completed jobs (completed can be reactivated)
     let filtered = jobPostings.filter((posting) =>
       posting.status === "active" ||
       posting.status === "draft" ||
-      (posting.status === "in_progress" && (posting.positions_filled || 0) < posting.positions_available)
+      posting.status === "in_progress" ||
+      posting.status === "completed"
     );
 
     // Filter by search term
@@ -217,11 +218,11 @@ const PostedJobsTab = ({ employerId }) => {
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-2">
-                      {posting.status === "draft" && (
+                      {(posting.status === "draft" || posting.status === "completed") && (
                         <button
                           onClick={() => handleActivate(posting.id)}
                           className="text-green-600 hover:text-green-800"
-                          title="Activate"
+                          title={posting.status === "completed" ? "Reactivate" : "Activate"}
                         >
                           <CheckCircle className="h-4 w-4" />
                         </button>

@@ -6,13 +6,14 @@ const { logAction } = require('./auditLogController');
 const TERMINAL_CONTRACT_STATUSES = ['completed', 'refunded', 'terminated'];
 
 /**
- * Check if all contracts for a job are complete and update job status accordingly.
- * Called after a contract status changes to a terminal state.
+ * Update job status based on the current state of its deployed contracts.
+ * Called after a contract status changes.
  *
  * Job status flow:
- * - 'active' -> 'in_progress' when first contract is deployed
- * - 'in_progress' -> 'completed' when all contracts are completed
- * - 'in_progress' -> 'closed' when all contracts are refunded/terminated
+ * - 'active' -> 'in_progress' when active contracts fill all positions_available
+ * - 'in_progress' -> 'active' when a contract completes/terminates and a slot opens up
+ * - 'active'/'in_progress' -> 'closed' only when employer explicitly closes
+ *   (jobs no longer auto-complete so workers can re-apply for freed slots)
  */
 const updateJobStatusIfAllContractsComplete = async (jobPostingId) => {
   if (!jobPostingId) return;
@@ -27,44 +28,35 @@ const updateJobStatusIfAllContractsComplete = async (jobPostingId) => {
     // If no contracts, nothing to do
     if (allContracts.length === 0) return;
 
-    // Get the job to check positions_available
+    // Get the job to check positions_available and current status
     const job = await JobPosting.findByPk(jobPostingId, {
       attributes: ['id', 'status', 'positions_available']
     });
     if (!job) return;
 
-    const allPositionsFilled = allContracts.length >= (job.positions_available || 1);
+    // Don't reopen explicitly closed jobs
+    if (job.status === 'closed') return;
 
-    // Check if ALL contracts are in terminal states
-    const allTerminal = allContracts.every(c => TERMINAL_CONTRACT_STATUSES.includes(c.status));
+    const positionsAvailable = job.positions_available || 1;
 
-    if (!allPositionsFilled) {
-      // Still open positions — keep job active so more applicants can apply
-      return;
-    }
+    // Only count active (non-terminal) contracts — completed/refunded/terminated slots are freed
+    const activeContracts = allContracts.filter(c => !TERMINAL_CONTRACT_STATUSES.includes(c.status));
 
-    if (!allTerminal) {
-      // All positions filled but some contracts still active — mark in_progress
+    if (activeContracts.length >= positionsAvailable) {
+      // All slots occupied by active contracts — mark in_progress
       await JobPosting.update(
         { status: 'in_progress' },
-        { where: { id: jobPostingId, status: 'active' } }
+        { where: { id: jobPostingId } }
       );
-      return;
+      console.log(`Job ${jobPostingId} set to 'in_progress' (${activeContracts.length}/${positionsAvailable} slots active)`);
+    } else {
+      // At least one slot is free — reopen so workers can apply (or re-apply)
+      await JobPosting.update(
+        { status: 'active' },
+        { where: { id: jobPostingId } }
+      );
+      console.log(`Job ${jobPostingId} reopened to 'active' (${activeContracts.length}/${positionsAvailable} slots active)`);
     }
-
-    // All positions filled and all contracts terminal — determine final job status
-    const allRefundedOrTerminated = allContracts.every(c =>
-      c.status === 'refunded' || c.status === 'terminated'
-    );
-
-    const newJobStatus = allRefundedOrTerminated ? 'closed' : 'completed';
-
-    await JobPosting.update(
-      { status: newJobStatus },
-      { where: { id: jobPostingId } }
-    );
-
-    console.log(`Job ${jobPostingId} status updated to '${newJobStatus}' (all ${allContracts.length} contracts complete)`);
   } catch (error) {
     // Log but don't throw - this is a secondary operation
     console.error('Error updating job status:', error.message);
@@ -208,6 +200,9 @@ class DeployedContractController {
         },
         employerId: employer_id,
       });
+
+      // Check if all positions are now filled → set job to in_progress
+      await updateJobStatusIfAllContractsComplete(job_posting_id);
 
       res.status(201).json({
         success: true,
