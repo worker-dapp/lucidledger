@@ -28,6 +28,10 @@ docker compose logs -f [backend|frontend]              # View logs
 docker compose -f docker-compose.nginx.yml up -d --build
 ```
 
+**Important**: After adding new npm packages, the Docker container must be rebuilt — `docker compose restart` does NOT re-run `npm install`. The anonymous `node_modules` volume persists across regular rebuilds, so new packages require: `docker compose down -v && docker compose up -d --build`. (Warning: `-v` also removes the postgres data volume — only use in dev.)
+
+**Workflow rule**: Test changes locally in Docker before committing, pushing to main, creating pull requests, or merging pull requests.
+
 ### Database
 ```bash
 # Migrations run automatically on server startup via server.js
