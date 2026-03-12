@@ -42,13 +42,13 @@ const ContractFactory = () => {
         {/* Tab Navigation */}
         <div className="mb-6 mt-2">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
               {tabs.map(({ id, label, icon: Icon, description }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
                   className={`
-                    group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm
+                    group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex-shrink-0
                     ${
                       activeTab === id
                         ? "border-[#EE964B] text-[#EE964B]"

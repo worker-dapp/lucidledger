@@ -421,12 +421,12 @@ const WorkforceDashboard = () => {
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 overflow-x-auto pb-1">
             {["all", "active", "completed", "disputed", "terminated"].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-full text-sm font-medium border ${
+                className={`px-4 py-2 rounded-full text-sm font-medium border whitespace-nowrap flex-shrink-0 ${
                   statusFilter === status
                     ? "border-[#EE964B] text-[#EE964B] bg-[#FFF4E6]"
                     : "border-gray-200 text-gray-600 bg-white hover:border-gray-300"

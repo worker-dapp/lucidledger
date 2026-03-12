@@ -46,6 +46,9 @@ export const parseAAError = (error) => {
     }
   }
 
+  if (message.includes("Oracle verification not complete")) {
+    return "Work verification is incomplete. The worker must clock in and clock out before payment can be released.";
+  }
   if (message.includes("insufficient funds")) {
     return "Insufficient funds in your account.";
   }

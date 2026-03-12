@@ -439,14 +439,14 @@ const JobTrackerInner = () => {
           )}
 
           {/* Contracts & Earnings Section */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8 mb-8">
             <h2 className="text-2xl font-bold text-[#0D3B66] mb-6">Contracts & Earnings</h2>
 
             {/* Tabs */}
-            <div className="flex gap-4 mb-6 border-b border-gray-200">
+            <div className="flex gap-4 mb-6 border-b border-gray-200 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("earnings")}
-                className={`px-4 py-2 border-b-2 font-semibold ${
+                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
                   activeTab === "earnings"
                     ? "border-[#EE964B] text-[#EE964B]"
                     : "border-transparent text-gray-500 hover:text-[#0D3B66]"
@@ -456,7 +456,7 @@ const JobTrackerInner = () => {
               </button>
               <button
                 onClick={() => setActiveTab("open")}
-                className={`px-4 py-2 border-b-2 font-semibold ${
+                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
                   activeTab === "open"
                     ? "border-[#EE964B] text-[#EE964B]"
                     : "border-transparent text-gray-500 hover:text-[#0D3B66]"
@@ -466,7 +466,7 @@ const JobTrackerInner = () => {
               </button>
               <button
                 onClick={() => setActiveTab("completed")}
-                className={`px-4 py-2 border-b-2 font-semibold ${
+                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
                   activeTab === "completed"
                     ? "border-[#EE964B] text-[#EE964B]"
                     : "border-transparent text-gray-500 hover:text-[#0D3B66]"
@@ -476,7 +476,7 @@ const JobTrackerInner = () => {
               </button>
               <button
                 onClick={() => setActiveTab("closed")}
-                className={`px-4 py-2 border-b-2 font-semibold ${
+                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
                   activeTab === "closed"
                     ? "border-[#EE964B] text-[#EE964B]"
                     : "border-transparent text-gray-500 hover:text-[#0D3B66]"
