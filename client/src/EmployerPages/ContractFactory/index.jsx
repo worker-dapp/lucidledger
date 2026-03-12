@@ -14,24 +14,28 @@ const ContractFactory = () => {
     {
       id: "contracts",
       label: "Contract Library",
+      shortLabel: "Library",
       icon: FileText,
       description: "Create and manage job contracts"
     },
     {
       id: "posted",
       label: "Posted Jobs",
+      shortLabel: "Posted",
       icon: FileText,
       description: "Manage active job postings"
     },
     {
       id: "applications",
       label: "Application Review",
+      shortLabel: "Applications",
       icon: Users,
       description: "Review and accept applications"
     },
     {
       id: "deployment",
       label: "Awaiting Deployment",
+      shortLabel: "Deploy",
       icon: Rocket,
       description: "Deploy contracts to blockchain"
     }
@@ -42,13 +46,13 @@ const ContractFactory = () => {
         {/* Tab Navigation */}
         <div className="mb-6 mt-2">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
-              {tabs.map(({ id, label, icon: Icon, description }) => (
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+              {tabs.map(({ id, label, shortLabel, icon: Icon, description }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
                   className={`
-                    group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex-shrink-0
+                    group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap
                     ${
                       activeTab === id
                         ? "border-[#EE964B] text-[#EE964B]"
@@ -65,7 +69,8 @@ const ContractFactory = () => {
                     `}
                   />
                   <div className="flex flex-col items-start">
-                    <span>{label}</span>
+                    <span className="sm:hidden">{shortLabel}</span>
+                    <span className="hidden sm:inline">{label}</span>
                     <span className="text-xs text-gray-400 hidden md:block">
                       {description}
                     </span>
