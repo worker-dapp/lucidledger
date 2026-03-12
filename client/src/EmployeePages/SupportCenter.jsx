@@ -51,6 +51,20 @@ const SupportCenter = () => {
             </p>
           </div>
 
+          {/* Coming Soon Banner */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-6 py-4 mb-8 flex items-start gap-3">
+            <span className="text-amber-500 text-xl mt-0.5">🚧</span>
+            <div>
+              <p className="font-semibold text-amber-800">Coming Soon</p>
+              <p className="text-sm text-amber-700 mt-1">
+                This reporting tool is under development. When live, you'll be able to report non-wage issues — unsafe conditions, harassment, long hours, and other workplace concerns — to a trusted third party for confidential review.
+              </p>
+              <p className="text-sm text-amber-700 mt-1">
+                For payment disputes on an active contract, use the <span className="font-medium">Raise Dispute</span> button in your Job Tracker.
+              </p>
+            </div>
+          </div>
+
           {submitted ? (
             /* Success Message */
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">

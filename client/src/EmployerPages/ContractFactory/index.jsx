@@ -45,9 +45,21 @@ const ContractFactory = () => {
     <main className="container mx-auto">
         {/* Tab Navigation */}
         <div className="mb-6 mt-2">
-          <div className="border-b border-gray-200">
+          {/* Mobile: dropdown */}
+          <select
+            className="sm:hidden w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+          >
+            {tabs.map(({ id, label }) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </select>
+
+          {/* Desktop: tab buttons */}
+          <div className="hidden sm:block border-b border-gray-200">
             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-              {tabs.map(({ id, label, shortLabel, icon: Icon, description }) => (
+              {tabs.map(({ id, label, icon: Icon, description }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
@@ -69,8 +81,7 @@ const ContractFactory = () => {
                     `}
                   />
                   <div className="flex flex-col items-start">
-                    <span className="sm:hidden">{shortLabel}</span>
-                    <span className="hidden sm:inline">{label}</span>
+                    <span>{label}</span>
                     <span className="text-xs text-gray-400 hidden md:block">
                       {description}
                     </span>

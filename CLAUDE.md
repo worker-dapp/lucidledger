@@ -403,6 +403,16 @@ const result = await sendSponsoredTransaction({
 - **Idle timeout**: 13 min idle + 2 min warning before auto-logout
 - **Build warning**: Large chunk warning (~2.3MB main bundle) is expected
 
+## Shell Scripting Notes
+
+- **Backticks in `gh api --field body`**: Use a heredoc with `EOF` to pass multiline body strings — do NOT escape backticks with backslashes. Backslash-escaped backticks render literally on GitHub instead of as code formatting. Example:
+  ```bash
+  --field body="$(cat <<'EOF'
+  Use `backticks` freely here.
+  EOF
+  )"
+  ```
+
 ## Current Branch Context
 
 Main branch: `main`
