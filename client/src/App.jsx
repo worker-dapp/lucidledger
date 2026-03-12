@@ -363,48 +363,32 @@ const AppContent = () => {
       )}
       {showRoleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
-            <h2 className="text-xl font-bold text-[#0D3B66] mb-2">No account found</h2>
-            <p className="text-gray-600 mb-6">
-              We couldn't find an account matching your credentials.
-              {roleModalContext.otherRoleExists && (
-                <> However, you have an account on the other side of the platform.</>
-              )}
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center">
+            <div className="text-4xl mb-3">🔍</div>
+            <h2 className="text-2xl font-bold text-[#0D3B66] mb-2">No account found!</h2>
+            <p className="text-gray-500 mb-6">
+              It looks like you don't have an account yet.
             </p>
 
-            {roleModalContext.otherRoleExists && (
-              <button
-                onClick={handleRoleModalGoOtherSide}
-                className="w-full mb-3 px-4 py-3 bg-[#0D3B66] text-white rounded-lg font-semibold hover:bg-[#0a2e52] transition-colors"
-              >
-                Go to {roleModalContext.intendedRole === 'employer' ? 'Worker' : 'Employer'} Dashboard
-              </button>
-            )}
+            <button
+              onClick={() => handleRoleModalSignUp(roleModalContext.intendedRole)}
+              className="w-full px-4 py-3 bg-[#EE964B] text-white rounded-lg font-bold text-lg hover:bg-[#d97b33] transition-colors mb-4"
+            >
+              Sign Up
+            </button>
 
-            <p className="text-sm font-medium text-gray-700 mb-3">
-              {roleModalContext.otherRoleExists ? 'Or create a new account:' : 'Would you like to sign up?'}
-            </p>
-
-            <div className="flex gap-3 mb-4">
-              <button
-                onClick={() => handleRoleModalSignUp('employee')}
-                className="flex-1 px-4 py-3 border-2 border-[#0D3B66] text-[#0D3B66] rounded-lg font-semibold hover:bg-[#0D3B66] hover:text-white transition-colors"
-              >
-                Sign up as a Worker
-              </button>
-              <button
-                onClick={() => handleRoleModalSignUp('employer')}
-                className="flex-1 px-4 py-3 bg-[#EE964B] text-white rounded-lg font-semibold hover:bg-[#d97b33] transition-colors"
-              >
-                Sign up as an Employer
-              </button>
-            </div>
+            <button
+              onClick={handleRoleModalGoOtherSide}
+              className="w-full px-4 py-2 text-sm text-[#0D3B66] hover:underline transition-colors"
+            >
+              Log in as {roleModalContext.intendedRole === 'employee' ? 'Employer' : 'Worker'} →
+            </button>
 
             <button
               onClick={handleRoleModalCancel}
-              className="w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="w-full px-4 py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors mt-1"
             >
-              Cancel &amp; Log Out
+              Cancel
             </button>
           </div>
         </div>
