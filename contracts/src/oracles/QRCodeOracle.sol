@@ -6,10 +6,19 @@ import "../interfaces/IWorkOracle.sol";
 /**
  * @title QRCodeOracle
  * @dev QR code attendance oracle — the backend server wallet calls
- *      recordVerification() after a valid worker QR scan is validated.
+ *      recordScan() for every clock-in and clock-out event.
  *
  * This is a singleton contract: one QRCodeOracle serves all WorkContracts.
- * Only the trusted backend address (set at deploy time) can record verifications.
+ * Only the trusted backend address (set at deploy time) can record scans.
+ *
+ * Payment gate logic:
+ * - isWorkVerified() returns true only after a complete clock-in → clock-out pair.
+ * - Multiple pairs are supported (worker can clock in/out multiple times).
+ * - Clock-in without clock-out does NOT satisfy the gate.
+ *
+ * Audit trail:
+ * - Every scan (clock-in and clock-out) emits a ScanRecorded event on-chain.
+ * - Full attendance history is permanently visible on the block explorer.
  *
  * In v0.2.0, the employer still calls approveAndPay() manually — QR verification
  * is a prerequisite gate, not an auto-release trigger. Auto-release for QR-only
@@ -18,13 +27,17 @@ import "../interfaces/IWorkOracle.sol";
 contract QRCodeOracle is IWorkOracle {
     address public immutable backend;
 
+    // Payment gate: true after the first complete clock-in → clock-out pair
     mapping(address => bool) private _verified;
 
-    event WorkVerified(address indexed workContract, address indexed recordedBy);
+    // Tracks whether a contract currently has an open clock-in (no matching clock-out yet)
+    mapping(address => bool) private _clockedIn;
+
+    event ScanRecorded(address indexed workContract, bool indexed clockIn, address indexed recordedBy);
 
     /**
-     * @param _backend Address of the trusted backend server wallet that may
-     *                 call recordVerification(). Cannot be changed after deploy.
+     * @param _backend Address of the trusted backend server wallet.
+     *                 Cannot be changed after deploy.
      */
     constructor(address _backend) {
         require(_backend != address(0), "Invalid backend address");
@@ -32,17 +45,24 @@ contract QRCodeOracle is IWorkOracle {
     }
 
     /**
-     * @notice Backend records a successful QR scan verification for a contract.
-     * @param workContract Address of the WorkContract that has been verified
+     * @notice Backend records a QR clock-in or clock-out scan for a contract.
+     * @param workContract Address of the WorkContract being clocked in/out
+     * @param clockIn True for clock-in, false for clock-out
      */
-    function recordVerification(address workContract) external {
-        require(msg.sender == backend, "Only backend can record verification");
+    function recordScan(address workContract, bool clockIn) external {
+        require(msg.sender == backend, "Only backend can record scans");
         require(workContract != address(0), "Invalid contract address");
-        require(!_verified[workContract], "Already verified");
 
-        _verified[workContract] = true;
+        if (clockIn) {
+            require(!_clockedIn[workContract], "Already clocked in");
+            _clockedIn[workContract] = true;
+        } else {
+            require(_clockedIn[workContract], "No active clock-in to close");
+            _clockedIn[workContract] = false;
+            _verified[workContract] = true; // complete pair — gate satisfied
+        }
 
-        emit WorkVerified(workContract, msg.sender);
+        emit ScanRecorded(workContract, clockIn, msg.sender);
     }
 
     /// @inheritdoc IWorkOracle
