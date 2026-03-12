@@ -146,10 +146,45 @@ export const getRegisteredOracle = async (oracleType) => {
   }
 };
 
+/**
+ * Removes an oracle from the WorkContractFactory registry via sponsored transaction.
+ * Must be called from the admin smart wallet.
+ *
+ * @param {Object} params
+ * @param {Object} params.smartWalletClient - Privy smart wallet client
+ * @param {string} params.oracleType - The oracle type string to remove (e.g. "qr")
+ * @param {Function} [params.onStatusChange] - Status callback
+ * @returns {Promise<{txHash: string, basescanUrl: string}>}
+ */
+export const removeOracle = async ({ smartWalletClient, oracleType, onStatusChange }) => {
+  if (!FACTORY_ADDRESS) {
+    throw new Error('VITE_FACTORY_ADDRESS not configured');
+  }
+
+  const data = encodeFunctionData({
+    abi: WorkContractFactoryABI.abi,
+    functionName: 'removeOracle',
+    args: [oracleType],
+  });
+
+  const result = await sendSponsoredTransaction({
+    smartWalletClient,
+    to: getAddress(FACTORY_ADDRESS),
+    data,
+    onStatusChange,
+  });
+
+  return {
+    txHash: result.hash,
+    basescanUrl: `${BASESCAN_URL}/tx/${result.hash}`,
+  };
+};
+
 export default {
   getOnChainAdminAddress,
   isOnChainAdmin,
   deployFactory,
   registerOracle,
+  removeOracle,
   getRegisteredOracle,
 };
