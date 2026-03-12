@@ -81,7 +81,7 @@ const EmployerNavbar = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-6 text-md">
+        <div className="hidden xl:flex items-center gap-6 text-md">
           <NavLink
             to="/employerDashboard"
             className={({ isActive }) =>
@@ -142,7 +142,7 @@ const EmployerNavbar = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <div className="lg:hidden">
+        <div className="xl:hidden">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="text-white hover:text-[#F4D35E] transition-all p-2"
@@ -179,7 +179,7 @@ const EmployerNavbar = () => {
       {isMobileMenuOpen && (
         <div 
           ref={mobileMenuRef}
-          className="lg:hidden bg-[#0D3B66] border-t border-[#1a4a7a] shadow-lg"
+          className="xl:hidden bg-[#0D3B66] border-t border-[#1a4a7a] shadow-lg"
         >
           <div className="px-4 py-4 space-y-4">
             {/* User Welcome Section - First */}
@@ -271,7 +271,6 @@ const EmployerNavbar = () => {
               </NavLink>
 
               {approvalStatus === 'approved' && <SmartWalletInfo compact />}
-              <LogoutButton className='bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-all' />
             </div>
 
             {/* Sign In for non-authenticated users */}
