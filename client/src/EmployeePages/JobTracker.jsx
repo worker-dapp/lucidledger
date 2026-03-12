@@ -443,47 +443,26 @@ const JobTrackerInner = () => {
             <h2 className="text-2xl font-bold text-[#0D3B66] mb-6">Contracts & Earnings</h2>
 
             {/* Tabs */}
-            <div className="flex gap-4 mb-6 border-b border-gray-200 overflow-x-auto">
-              <button
-                onClick={() => setActiveTab("earnings")}
-                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
-                  activeTab === "earnings"
-                    ? "border-[#EE964B] text-[#EE964B]"
-                    : "border-transparent text-gray-500 hover:text-[#0D3B66]"
-                }`}
-              >
-                Earnings
-              </button>
-              <button
-                onClick={() => setActiveTab("open")}
-                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
-                  activeTab === "open"
-                    ? "border-[#EE964B] text-[#EE964B]"
-                    : "border-transparent text-gray-500 hover:text-[#0D3B66]"
-                }`}
-              >
-                Open Contracts
-              </button>
-              <button
-                onClick={() => setActiveTab("completed")}
-                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
-                  activeTab === "completed"
-                    ? "border-[#EE964B] text-[#EE964B]"
-                    : "border-transparent text-gray-500 hover:text-[#0D3B66]"
-                }`}
-              >
-                Completed Contracts
-              </button>
-              <button
-                onClick={() => setActiveTab("closed")}
-                className={`px-4 py-2 border-b-2 font-semibold whitespace-nowrap ${
-                  activeTab === "closed"
-                    ? "border-[#EE964B] text-[#EE964B]"
-                    : "border-transparent text-gray-500 hover:text-[#0D3B66]"
-                }`}
-              >
-                Closed Contracts
-              </button>
+            <div className="flex gap-4 mb-6 border-b border-gray-200">
+              {[
+                { id: "earnings", short: "Earnings", long: "Earnings" },
+                { id: "open", short: "Open", long: "Open Contracts" },
+                { id: "completed", short: "Completed", long: "Completed Contracts" },
+                { id: "closed", short: "Closed", long: "Closed Contracts" },
+              ].map(({ id, short, long }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`px-3 py-2 border-b-2 font-semibold whitespace-nowrap ${
+                    activeTab === id
+                      ? "border-[#EE964B] text-[#EE964B]"
+                      : "border-transparent text-gray-500 hover:text-[#0D3B66]"
+                  }`}
+                >
+                  <span className="sm:hidden">{short}</span>
+                  <span className="hidden sm:inline">{long}</span>
+                </button>
+              ))}
             </div>
 
             {activeTab === "earnings" ? (
