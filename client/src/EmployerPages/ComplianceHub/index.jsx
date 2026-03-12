@@ -27,7 +27,19 @@ const ComplianceHub = () => {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
+      {/* Mobile: dropdown */}
+      <select
+        className="sm:hidden w-full px-3 py-2 mb-6 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+        value={activeTab}
+        onChange={(e) => setActiveTab(e.target.value)}
+      >
+        {tabs.map(({ id, label }) => (
+          <option key={id} value={id}>{label}</option>
+        ))}
+      </select>
+
+      {/* Desktop: tab buttons */}
+      <div className="hidden sm:flex gap-1 border-b border-gray-200 mb-6">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

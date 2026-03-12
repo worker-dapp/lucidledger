@@ -443,13 +443,26 @@ const JobTrackerInner = () => {
             <h2 className="text-2xl font-bold text-[#0D3B66] mb-6">Contracts & Earnings</h2>
 
             {/* Tabs */}
-            <div className="flex gap-4 mb-6 border-b border-gray-200">
+            {/* Mobile: dropdown */}
+            <select
+              className="sm:hidden w-full px-3 py-2 mb-6 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#EE964B]"
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+            >
+              <option value="earnings">Earnings</option>
+              <option value="open">Open Contracts</option>
+              <option value="completed">Completed Contracts</option>
+              <option value="closed">Closed Contracts</option>
+            </select>
+
+            {/* Desktop: tab buttons */}
+            <div className="hidden sm:flex gap-4 mb-6 border-b border-gray-200">
               {[
-                { id: "earnings", short: "Earnings", long: "Earnings" },
-                { id: "open", short: "Open", long: "Open Contracts" },
-                { id: "completed", short: "Completed", long: "Completed Contracts" },
-                { id: "closed", short: "Closed", long: "Closed Contracts" },
-              ].map(({ id, short, long }) => (
+                { id: "earnings", long: "Earnings" },
+                { id: "open", long: "Open Contracts" },
+                { id: "completed", long: "Completed Contracts" },
+                { id: "closed", long: "Closed Contracts" },
+              ].map(({ id, long }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
@@ -459,8 +472,7 @@ const JobTrackerInner = () => {
                       : "border-transparent text-gray-500 hover:text-[#0D3B66]"
                   }`}
                 >
-                  <span className="sm:hidden">{short}</span>
-                  <span className="hidden sm:inline">{long}</span>
+                  {long}
                 </button>
               ))}
             </div>
