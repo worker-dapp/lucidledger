@@ -84,6 +84,8 @@ export default function EmploymentType({ formData, handleChange }) {
           value={formData.jobPay}
           onChange={handleChange}
           required
+          min="0.01"
+          step="0.01"
           className="w-full border p-2 rounded"
           placeholder="Enter pay amount"
         />

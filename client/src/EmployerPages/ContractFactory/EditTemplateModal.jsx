@@ -145,7 +145,7 @@ const EditTemplateModal = ({ template, employerId, onClose, onSuccess }) => {
                 name="base_salary"
                 value={form.base_salary}
                 onChange={handleChange}
-                min="0"
+                min="0.01"
                 step="0.01"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE964B] focus:border-transparent"
               />
