@@ -25,6 +25,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const adminEmployerRoutes = require('./routes/adminEmployerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const qrOracleRoutes = require('./routes/qrOracleRoutes');
+const nfcOracleRoutes = require('./routes/nfcOracleRoutes');
 const { validateWalletAddress } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -100,6 +101,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/employers', adminEmployerRoutes);
 app.use('/api', qrOracleRoutes);
+app.use('/api', nfcOracleRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

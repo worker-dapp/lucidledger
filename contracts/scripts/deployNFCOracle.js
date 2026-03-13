@@ -1,12 +1,12 @@
 /**
- * Deployment script for QRCodeOracle
+ * Deployment script for NFCOracle
  *
  * Usage:
  *   cd contracts
- *   npx hardhat run scripts/deployQRCodeOracle.js --network baseSepolia
+ *   npx hardhat run scripts/deployNFCOracle.js --network baseSepolia
  *
  * Requires in contracts/.env:
- *   PRIVATE_KEY=<deployer private key, without 0x>
+ *   PRIVATE_KEY=<deployer private key, without 0x prefix>
  *   BACKEND_ADDRESS=<server oracle wallet address>
  */
 
@@ -14,11 +14,11 @@ const hre = require("hardhat");
 
 async function main() {
   const network = hre.network.name;
-  console.log(`Deploying QRCodeOracle to network: ${network}`);
+  console.log(`Deploying NFCOracle to network: ${network}`);
 
   const backendAddress = process.env.BACKEND_ADDRESS;
   if (!backendAddress) {
-    throw new Error("BACKEND_ADDRESS is required (the server wallet that will call recordVerification())");
+    throw new Error("BACKEND_ADDRESS is required (the server wallet that will call recordScan())");
   }
   console.log(`Backend address: ${backendAddress}`);
 
@@ -28,13 +28,13 @@ async function main() {
   const balance = await hre.ethers.provider.getBalance(deployer.address);
   console.log(`Account balance: ${hre.ethers.formatEther(balance)} ETH`);
 
-  console.log("\nDeploying QRCodeOracle...");
-  const QRCodeOracle = await hre.ethers.getContractFactory("QRCodeOracle");
-  const oracle = await QRCodeOracle.deploy(backendAddress);
+  console.log("\nDeploying NFCOracle...");
+  const NFCOracle = await hre.ethers.getContractFactory("NFCOracle");
+  const oracle = await NFCOracle.deploy(backendAddress);
   await oracle.waitForDeployment();
 
   const oracleAddress = await oracle.getAddress();
-  console.log(`QRCodeOracle deployed to: ${oracleAddress}`);
+  console.log(`NFCOracle deployed to: ${oracleAddress}`);
 
   // Wait for the RPC node to index the new contract before reading state
   await new Promise(resolve => setTimeout(resolve, 3000));
@@ -43,13 +43,13 @@ async function main() {
   console.log(`Verified backend address: ${registeredBackend}`);
 
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`QRCodeOracle deployed to: ${oracleAddress}`);
-  console.log(`Backend:                  ${backendAddress}`);
+  console.log(`NFCOracle deployed to: ${oracleAddress}`);
+  console.log(`Backend:               ${backendAddress}`);
   console.log(`${"=".repeat(60)}`);
 
   console.log("\nNext steps:");
-  console.log(`1. Register via admin UI: paste ${oracleAddress} at /admin/deploy-factory`);
-  console.log(`2. Add to server/.env: QR_ORACLE_ADDRESS=${oracleAddress}`);
+  console.log(`1. Add to server/.env:  NFC_ORACLE_ADDRESS=${oracleAddress}`);
+  console.log(`2. Register via admin UI: paste ${oracleAddress} at /admin/deploy-factory`);
   console.log(`3. Verify contract: npx hardhat verify --network ${network} ${oracleAddress} ${backendAddress}`);
 }
 

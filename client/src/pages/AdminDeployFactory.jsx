@@ -33,6 +33,7 @@ const AdminDeployFactory = () => {
   const [registerError, setRegisterError] = useState(null);
   const [manualOracleStatus, setManualOracleStatus] = useState(null);
   const [qrOracleStatus, setQrOracleStatus] = useState(null);
+  const [nfcOracleStatus, setNfcOracleStatus] = useState(null);
   const [removing, setRemoving] = useState(null); // oracle type currently being removed
   const [removeResult, setRemoveResult] = useState(null);
   const [removeError, setRemoveError] = useState(null);
@@ -71,12 +72,14 @@ const AdminDeployFactory = () => {
   // Check oracle registry status
   useEffect(() => {
     const checkOracles = async () => {
-      const [manual, qr] = await Promise.all([
+      const [manual, qr, nfc] = await Promise.all([
         getRegisteredOracle("manual"),
         getRegisteredOracle("qr"),
+        getRegisteredOracle("nfc"),
       ]);
       setManualOracleStatus(manual);
       setQrOracleStatus(qr);
+      setNfcOracleStatus(nfc);
     };
     checkOracles();
   }, [registerResult, removeResult]);
@@ -323,7 +326,7 @@ npx hardhat run scripts/deployFactory.js --network baseSepolia`}
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
             <p className="text-xs text-gray-500 mb-2">Registered Oracles:</p>
             <div className="space-y-2">
-              {[{ type: "manual", addr: manualOracleStatus }, { type: "qr", addr: qrOracleStatus }].map(({ type, addr }) => (
+              {[{ type: "manual", addr: manualOracleStatus }, { type: "qr", addr: qrOracleStatus }, { type: "nfc", addr: nfcOracleStatus }].map(({ type, addr }) => (
                 <div key={type} className="flex items-center justify-between gap-2 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-gray-600 shrink-0">{type}:</span>
