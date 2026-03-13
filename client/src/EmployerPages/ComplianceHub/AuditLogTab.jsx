@@ -165,6 +165,7 @@ const AuditLogTab = () => {
                       {log.entity_type}: {log.entity_identifier}
                     </p>
                   )}
+                  {/* QR clock-in/out tx hash (camelCase, set by oracle enrichment) */}
                   {log.new_value?.txHash && (
                     <a
                       href={`${BASESCAN_URL}/tx/${log.new_value.txHash}`}
@@ -173,6 +174,28 @@ const AuditLogTab = () => {
                       className="text-xs text-[#EE964B] hover:underline mt-1 block truncate"
                     >
                       On-chain: {log.new_value.txHash}
+                    </a>
+                  )}
+                  {/* Payment tx hash */}
+                  {log.new_value?.tx_hash && (
+                    <a
+                      href={`${BASESCAN_URL}/tx/${log.new_value.tx_hash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#EE964B] hover:underline mt-1 block truncate"
+                    >
+                      On-chain: {log.new_value.tx_hash}
+                    </a>
+                  )}
+                  {/* Contract deployment — link to contract address */}
+                  {log.action_type === "contract_deployed" && log.new_value?.contract_address && (
+                    <a
+                      href={`${BASESCAN_URL}/address/${log.new_value.contract_address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#EE964B] hover:underline mt-1 block truncate"
+                    >
+                      On-chain: {log.new_value.contract_address}
                     </a>
                   )}
                 </div>
