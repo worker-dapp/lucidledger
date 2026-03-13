@@ -214,17 +214,13 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // Check if an active application already exists (completed applications allow re-applying)
+    // Check for any existing application for this worker + job
     const ACTIVE_APPLICATION_STATUSES = ['pending', 'applied', 'accepted', 'signed', 'deployed'];
     let application = await JobApplication.findOne({
-      where: {
-        employee_id,
-        job_posting_id,
-        application_status: { [Op.in]: ACTIVE_APPLICATION_STATUSES }
-      }
+      where: { employee_id, job_posting_id }
     });
 
-    if (application) {
+    if (application && ACTIVE_APPLICATION_STATUSES.includes(application.application_status)) {
       console.log('ℹ️ Already has an active application for this job');
       return res.status(400).json({
         success: false,
@@ -232,15 +228,32 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // Create application
-    console.log('💾 Creating new job application...');
-    application = await JobApplication.create({
-      employee_id,
-      job_posting_id,
-      application_status: 'pending',
-      applied_at: new Date()
-    });
-    console.log('✅ Job application created successfully:', application.id);
+    if (application) {
+      // Existing completed/declined/rejected application — reset it for re-apply.
+      // A new INSERT would violate the unique(employee_id, job_posting_id) constraint.
+      console.log('💾 Resetting existing application for re-apply...');
+      await application.update({
+        application_status: 'pending',
+        applied_at: new Date(),
+        offer_sent_at: null,
+        offer_accepted_at: null,
+        offer_signature: null,
+        offer_signed_at: null,
+        blockchain_deployment_status: 'not_deployed',
+        contract_snapshot: null,
+      });
+      console.log('✅ Application reset for re-apply:', application.id);
+    } else {
+      // No prior application — create fresh
+      console.log('💾 Creating new job application...');
+      application = await JobApplication.create({
+        employee_id,
+        job_posting_id,
+        application_status: 'pending',
+        applied_at: new Date()
+      });
+      console.log('✅ Job application created successfully:', application.id);
+    }
 
     // Remove from saved jobs if it was saved
     await SavedJob.destroy({
