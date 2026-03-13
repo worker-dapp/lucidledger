@@ -96,6 +96,8 @@ export default function KioskPage() {
       } catch (err) {
         if (err?.name !== "AbortError") {
           console.warn("[NFC] Reader failed to start:", err.message);
+          setScanError(`NFC error: ${err.message} — try reloading the page`);
+          setTimeout(() => setScanError(null), 8000);
         }
       }
     })();
