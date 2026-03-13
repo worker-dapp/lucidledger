@@ -1,4 +1,4 @@
-const { AuditLog } = require('../models');
+const { AuditLog, OracleVerification } = require('../models');
 const { Op } = require('sequelize');
 
 // ---------------------------------------------------------------------------
@@ -76,6 +76,31 @@ const getAuditLog = async (req, res) => {
       order: [['created_at', 'DESC']],
       limit: Math.min(parseInt(limit), 500),
     });
+
+    // Enrich QR clock entries with on-chain tx_hash from oracle_verifications
+    const oracleVerificationIds = logs
+      .map(l => l.new_value?.oracleVerificationId)
+      .filter(Boolean);
+
+    if (oracleVerificationIds.length > 0) {
+      const verifications = await OracleVerification.findAll({
+        where: { id: oracleVerificationIds },
+        attributes: ['id', 'tx_hash'],
+      });
+      const txHashById = Object.fromEntries(verifications.map(v => [v.id, v.tx_hash]));
+
+      const enriched = logs.map(log => {
+        const ovId = log.new_value?.oracleVerificationId;
+        if (ovId && txHashById[ovId]) {
+          const plain = log.toJSON();
+          plain.new_value = { ...plain.new_value, txHash: txHashById[ovId] };
+          return plain;
+        }
+        return log.toJSON();
+      });
+
+      return res.json({ data: enriched });
+    }
 
     res.json({ data: logs });
   } catch (error) {

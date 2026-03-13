@@ -11,7 +11,11 @@ const ACTION_COLORS = {
   payment_processed:        "bg-purple-100 text-purple-700",
   dispute_created:          "bg-yellow-100 text-yellow-800",
   dispute_resolved:         "bg-teal-100 text-teal-700",
+  qr_clock_in:              "bg-sky-100 text-sky-700",
+  qr_clock_out:             "bg-slate-100 text-slate-700",
 };
+
+const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
 
 const formatDate = (dateString) => {
   if (!dateString) return "—";
@@ -96,6 +100,8 @@ const AuditLogTab = () => {
           <option value="payment_processed">Payment Processed</option>
           <option value="dispute_created">Dispute Created</option>
           <option value="dispute_resolved">Dispute Resolved</option>
+          <option value="qr_clock_in">QR Clock In</option>
+          <option value="qr_clock_out">QR Clock Out</option>
         </select>
       </div>
 
@@ -158,6 +164,16 @@ const AuditLogTab = () => {
                     <p className="text-xs text-gray-400 mt-1 truncate">
                       {log.entity_type}: {log.entity_identifier}
                     </p>
+                  )}
+                  {log.new_value?.txHash && (
+                    <a
+                      href={`${BASESCAN_URL}/tx/${log.new_value.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#EE964B] hover:underline mt-1 block truncate"
+                    >
+                      On-chain: {log.new_value.txHash}
+                    </a>
                   )}
                 </div>
               </div>
