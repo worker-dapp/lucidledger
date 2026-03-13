@@ -24,7 +24,7 @@ const REPORTS = [
     id: "oracles",
     title: "Oracle Verifications",
     description: "GPS check-ins, time clock logs, and all verification records.",
-    includes: "Oracle types, verification status, GPS coordinates, hours worked, timestamps, contract links",
+    includes: "Oracle types, verification status, clock-in/out times, GPS coordinates, hours worked, on-chain tx hashes, Basescan links, contract links",
     exportFn: (params) => apiService.exportOracleVerifications(params),
     filename: (date) => `oracle_verifications_${date}.csv`,
   },

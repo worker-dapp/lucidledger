@@ -200,16 +200,20 @@ exports.exportOracleVerifications = async (req, res) => {
       oracle_type:         v.oracle_type,
       verification_status: v.verification_status,
       verified_at:         v.verified_at ? new Date(v.verified_at).toISOString() : '',
+      clock_in_time:       v.clock_in_time ? new Date(v.clock_in_time).toISOString() : '',
+      clock_out_time:      v.clock_out_time ? new Date(v.clock_out_time).toISOString() : '',
       latitude:            v.latitude ?? '',
       longitude:           v.longitude ?? '',
       hours_worked:        v.hours_worked ?? '',
+      tx_hash:             v.tx_hash || '',
+      tx_url:              v.tx_hash ? `${BASESCAN_URL}/tx/${v.tx_hash}` : '',
       contract_address:    v.deployedContract?.contract_address || '',
       contract_url:        v.deployedContract?.contract_address && !v.deployedContract.contract_address.startsWith('0x000000')
                              ? `${BASESCAN_URL}/address/${v.deployedContract.contract_address}`
                              : '',
     }));
 
-    const fields = ['worker_name','job_title','oracle_type','verification_status','verified_at','latitude','longitude','hours_worked','contract_address','contract_url'];
+    const fields = ['worker_name','job_title','oracle_type','verification_status','verified_at','clock_in_time','clock_out_time','latitude','longitude','hours_worked','tx_hash','tx_url','contract_address','contract_url'];
     const csv = parse(rows, { fields });
     const date = new Date().toISOString().split('T')[0];
     sendCsv(res, csv, `oracle_verifications_${date}.csv`);
