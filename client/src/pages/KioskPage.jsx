@@ -87,9 +87,6 @@ export default function KioskPage() {
         const reader = new window.NDEFReader();
         await reader.scan({ signal: abortController.signal });
         reader.addEventListener("reading", ({ serialNumber }) => {
-          // DEBUG: show raw UID on screen so we can confirm reading events fire
-          setScanError(`NFC detected UID: ${serialNumber || "(none)"}`);
-          setTimeout(() => setScanError(null), 5000);
           if (!serialNumber) return;
           const now = Date.now();
           if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
