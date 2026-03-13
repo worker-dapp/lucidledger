@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 // Oracle types currently registered on-chain. Expand as new oracles are deployed.
-const AVAILABLE_ORACLES = ["manual", "qr"];
+const AVAILABLE_ORACLES = ["manual", "qr", "nfc"];
 
 export default function OracleConfiguration({ formData, handleChange }) {
   const [selectedOracles, setSelectedOracles] = useState(formData.selectedOracles || []);
@@ -19,6 +19,12 @@ export default function OracleConfiguration({ formData, handleChange }) {
       suitableFor: ["time-based"],
       features: ["Clock in/out", "GPS audit trail", "Supervisor confirmation screen"]
     },
+    nfc: {
+      name: "NFC Badge",
+      description: "Worker taps a physical NFC badge on the kiosk to clock in/out — no phone needed",
+      suitableFor: ["time-based"],
+      features: ["Tap-to-clock", "GPS audit trail", "Badge reassignment support"]
+    },
     "ble-beacon": {
       name: "Bluetooth Beacon",
       description: "Proximity-based verification using Bluetooth beacons",
@@ -26,22 +32,16 @@ export default function OracleConfiguration({ formData, handleChange }) {
       features: ["On-site proximity", "Low-power tracking", "Geofenced presence"]
     },
     gps: {
-      name: "GPS",
-      description: "Location-based work verification",
+      name: "GPS / Geofence",
+      description: "Location-based verification — confirms worker is present within the job site boundary",
       suitableFor: ["time-based", "milestone"],
-      features: ["Location tracking", "Attendance verification", "Route validation"]
+      features: ["Site boundary enforcement", "Location audit trail", "Multi-site support"]
     },
     weight: {
-      name: "Scale/Weight",
-      description: "Quantity/weight-based verification",
+      name: "Scale / Weight",
+      description: "Output verification via connected scale — records harvest or production weight per worker",
       suitableFor: ["volume", "piece-rate"],
-      features: ["Weight measurement", "Quantity counting", "Volume calculation"]
-    },
-    image: {
-      name: "Image",
-      description: "Photo evidence for work completion",
-      suitableFor: ["piece-rate", "milestone", "volume"],
-      features: ["Photo verification", "Quality assessment", "Progress tracking"]
+      features: ["Per-worker output tracking", "Piece-rate payment support", "Tamper-evident records"]
     }
   };
 

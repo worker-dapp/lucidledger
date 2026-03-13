@@ -528,6 +528,32 @@ class ApiService {
     return this.request(`/kiosk-devices/${kioskId}/regenerate-token`, { method: 'POST' });
   }
 
+  // Employer: NFC badge management
+  async registerNfcBadge(badgeUid, employeeId, label) {
+    return this.request('/nfc-badges', {
+      method: 'POST',
+      body: JSON.stringify({ badge_uid: badgeUid, employee_id: employeeId || null, label: label || null })
+    });
+  }
+
+  async getNfcBadges() {
+    return this.request('/nfc-badges');
+  }
+
+  async assignNfcBadge(badgeId, employeeId, label) {
+    return this.request(`/nfc-badges/${badgeId}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ employee_id: employeeId ?? null, ...(label !== undefined ? { label } : {}) })
+    });
+  }
+
+  async suspendNfcBadge(badgeId, status = 'suspended') {
+    return this.request(`/nfc-badges/${badgeId}/suspend`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+  }
+
   // Health check
   async healthCheck() {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');
