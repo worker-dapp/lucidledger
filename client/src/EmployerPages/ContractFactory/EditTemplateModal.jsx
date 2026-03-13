@@ -5,6 +5,7 @@ import apiService from "../../services/api";
 const ORACLE_OPTIONS = [
   { key: "manual", label: "Manual Verification", description: "Human supervisor verification" },
   { key: "qr",     label: "QR Clock-In",         description: "Worker scans QR code to clock in/out" },
+  { key: "nfc",    label: "NFC Badge",            description: "Worker taps a physical NFC badge on the kiosk to clock in/out" },
 ];
 
 const JOB_TYPES      = ["Full-time", "Part-time", "Contract", "Temporary"];
