@@ -194,8 +194,16 @@ class QrOracleController {
     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
     // On-chain scan record (non-blocking — never delays kiosk response)
+    // When the tx hash is available, save it back to oracle_verifications
     if (contract.contract_address) {
-      recordScanOnChain(contract.contract_address, eventType);
+      recordScanOnChain(contract.contract_address, eventType).then(async (txHash) => {
+        if (txHash) {
+          await OracleVerification.update(
+            { tx_hash: txHash },
+            { where: { id: result.oracleVerification.id } }
+          ).catch(err => console.error('[QROracle] Failed to save tx_hash:', err.message));
+        }
+      }).catch(() => {});
     }
 
     // Audit log (non-blocking)
@@ -212,7 +220,8 @@ class QrOracleController {
         eventType,
         serverTimestamp: presenceEvent.server_timestamp,
         kiosk: kiosk.site_name || kiosk.device_id,
-        gps: latitude ? { latitude, longitude, accuracy: gps_accuracy } : null
+        gps: latitude ? { latitude, longitude, accuracy: gps_accuracy } : null,
+        oracleVerificationId: result.oracleVerification.id
       }
     });
 
