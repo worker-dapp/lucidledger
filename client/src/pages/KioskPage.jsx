@@ -5,6 +5,9 @@ import { BrowserQRCodeReader } from "@zxing/browser";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
 
+// Web NFC is available on Android Chrome 89+. Feature-detect at runtime.
+const NFC_SUPPORTED = typeof window !== "undefined" && "NDEFReader" in window;
+
 // ---------------------------------------------------------------------------
 // Kiosk page — full-screen, standalone (no app layout, no Privy auth).
 // Auth is via x-kiosk-token stored in localStorage after setup.
@@ -23,6 +26,7 @@ export default function KioskPage() {
 
   const videoRef = useRef(null);
   const controlsRef = useRef(null); // ZXing scanner controls
+  const nfcAbortRef = useRef(null); // AbortController for NFC reader
   const lastScanAt = useRef(0);
   const processingRef = useRef(false);
 
@@ -66,6 +70,38 @@ export default function KioskPage() {
 
     return () => {
       controlsRef.current?.stop();
+    };
+  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -------------------------------------------------------------------------
+  // Web NFC listener — runs in parallel with camera loop on Android Chrome
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (setupMode || !NFC_SUPPORTED) return;
+
+    const abortController = new AbortController();
+    nfcAbortRef.current = abortController;
+
+    (async () => {
+      try {
+        const reader = new window.NDEFReader();
+        await reader.scan({ signal: abortController.signal });
+        reader.addEventListener("reading", ({ serialNumber }) => {
+          if (!serialNumber) return;
+          const now = Date.now();
+          if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
+          lastScanAt.current = now;
+          submitNfcBadge(serialNumber, kioskToken);
+        }, { signal: abortController.signal });
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.warn("[NFC] Reader failed to start:", err.message);
+        }
+      }
+    })();
+
+    return () => {
+      abortController.abort();
     };
   }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,6 +153,53 @@ export default function KioskPage() {
   };
 
   // -------------------------------------------------------------------------
+  // Submit NFC badge scan to backend
+  // -------------------------------------------------------------------------
+  const submitNfcBadge = async (badgeUid, kiosk) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setScanError(null);
+
+    // Capture GPS (non-blocking)
+    let gps = {};
+    try {
+      await new Promise((resolve) => {
+        navigator.geolocation?.getCurrentPosition(
+          (pos) => {
+            gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, gps_accuracy: pos.coords.accuracy };
+            resolve();
+          },
+          () => resolve(),
+          { timeout: 2000, maximumAge: 30000 }
+        );
+      });
+    } catch { /* ignore */ }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/nfc-scans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-kiosk-token": kiosk },
+        body: JSON.stringify({ badge_uid: badgeUid, client_timestamp: new Date().toISOString(), nonce: crypto.randomUUID(), ...gps })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setConfirmation(data.data);
+        setTimeout(() => setConfirmation(null), 3000);
+      } else {
+        setScanError(data.message || "Scan failed");
+        setTimeout(() => setScanError(null), 3000);
+      }
+    } catch {
+      setScanError("Network error — please check connection");
+      setTimeout(() => setScanError(null), 3000);
+    } finally {
+      processingRef.current = false;
+    }
+  };
+
+  // -------------------------------------------------------------------------
   // Setup flow
   // -------------------------------------------------------------------------
   const handleSetup = () => {
@@ -130,6 +213,7 @@ export default function KioskPage() {
 
   const handleReset = () => {
     controlsRef.current?.stop();
+    nfcAbortRef.current?.abort();
     localStorage.removeItem("kioskToken");
     setKioskToken("");
     setTokenInput("");
@@ -214,7 +298,9 @@ export default function KioskPage() {
           <div className="relative z-10 flex flex-col items-center gap-4">
             <div className="w-64 h-64 border-4 border-white/70 rounded-2xl" />
             <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
-              Hold worker's QR code up to camera
+              {NFC_SUPPORTED
+                ? "Hold QR code to camera · or tap NFC badge"
+                : "Hold worker's QR code up to camera"}
             </p>
           </div>
         )}

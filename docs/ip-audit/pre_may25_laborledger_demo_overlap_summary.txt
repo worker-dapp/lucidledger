@@ -1,0 +1,9 @@
+source_repo=worker-dapp/laborledger_demo
+source_commit=d5331046e84981e99daba576b9ab67a84c4dc80c
+source_commit_date=2025-03-25T02:57:11Z
+current_repo=worker-dapp/lucidledger
+current_snapshot=HEAD
+rows_total=35
+exact_content_rows=26
+same_path_evolved_rows=9
+current_files_total=225
