@@ -252,7 +252,10 @@ class ApiService {
   }
 
   async getDeployedContracts(employerId, status = null) {
-    const params = status ? `?employer_id=${employerId}&status=${status}` : `?employer_id=${employerId}`;
+    const parts = [];
+    if (employerId != null) parts.push(`employer_id=${employerId}`);
+    if (status) parts.push(`status=${status}`);
+    const params = parts.length ? `?${parts.join('&')}` : '';
     return this.request(`/deployed-contracts${params}`);
   }
 

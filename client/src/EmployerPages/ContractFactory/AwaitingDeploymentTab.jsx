@@ -14,7 +14,7 @@ const USDC_DECIMALS = 6;
 
 // Oracle types currently registered on-chain. Unregistered types are filtered out
 // so the factory doesn't revert. Expand this list as new oracles are deployed.
-const REGISTERED_ORACLE_TYPES = ["manual", "qr"];
+const REGISTERED_ORACLE_TYPES = ["manual", "qr", "nfc"];
 
 /**
  * Parse the comma-separated selected_oracles string from the DB into
