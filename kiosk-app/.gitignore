@@ -1,0 +1,12 @@
+node_modules/
+dist/
+ios/
+*.local
+
+# Android — keep config/manifest, ignore build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
