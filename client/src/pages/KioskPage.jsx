@@ -29,7 +29,7 @@ export default function KioskPage() {
   // Auto-activate if token provided via ?token= query param
   useEffect(() => {
     const paramToken = searchParams.get("token");
-    if (paramToken && !localStorage.getItem("kioskToken")) {
+    if (paramToken) {
       localStorage.setItem("kioskToken", paramToken);
       setKioskToken(paramToken);
       setSetupMode(false);
