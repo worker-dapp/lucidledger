@@ -301,8 +301,6 @@ function NfcBadgeTab() {
   // NFC tap-to-read state
   const [nfcReading, setNfcReading] = useState(false);
   const [nfcWriteStatus, setNfcWriteStatus] = useState(""); // "writing" | "done" | "error"
-  const [writingBadgeId, setWritingBadgeId] = useState(null); // badge id being written
-  const [writeUrlResult, setWriteUrlResult] = useState({}); // badgeId → "done"|"error"
   const nfcAbortRef = useRef(null);
 
   // Assign modal state (for reassigning existing badges)
@@ -436,32 +434,6 @@ function NfcBadgeTab() {
 
   // -------------------------------------------------------------------------
   // Write kiosk URL to an already-registered badge
-  // -------------------------------------------------------------------------
-  const handleWriteUrl = async (badge) => {
-    if (!NFC_SUPPORTED) return;
-    setWritingBadgeId(badge.id);
-    setWriteUrlResult(prev => ({ ...prev, [badge.id]: null }));
-    let success = false;
-    try {
-      const kioskUrl = `${window.location.origin}/kiosk?nfc=${badge.badge_uid}`;
-      const writer = new window.NDEFReader();
-      const writeAbort = new AbortController();
-      const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
-      await writer.write(
-        { records: [{ recordType: "url", data: kioskUrl }] },
-        { signal: writeAbort.signal }
-      );
-      clearTimeout(writeTimeout);
-      success = true;
-    } catch (err) {
-      console.warn("[NFC] Write failed:", err.message);
-    } finally {
-      setWritingBadgeId(null);
-      setWriteUrlResult(prev => ({ ...prev, [badge.id]: success ? "done" : "error" }));
-      setTimeout(() => setWriteUrlResult(prev => ({ ...prev, [badge.id]: null })), 5000);
-    }
-  };
-
   // -------------------------------------------------------------------------
   // Open reassign modal for an existing badge
   // -------------------------------------------------------------------------
@@ -668,32 +640,6 @@ function NfcBadgeTab() {
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
                       ) : (
                         <>
-                          {badge.status === "active" && NFC_SUPPORTED && (
-                            writingBadgeId === badge.id ? (
-                              <span className="flex items-center gap-1 text-amber-600 text-xs">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                Hold badge…
-                              </span>
-                            ) : writeUrlResult[badge.id] === "done" ? (
-                              <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
-                                <CheckCircle className="h-3.5 w-3.5" />
-                                URL written
-                              </span>
-                            ) : writeUrlResult[badge.id] === "error" ? (
-                              <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
-                                Write failed — try again
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => handleWriteUrl(badge)}
-                                className="flex items-center gap-1 text-gray-500 hover:text-[#0D3B66] font-medium"
-                                title="Write kiosk URL to this badge"
-                              >
-                                <Wifi className="h-3.5 w-3.5" />
-                                Write URL
-                              </button>
-                            )
-                          )}
                           {badge.status === "active" && (
                             <button
                               onClick={() => openAssignModal(badge)}
