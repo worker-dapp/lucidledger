@@ -146,15 +146,14 @@ const AppContent = () => {
         localStorage.getItem('pendingRole') ||         // Set by landing page (current intent)
         localStorage.getItem('persistedUserRole');     // Last used role (persists across sessions)
 
-      // If still no role, infer from URL as fallback
+      // If still no role, infer from URL as fallback.
+      // Do NOT write to localStorage here — an inferred role is not an explicit
+      // user choice, so hasPendingRole must stay false to allow the
+      // "found you on the other side" redirect to work correctly.
+      let urlInferredRole = false;
       if (!intendedRole) {
-        if (location.pathname === '/employers') {
-          intendedRole = 'employer';
-          localStorage.setItem('pendingRole', 'employer');
-        } else {
-          intendedRole = 'employee';
-          localStorage.setItem('pendingRole', 'employee');
-        }
+        urlInferredRole = true;
+        intendedRole = location.pathname === '/employers' ? 'employer' : 'employee';
       }
 
       setHasRedirected(true);
