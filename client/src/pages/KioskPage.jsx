@@ -20,8 +20,6 @@ export default function KioskPage() {
 
   const [confirmation, setConfirmation] = useState(null);
   const [scanError, setScanError] = useState(null);
-  const [nfcState, setNfcState] = useState("idle"); // "idle" | "active" | "needs-gesture"
-  const [nfcDebug, setNfcDebug] = useState(null); // temporary debug info
 
   const videoRef = useRef(null);
   const controlsRef = useRef(null); // ZXing scanner controls
@@ -72,95 +70,63 @@ export default function KioskPage() {
   }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
-  // NFC URL dispatch — Android opens /kiosk?nfc=<uid> when worker taps badge.
-  // The kiosk URL is written to the tag during badge registration (KioskManagement).
-  // This path fires when Chrome is closed; the passive NDEFReader below handles
-  // the foreground case (Chrome already open).
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    const nfcUid = searchParams.get("nfc");
-    if (!nfcUid || setupMode || !kioskToken) return;
-    // Clear the param immediately so a page refresh doesn't resubmit
-    window.history.replaceState({}, "", window.location.pathname);
-    submitNfcBadge(nfcUid, kioskToken);
-  }, [setupMode, kioskToken, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // -------------------------------------------------------------------------
-  // NDEFReader — handles NFC taps when Chrome is in foreground.
-  // Attempts to auto-start immediately. If Chrome requires a user gesture
-  // (SecurityError), falls back to a tap-to-activate prompt.
+  // NFC via Android URL dispatch — the ONLY NFC path.
+  //
+  // NDEFReader.scan() is deliberately NOT used here.  On Samsung One UI
+  // (Android 13 / One UI 5.1.1 / Chrome 145+), calling scan() claims
+  // foreground dispatch but Samsung's NFC layer silently intercepts all
+  // tag reads before Chrome delivers the `reading` event — for BOTH URL
+  // and text record types.  The result: scan() appears active (no error)
+  // but `reading` never fires.
+  //
+  // Without NDEFReader, Android's normal NDEF URL dispatch operates freely.
+  // When a worker taps their badge (whose first NDEF record is a URL
+  // pointing to /kiosk?nfc=<uid>), Android opens Chrome with that URL.
+  // Whether Chrome is closed or already open, this effect picks up the
+  // ?nfc= param and records the clock-in.
+  //
+  // BroadcastChannel handles the case where Android opens a NEW tab
+  // instead of navigating the existing kiosk tab: the new tab posts the
+  // UID to the channel, the primary tab receives it, and the new tab
+  // closes itself.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (setupMode || !kioskToken) return;
-    if (!("NDEFReader" in window)) return;
 
-    let abortController = new AbortController();
-    let gestureCleanup = null;
+    // --- BroadcastChannel: coordinate between kiosk tabs ----------------
+    let channel = null;
+    try { channel = new BroadcastChannel("lucidledger-kiosk-nfc"); } catch { /* unsupported */ }
 
-    const startNfc = async () => {
-      try {
-        const reader = new window.NDEFReader();
-        await reader.scan({ signal: abortController.signal });
-        setNfcState("active");
-        reader.addEventListener("reading", ({ serialNumber, message }) => {
-          // Capture debug info so we can see what Chrome delivers on screen
-          const debugRecords = (message?.records || []).map(r => {
-            try { return `[${r.recordType}] ${new TextDecoder().decode(r.data)}`; }
-            catch { return `[${r.recordType}] (undecodable)`; }
-          });
-          setNfcDebug(`sn=${serialNumber || "(empty)"} records=${JSON.stringify(debugRecords)}`);
-
-          // Try serialNumber first (hardware UID); fall back to UID
-          // embedded in the NDEF URL record written during badge registration
-          let uid = serialNumber;
-          if (!uid && message?.records) {
-            for (const record of message.records) {
-              try {
-                const text = new TextDecoder().decode(record.data);
-                // URL record: extract from ?nfc= param
-                const urlMatch = text.match(/[?&]nfc=([^&\s]+)/);
-                if (urlMatch) { uid = urlMatch[1]; break; }
-                // Text record: extract from nfc:<uid> format (test path)
-                const textMatch = text.match(/^nfc:(.+)/);
-                if (textMatch) { uid = textMatch[1]; break; }
-              } catch { /* ignore undecodable records */ }
-            }
-          }
-          if (!uid) return;
+    if (channel) {
+      channel.onmessage = (e) => {
+        if (e.data?.type === "nfc-scan" && e.data.uid) {
           const now = Date.now();
           if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
           lastScanAt.current = now;
-          submitNfcBadge(uid, kioskToken);
-        }, { signal: abortController.signal });
-      } catch (err) {
-        if (err?.name === "AbortError") return;
-        if (err?.name === "SecurityError") {
-          // Gesture required — show tap-to-activate prompt
-          setNfcState("needs-gesture");
-          const onGesture = () => {
-            abortController = new AbortController();
-            startNfc();
-          };
-          document.addEventListener("click", onGesture, { once: true });
-          document.addEventListener("touchstart", onGesture, { once: true });
-          gestureCleanup = () => {
-            document.removeEventListener("click", onGesture);
-            document.removeEventListener("touchstart", onGesture);
-          };
-        } else {
-          console.warn("[NFC] scan failed:", err.name, err.message);
+          submitNfcBadge(e.data.uid, kioskToken);
         }
+      };
+    }
+
+    // --- Handle ?nfc=<uid> param (from Android URL dispatch) -------------
+    const nfcUid = searchParams.get("nfc");
+    if (nfcUid) {
+      window.history.replaceState({}, "", window.location.pathname);
+
+      // Notify other kiosk tabs so the primary tab can show confirmation
+      if (channel) {
+        channel.postMessage({ type: "nfc-scan", uid: nfcUid });
       }
-    };
 
-    startNfc();
+      // If this tab was freshly opened by Android (not the primary kiosk),
+      // submit the scan and then attempt to close. If close fails (Chrome
+      // won't close tabs not opened by script), fall through — the scan
+      // was already recorded and this tab just stays on /kiosk.
+      submitNfcBadge(nfcUid, kioskToken);
+    }
 
-    return () => {
-      abortController.abort();
-      gestureCleanup?.();
-      setNfcState("idle");
-    };
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { channel?.close(); };
+  }, [setupMode, kioskToken, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Submit scan to backend
@@ -353,23 +319,9 @@ export default function KioskPage() {
         {!confirmation && !scanError && (
           <div className="relative z-10 flex flex-col items-center gap-4">
             <div className="w-64 h-64 border-4 border-white/70 rounded-2xl" />
-            {nfcState === "needs-gesture" ? (
-              <p className="text-yellow-300 text-sm font-semibold bg-black/60 px-4 py-2 rounded-full animate-pulse">
-                Tap screen to activate NFC, then tap badge
-              </p>
-            ) : (
-              <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
-                Hold QR code to camera · or tap NFC badge
-                {nfcState === "active" && <span className="ml-2 text-green-400">● NFC</span>}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Temporary NFC debug panel */}
-        {nfcDebug && (
-          <div className="absolute bottom-4 left-4 right-4 z-20 bg-black/80 text-green-300 text-xs font-mono p-3 rounded-xl break-all">
-            {nfcDebug}
+            <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
+              Hold QR code to camera · or tap NFC badge
+            </p>
           </div>
         )}
 
