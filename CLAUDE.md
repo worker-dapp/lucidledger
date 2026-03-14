@@ -113,9 +113,10 @@ This is a job marketplace platform with **two user roles**:
 - `DisputeHistory` - Dispute resolution records
 
 **Migration System**:
-- SQL files in `server/migrations/` (001 through 014)
+- SQL files in `server/migrations/` (001 through 026)
 - Auto-run on server startup (`server.js` `runMigrationsOnStartup()`)
 - Idempotent — tables created with `IF NOT EXISTS`
+- **CRITICAL**: Every new `.sql` migration file MUST also be added to the `migrationFiles` array in `server/server.js` `runMigrationsOnStartup()` or it will never run and the table won't exist in production.
 
 ### Frontend Architecture
 
