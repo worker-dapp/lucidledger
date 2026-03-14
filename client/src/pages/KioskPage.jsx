@@ -5,10 +5,20 @@ import { BrowserQRCodeReader } from "@zxing/browser";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
 
+function isStandalonePwa() {
+  return window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true;
+}
+
 // ---------------------------------------------------------------------------
 // Kiosk page — full-screen, standalone (no app layout, no Privy auth).
 // Auth is via x-kiosk-token stored in localStorage after setup.
 // Uses ZXing BrowserQRCodeReader for robust cross-device QR scanning.
+//
+// NFC strategy:
+//   Standalone PWA  → NDEFReader.scan() for foreground reads (bypasses
+//                     Samsung One UI's browser-level NFC interception).
+//   Regular Chrome  → Android URL dispatch (cold-start / new-tab) as fallback.
 // ---------------------------------------------------------------------------
 export default function KioskPage() {
   const [searchParams] = useSearchParams();
@@ -20,9 +30,12 @@ export default function KioskPage() {
 
   const [confirmation, setConfirmation] = useState(null);
   const [scanError, setScanError] = useState(null);
+  const [nfcStatus, setNfcStatus] = useState("idle"); // idle | listening | unavailable
+  const [isPwa, setIsPwa] = useState(isStandalonePwa);
 
   const videoRef = useRef(null);
   const controlsRef = useRef(null); // ZXing scanner controls
+  const nfcReaderRef = useRef(null);
   const lastScanAt = useRef(0);
   const processingRef = useRef(false);
 
@@ -87,30 +100,76 @@ export default function KioskPage() {
   }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
-  // NFC via Android URL dispatch — the ONLY NFC path.
+  // NFC path A — NDEFReader in standalone PWA mode.
   //
-  // NDEFReader.scan() is deliberately NOT used here.  On Samsung One UI
-  // (Android 13 / One UI 5.1.1 / Chrome 145+), calling scan() claims
-  // foreground dispatch but Samsung's NFC layer silently intercepts all
-  // tag reads before Chrome delivers the `reading` event — for BOTH URL
-  // and text record types.  The result: scan() appears active (no error)
-  // but `reading` never fires.
+  // Samsung One UI intercepts NFC events before Chrome can deliver them,
+  // but a standalone PWA runs as its own Android activity (WebAPK), which
+  // may bypass the browser-specific interception layer.  We only activate
+  // NDEFReader when we detect standalone display mode.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (setupMode || !kioskToken || !isStandalonePwa()) return;
+    if (!("NDEFReader" in window)) { setNfcStatus("unavailable"); return; }
+
+    setIsPwa(true);
+    const abortController = new AbortController();
+    let reader;
+
+    (async () => {
+      try {
+        reader = new NDEFReader();
+        nfcReaderRef.current = reader;
+
+        reader.addEventListener("reading", ({ serialNumber, message }) => {
+          const now = Date.now();
+          if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
+
+          // Prefer the text record with nfc:<uid> prefix; fall back to serialNumber.
+          let uid = serialNumber?.replace(/:/g, "").toUpperCase();
+          if (message?.records) {
+            for (const rec of message.records) {
+              if (rec.recordType === "text") {
+                try {
+                  const text = new TextDecoder().decode(rec.data);
+                  if (text.startsWith("nfc:")) { uid = text.slice(4); break; }
+                } catch { /* ignore */ }
+              }
+            }
+          }
+
+          if (!uid) return;
+          lastScanAt.current = now;
+          submitNfcBadge(uid, kioskToken);
+        }, { signal: abortController.signal });
+
+        reader.addEventListener("readingerror", () => {
+          console.warn("[Kiosk] NFC read error");
+        }, { signal: abortController.signal });
+
+        await reader.scan({ signal: abortController.signal });
+        setNfcStatus("listening");
+      } catch (err) {
+        console.error("[Kiosk] NDEFReader failed:", err);
+        setNfcStatus("unavailable");
+      }
+    })();
+
+    return () => {
+      abortController.abort();
+      nfcReaderRef.current = null;
+    };
+  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -------------------------------------------------------------------------
+  // NFC path B — Android URL dispatch (regular Chrome fallback).
   //
-  // Without NDEFReader, Android's normal NDEF URL dispatch operates freely.
-  // When a worker taps their badge (whose first NDEF record is a URL
-  // pointing to /kiosk?nfc=<uid>), Android opens Chrome with that URL.
-  // Whether Chrome is closed or already open, this effect picks up the
-  // ?nfc= param and records the clock-in.
-  //
-  // BroadcastChannel handles the case where Android opens a NEW tab
-  // instead of navigating the existing kiosk tab: the new tab posts the
-  // UID to the channel, the primary tab receives it, and the new tab
-  // closes itself.
+  // When running in a normal Chrome tab, NDEFReader doesn't work on Samsung
+  // One UI.  Instead, Android's NDEF URL dispatch opens /kiosk?nfc=<uid>.
+  // BroadcastChannel coordinates between tabs if Android opens a new one.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (setupMode || !kioskToken) return;
 
-    // --- BroadcastChannel: coordinate between kiosk tabs ----------------
     let channel = null;
     try { channel = new BroadcastChannel("lucidledger-kiosk-nfc"); } catch { /* unsupported */ }
 
@@ -125,20 +184,10 @@ export default function KioskPage() {
       };
     }
 
-    // --- Handle ?nfc=<uid> param (from Android URL dispatch) -------------
     const nfcUid = searchParams.get("nfc");
     if (nfcUid) {
       window.history.replaceState({}, "", window.location.pathname);
-
-      // Notify other kiosk tabs so the primary tab can show confirmation
-      if (channel) {
-        channel.postMessage({ type: "nfc-scan", uid: nfcUid });
-      }
-
-      // If this tab was freshly opened by Android (not the primary kiosk),
-      // submit the scan and then attempt to close. If close fails (Chrome
-      // won't close tabs not opened by script), fall through — the scan
-      // was already recorded and this tab just stays on /kiosk.
+      if (channel) channel.postMessage({ type: "nfc-scan", uid: nfcUid });
       submitNfcBadge(nfcUid, kioskToken);
     }
 
@@ -339,6 +388,23 @@ export default function KioskPage() {
             <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
               Hold QR code to camera · or tap NFC badge
             </p>
+            {/* NFC status indicator (PWA mode) */}
+            {isPwa && nfcStatus === "listening" && (
+              <span className="inline-flex items-center gap-2 bg-green-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
+                NFC active (PWA)
+              </span>
+            )}
+            {isPwa && nfcStatus === "unavailable" && (
+              <span className="inline-flex items-center gap-2 bg-red-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
+                NFC unavailable
+              </span>
+            )}
+            {!isPwa && (
+              <span className="inline-flex items-center gap-2 bg-blue-600/70 text-white text-xs font-medium px-3 py-1.5 rounded-full">
+                Install as app for best NFC support
+              </span>
+            )}
           </div>
         )}
 
