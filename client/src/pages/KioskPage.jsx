@@ -79,7 +79,7 @@ export default function KioskPage() {
     // Clear the param immediately so a page refresh doesn't resubmit
     window.history.replaceState({}, "", window.location.pathname);
     submitNfcBadge(nfcUid, kioskToken);
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setupMode, kioskToken, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Submit scan to backend
