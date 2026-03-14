@@ -300,6 +300,7 @@ function NfcBadgeTab() {
 
   // NFC tap-to-read state
   const [nfcReading, setNfcReading] = useState(false);
+  const [nfcWriteStatus, setNfcWriteStatus] = useState(""); // "writing" | "done" | "error"
   const nfcAbortRef = useRef(null);
 
   // Assign modal state (for reassigning existing badges)
@@ -357,6 +358,7 @@ function NfcBadgeTab() {
   const handleTapToRead = async () => {
     if (!NFC_SUPPORTED) return;
     setNfcReading(true);
+    setNfcWriteStatus("");
     setRegisterError("");
 
     const abortController = new AbortController();
@@ -365,17 +367,40 @@ function NfcBadgeTab() {
     try {
       const reader = new window.NDEFReader();
       await reader.scan({ signal: abortController.signal });
-      reader.addEventListener("reading", ({ serialNumber }) => {
-        if (serialNumber) {
-          setUidInput(serialNumber);
-          abortController.abort(); // stop after first read
+      reader.addEventListener("reading", async ({ serialNumber }) => {
+        if (!serialNumber) return;
+        abortController.abort(); // stop scanning — we have what we need
+        setUidInput(serialNumber);
+
+        // Write kiosk URL to the tag while it is still in range.
+        // This enables Android URL dispatch — when a worker taps the badge
+        // at the kiosk, Android opens the kiosk page with ?nfc=<uid>
+        // instead of relying on Web NFC passive listening.
+        setNfcWriteStatus("writing");
+        try {
+          const kioskUrl = `${window.location.origin}/kiosk?nfc=${serialNumber}`;
+          const writer = new window.NDEFReader();
+          const writeAbort = new AbortController();
+          const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
+          await writer.write(
+            { records: [{ recordType: "url", data: kioskUrl }] },
+            { signal: writeAbort.signal }
+          );
+          clearTimeout(writeTimeout);
+          setNfcWriteStatus("done");
+        } catch (writeErr) {
+          if (writeErr?.name !== "AbortError") {
+            console.warn("[NFC] Write failed:", writeErr.message);
+          }
+          setNfcWriteStatus("error");
+        } finally {
+          setNfcReading(false);
         }
       }, { signal: abortController.signal });
     } catch (err) {
       if (err?.name !== "AbortError") {
         setRegisterError("NFC read failed — try entering the UID manually");
       }
-    } finally {
       setNfcReading(false);
     }
   };
@@ -501,7 +526,19 @@ function NfcBadgeTab() {
 
           {nfcReading && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              Hold an NFC badge to the back of this device…
+              {nfcWriteStatus === "writing"
+                ? "Writing kiosk URL to badge — keep badge in place…"
+                : "Hold an NFC badge to the back of this device…"}
+            </p>
+          )}
+          {!nfcReading && nfcWriteStatus === "done" && (
+            <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              Badge ready — kiosk URL written successfully.
+            </p>
+          )}
+          {!nfcReading && nfcWriteStatus === "error" && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              UID captured but URL write failed — hold the badge closer and tap again, or write manually using NFC Tools.
             </p>
           )}
 
