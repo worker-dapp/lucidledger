@@ -107,14 +107,11 @@ export default function KioskPage() {
           let uid = serialNumber;
           if (!uid && message?.records) {
             for (const record of message.records) {
-              if (record.recordType === "url") {
-                try {
-                  const text = new TextDecoder().decode(record.data);
-                  const url = new URL(text);
-                  const nfcParam = url.searchParams.get("nfc");
-                  if (nfcParam) { uid = nfcParam; break; }
-                } catch { /* ignore malformed URL records */ }
-              }
+              try {
+                const text = new TextDecoder().decode(record.data);
+                const match = text.match(/[?&]nfc=([^&\s]+)/);
+                if (match) { uid = match[1]; break; }
+              } catch { /* ignore undecodable records */ }
             }
           }
           if (!uid) return;
