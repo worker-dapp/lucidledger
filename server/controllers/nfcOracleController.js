@@ -184,6 +184,28 @@ class NfcOracleController {
   }
 
   // ---------------------------------------------------------------------------
+  // DELETE /api/nfc-badges/:id
+  // Hard-delete a badge record. Only the owning employer can delete.
+  // Auth: verifyToken + requireApprovedEmployer
+  // ---------------------------------------------------------------------------
+  static async deleteBadge(req, res) {
+    try {
+      const employer = req.employer;
+      const badge = await NfcBadge.findOne({
+        where: { id: req.params.id, employer_id: employer.id }
+      });
+      if (!badge) {
+        return res.status(404).json({ success: false, message: 'Badge not found' });
+      }
+      await badge.destroy();
+      return res.status(200).json({ success: true, message: 'Badge deleted' });
+    } catch (error) {
+      console.error('deleteBadge error:', error);
+      return res.status(500).json({ success: false, message: 'Error deleting badge', error: error.message });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // POST /api/nfc-scans
   // Kiosk submits an NFC badge scan. Auth: kioskAuth middleware (x-kiosk-token).
   // Badge lookup, presence event, and oracle verification are created in a
