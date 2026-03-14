@@ -382,6 +382,11 @@ function NfcBadgeTab() {
           const writer = new window.NDEFReader();
           const writeAbort = new AbortController();
           const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
+          // URL record MUST be first — Android dispatches based on the first
+          // record's type.  URL-first triggers Android NDEF URL dispatch, which
+          // opens /kiosk?nfc=<uid> in Chrome (whether Chrome is open or not).
+          // NDEFReader is NOT used on the kiosk page (Samsung One UI intercepts
+          // foreground dispatch), so Android URL dispatch is the sole NFC path.
           await writer.write(
             { records: [
               { recordType: "url", data: kioskUrl },
@@ -414,25 +419,29 @@ function NfcBadgeTab() {
   };
 
   // -------------------------------------------------------------------------
-  // TEMPORARY TEST: write plain text record to tag (tests if URL record type
-  // is blocking Web NFC foreground dispatch on Samsung). Remove after testing.
+  // TEMPORARY TEST: write text-only record to tag (no URL record at all).
+  // Use this to verify foreground dispatch works with text-first tags.
+  // Remove after confirming the fix.
   // -------------------------------------------------------------------------
   const [textWriteStatus, setTextWriteStatus] = useState("");
   const handleWriteTextTest = async () => {
     if (!NFC_SUPPORTED || !uidInput) return;
     setTextWriteStatus("writing");
     try {
-      const writer = new window.NDEFReader();
+      const reader = new window.NDEFReader();
       const writeAbort = new AbortController();
-      const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
-      await writer.write(
+      // Start scan first so Chrome has foreground dispatch priority for the write
+      await reader.scan({ signal: writeAbort.signal });
+      const writeTimeout = setTimeout(() => writeAbort.abort(), 6000);
+      await reader.write(
         { records: [{ recordType: "text", data: `nfc:${uidInput}` }] },
         { signal: writeAbort.signal }
       );
       clearTimeout(writeTimeout);
+      writeAbort.abort();
       setTextWriteStatus("done");
     } catch (err) {
-      setTextWriteStatus("error");
+      if (err?.name !== "AbortError") setTextWriteStatus("error");
     }
   };
 
