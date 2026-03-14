@@ -20,6 +20,7 @@ export default function KioskPage() {
 
   const [confirmation, setConfirmation] = useState(null);
   const [scanError, setScanError] = useState(null);
+  const [nfcState, setNfcState] = useState("idle"); // "idle" | "active" | "needs-gesture"
 
   const videoRef = useRef(null);
   const controlsRef = useRef(null); // ZXing scanner controls
@@ -84,25 +85,22 @@ export default function KioskPage() {
   }, [setupMode, kioskToken, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
-  // Passive NDEFReader — handles NFC taps when Chrome is already in foreground.
-  // Web NFC requires a user gesture to start; we trigger it once on first
-  // interaction with the page (click/touch anywhere).
+  // NDEFReader — handles NFC taps when Chrome is in foreground.
+  // Attempts to auto-start immediately. If Chrome requires a user gesture
+  // (SecurityError), falls back to a tap-to-activate prompt.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (setupMode || !kioskToken) return;
     if (!("NDEFReader" in window)) return;
 
-    let reader = null;
-    let abortController = null;
-    let started = false;
+    let abortController = new AbortController();
+    let gestureCleanup = null;
 
     const startNfc = async () => {
-      if (started) return;
-      started = true;
       try {
-        abortController = new AbortController();
-        reader = new window.NDEFReader();
+        const reader = new window.NDEFReader();
         await reader.scan({ signal: abortController.signal });
+        setNfcState("active");
         reader.addEventListener("reading", ({ serialNumber }) => {
           if (!serialNumber) return;
           const now = Date.now();
@@ -111,19 +109,32 @@ export default function KioskPage() {
           submitNfcBadge(serialNumber, kioskToken);
         }, { signal: abortController.signal });
       } catch (err) {
-        if (err?.name !== "AbortError") {
-          console.warn("[NFC] Passive scan failed:", err.message);
+        if (err?.name === "AbortError") return;
+        if (err?.name === "SecurityError") {
+          // Gesture required — show tap-to-activate prompt
+          setNfcState("needs-gesture");
+          const onGesture = () => {
+            abortController = new AbortController();
+            startNfc();
+          };
+          document.addEventListener("click", onGesture, { once: true });
+          document.addEventListener("touchstart", onGesture, { once: true });
+          gestureCleanup = () => {
+            document.removeEventListener("click", onGesture);
+            document.removeEventListener("touchstart", onGesture);
+          };
+        } else {
+          console.warn("[NFC] scan failed:", err.name, err.message);
         }
       }
     };
 
-    document.addEventListener("click", startNfc, { once: true });
-    document.addEventListener("touchstart", startNfc, { once: true });
+    startNfc();
 
     return () => {
-      document.removeEventListener("click", startNfc);
-      document.removeEventListener("touchstart", startNfc);
-      abortController?.abort();
+      abortController.abort();
+      gestureCleanup?.();
+      setNfcState("idle");
     };
   }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -318,9 +329,16 @@ export default function KioskPage() {
         {!confirmation && !scanError && (
           <div className="relative z-10 flex flex-col items-center gap-4">
             <div className="w-64 h-64 border-4 border-white/70 rounded-2xl" />
-            <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
-              Hold QR code to camera · or tap NFC badge
-            </p>
+            {nfcState === "needs-gesture" ? (
+              <p className="text-yellow-300 text-sm font-semibold bg-black/60 px-4 py-2 rounded-full animate-pulse">
+                Tap screen to activate NFC, then tap badge
+              </p>
+            ) : (
+              <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
+                Hold QR code to camera · or tap NFC badge
+                {nfcState === "active" && <span className="ml-2 text-green-400">● NFC</span>}
+              </p>
+            )}
           </div>
         )}
 

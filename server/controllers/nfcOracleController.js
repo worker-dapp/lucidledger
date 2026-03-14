@@ -256,19 +256,22 @@ class NfcOracleController {
 
         const employee_id = badge.employee_id;
 
-        // Find the most recent active contract for this employee under this employer
+        // Find the most recent active NFC contract for this employee under this employer.
+        // Filter by selected_oracles to avoid assigning events to a QR/manual contract
+        // when the employee has multiple active contracts.
         const contract = await DeployedContract.findOne({
           where: {
             employer_id: kiosk.employer_id,
             employee_id,
-            status: 'active'
+            status: 'active',
+            selected_oracles: { [Op.like]: '%nfc%' }
           },
           order: [['created_at', 'DESC']],
           transaction: t
         });
 
         if (!contract) {
-          throw Object.assign(new Error('No active contract found for this employee'), { status: 400, code: 'CONTRACT_INACTIVE' });
+          throw Object.assign(new Error('No active NFC contract found for this employee'), { status: 400, code: 'CONTRACT_INACTIVE' });
         }
 
         // Determine event type: alternate clock_in / clock_out
