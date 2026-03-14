@@ -626,6 +626,7 @@ function NfcBadgeTab() {
         ) : badges.length === 0 ? (
           <p className="text-sm text-gray-400 text-center p-8">No NFC badges registered yet.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-xs">
             <thead className="bg-gray-50 text-gray-500">
               <tr>
@@ -725,6 +726,7 @@ function NfcBadgeTab() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
