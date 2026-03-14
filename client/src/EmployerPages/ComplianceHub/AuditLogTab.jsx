@@ -13,6 +13,8 @@ const ACTION_COLORS = {
   dispute_resolved:         "bg-teal-100 text-teal-700",
   qr_clock_in:              "bg-sky-100 text-sky-700",
   qr_clock_out:             "bg-slate-100 text-slate-700",
+  nfc_clock_in:             "bg-indigo-100 text-indigo-700",
+  nfc_clock_out:            "bg-gray-100 text-gray-600",
 };
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";
@@ -102,6 +104,8 @@ const AuditLogTab = () => {
           <option value="dispute_resolved">Dispute Resolved</option>
           <option value="qr_clock_in">QR Clock In</option>
           <option value="qr_clock_out">QR Clock Out</option>
+          <option value="nfc_clock_in">NFC Clock In</option>
+          <option value="nfc_clock_out">NFC Clock Out</option>
         </select>
       </div>
 

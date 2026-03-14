@@ -72,6 +72,8 @@ export default function KioskPage() {
   // -------------------------------------------------------------------------
   // NFC URL dispatch — Android opens /kiosk?nfc=<uid> when worker taps badge.
   // The kiosk URL is written to the tag during badge registration (KioskManagement).
+  // This path fires when Chrome is closed; the passive NDEFReader below handles
+  // the foreground case (Chrome already open).
   // -------------------------------------------------------------------------
   useEffect(() => {
     const nfcUid = searchParams.get("nfc");
@@ -80,6 +82,50 @@ export default function KioskPage() {
     window.history.replaceState({}, "", window.location.pathname);
     submitNfcBadge(nfcUid, kioskToken);
   }, [setupMode, kioskToken, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // -------------------------------------------------------------------------
+  // Passive NDEFReader — handles NFC taps when Chrome is already in foreground.
+  // Web NFC requires a user gesture to start; we trigger it once on first
+  // interaction with the page (click/touch anywhere).
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (setupMode || !kioskToken) return;
+    if (!("NDEFReader" in window)) return;
+
+    let reader = null;
+    let abortController = null;
+    let started = false;
+
+    const startNfc = async () => {
+      if (started) return;
+      started = true;
+      try {
+        abortController = new AbortController();
+        reader = new window.NDEFReader();
+        await reader.scan({ signal: abortController.signal });
+        reader.addEventListener("reading", ({ serialNumber }) => {
+          if (!serialNumber) return;
+          const now = Date.now();
+          if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
+          lastScanAt.current = now;
+          submitNfcBadge(serialNumber, kioskToken);
+        }, { signal: abortController.signal });
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.warn("[NFC] Passive scan failed:", err.message);
+        }
+      }
+    };
+
+    document.addEventListener("click", startNfc, { once: true });
+    document.addEventListener("touchstart", startNfc, { once: true });
+
+    return () => {
+      document.removeEventListener("click", startNfc);
+      document.removeEventListener("touchstart", startNfc);
+      abortController?.abort();
+    };
+  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Submit scan to backend
