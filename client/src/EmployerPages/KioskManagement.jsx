@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Monitor, PlusCircle, Loader2, Copy, Check, ExternalLink, RefreshCw, CheckCircle, CreditCard, Wifi, UserCheck, UserX, AlertTriangle, Trash2 } from "lucide-react";
+import { Monitor, PlusCircle, Loader2, Copy, Check, ExternalLink, RefreshCw, CheckCircle, CreditCard, Wifi, UserCheck, UserX, Trash2 } from "lucide-react";
 import apiService from "../services/api";
 
 // Web NFC feature detection (Android Chrome 89+)
@@ -303,6 +303,9 @@ function NfcBadgeTab() {
   const [nfcWriteStatus, setNfcWriteStatus] = useState(""); // "writing" | "done" | "error"
   const nfcAbortRef = useRef(null);
 
+  // Normalize UID to uppercase hex without separators (matches Capacitor EXTRA_ID format)
+  const normalizeUid = (raw) => raw.replace(/[:\-\s]/g, "").toUpperCase();
+
   // Assign modal state (for reassigning existing badges)
   const [assignBadge, setAssignBadge] = useState(null);
   const [assignEmployeeId, setAssignEmployeeId] = useState("");
@@ -370,28 +373,23 @@ function NfcBadgeTab() {
       reader.addEventListener("reading", async ({ serialNumber }) => {
         if (!serialNumber) return;
         abortController.abort(); // stop scanning — we have what we need
-        setUidInput(serialNumber);
 
-        // Write kiosk URL to the tag while it is still in range.
-        // This enables Android URL dispatch — when a worker taps the badge
-        // at the kiosk, Android opens the kiosk page with ?nfc=<uid>
-        // instead of relying on Web NFC passive listening.
+        // Normalize to uppercase hex without colons — matches the format
+        // produced by Android's NfcAdapter.EXTRA_ID in the Capacitor kiosk app.
+        const uid = normalizeUid(serialNumber);
+        setUidInput(uid);
+
+        // Write a plain text record to the tag while it is still in range.
+        // Text-only tags are not intercepted by Samsung's URL dispatch system,
+        // so Android's enableForegroundDispatch in the Capacitor app can
+        // receive them directly.
         setNfcWriteStatus("writing");
         try {
-          const kioskUrl = `${window.location.origin}/kiosk?nfc=${serialNumber}`;
           const writer = new window.NDEFReader();
           const writeAbort = new AbortController();
           const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
-          // URL record MUST be first — Android dispatches based on the first
-          // record's type.  URL-first triggers Android NDEF URL dispatch, which
-          // opens /kiosk?nfc=<uid> in Chrome (whether Chrome is open or not).
-          // NDEFReader is NOT used on the kiosk page (Samsung One UI intercepts
-          // foreground dispatch), so Android URL dispatch is the sole NFC path.
           await writer.write(
-            { records: [
-              { recordType: "url", data: kioskUrl },
-              { recordType: "text", data: `nfc:${serialNumber}` }
-            ]},
+            { records: [{ recordType: "text", data: `nfc:${uid}` }] },
             { signal: writeAbort.signal }
           );
           clearTimeout(writeTimeout);
@@ -416,33 +414,6 @@ function NfcBadgeTab() {
   const cancelTapToRead = () => {
     nfcAbortRef.current?.abort();
     setNfcReading(false);
-  };
-
-  // -------------------------------------------------------------------------
-  // TEMPORARY TEST: write text-only record to tag (no URL record at all).
-  // Use this to verify foreground dispatch works with text-first tags.
-  // Remove after confirming the fix.
-  // -------------------------------------------------------------------------
-  const [textWriteStatus, setTextWriteStatus] = useState("");
-  const handleWriteTextTest = async () => {
-    if (!NFC_SUPPORTED || !uidInput) return;
-    setTextWriteStatus("writing");
-    try {
-      const reader = new window.NDEFReader();
-      const writeAbort = new AbortController();
-      // Start scan first so Chrome has foreground dispatch priority for the write
-      await reader.scan({ signal: writeAbort.signal });
-      const writeTimeout = setTimeout(() => writeAbort.abort(), 6000);
-      await reader.write(
-        { records: [{ recordType: "text", data: `nfc:${uidInput}` }] },
-        { signal: writeAbort.signal }
-      );
-      clearTimeout(writeTimeout);
-      writeAbort.abort();
-      setTextWriteStatus("done");
-    } catch (err) {
-      if (err?.name !== "AbortError") setTextWriteStatus("error");
-    }
   };
 
   // -------------------------------------------------------------------------
@@ -547,7 +518,7 @@ function NfcBadgeTab() {
               type="text"
               value={uidInput}
               onChange={(e) => setUidInput(e.target.value)}
-              placeholder="Badge UID (e.g. 04:A3:B2:12:34:56:78)"
+              placeholder="Badge UID (e.g. 04A3B2123456)"
               className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0D3B66]"
             />
             {NFC_SUPPORTED && (
@@ -574,28 +545,14 @@ function NfcBadgeTab() {
           {nfcReading && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               {nfcWriteStatus === "writing"
-                ? "Writing kiosk URL to badge — keep badge in place…"
+                ? "Writing to badge — keep badge in place…"
                 : "Hold an NFC badge to the back of this device…"}
             </p>
           )}
           {!nfcReading && nfcWriteStatus === "done" && (
             <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-              Badge ready — kiosk URL written successfully.
+              Badge ready — UID captured and data written successfully.
             </p>
-          )}
-          {/* TEMP TEST: write plain text record to diagnose foreground NFC */}
-          {NFC_SUPPORTED && uidInput && !nfcReading && (
-            <div className="flex items-center gap-2 mt-1">
-              <button
-                onClick={handleWriteTextTest}
-                className="text-xs px-3 py-1.5 rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50 transition-colors"
-              >
-                [TEST] Write text record to badge
-              </button>
-              {textWriteStatus === "writing" && <span className="text-xs text-gray-500">Writing — keep badge in place…</span>}
-              {textWriteStatus === "done" && <span className="text-xs text-green-600">Text record written. Now test foreground tap on kiosk.</span>}
-              {textWriteStatus === "error" && <span className="text-xs text-red-600">Write failed.</span>}
-            </div>
           )}
 
           {!nfcReading && nfcWriteStatus === "error" && (
@@ -707,16 +664,6 @@ function NfcBadgeTab() {
                             >
                               <UserX className="h-3.5 w-3.5" />
                               Suspend
-                            </button>
-                          )}
-                          {badge.status === "active" && (
-                            <button
-                              onClick={() => handleSuspend(badge, "lost")}
-                              className="flex items-center gap-1 text-red-500 hover:text-red-700 font-medium"
-                              title="Mark as lost or stolen"
-                            >
-                              <AlertTriangle className="h-3.5 w-3.5" />
-                              Lost
                             </button>
                           )}
                           <button

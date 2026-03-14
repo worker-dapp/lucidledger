@@ -1,0 +1,31 @@
+{
+  "name": "lucidledger-kiosk-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "cap:run": "npm run build && npx cap sync android && npx cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capgo/capacitor-nfc": "^7.2.0",
+    "@tailwindcss/vite": "^4.1.12",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "tailwindcss": "^4.1.12",
+    "vite": "^6.3.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "typescript": "^5.9.3"
+  }
+}
