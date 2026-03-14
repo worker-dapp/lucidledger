@@ -117,8 +117,12 @@ export default function KioskPage() {
             for (const record of message.records) {
               try {
                 const text = new TextDecoder().decode(record.data);
-                const match = text.match(/[?&]nfc=([^&\s]+)/);
-                if (match) { uid = match[1]; break; }
+                // URL record: extract from ?nfc= param
+                const urlMatch = text.match(/[?&]nfc=([^&\s]+)/);
+                if (urlMatch) { uid = urlMatch[1]; break; }
+                // Text record: extract from nfc:<uid> format (test path)
+                const textMatch = text.match(/^nfc:(.+)/);
+                if (textMatch) { uid = textMatch[1]; break; }
               } catch { /* ignore undecodable records */ }
             }
           }

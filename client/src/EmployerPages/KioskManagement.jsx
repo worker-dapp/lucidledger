@@ -411,6 +411,29 @@ function NfcBadgeTab() {
   };
 
   // -------------------------------------------------------------------------
+  // TEMPORARY TEST: write plain text record to tag (tests if URL record type
+  // is blocking Web NFC foreground dispatch on Samsung). Remove after testing.
+  // -------------------------------------------------------------------------
+  const [textWriteStatus, setTextWriteStatus] = useState("");
+  const handleWriteTextTest = async () => {
+    if (!NFC_SUPPORTED || !uidInput) return;
+    setTextWriteStatus("writing");
+    try {
+      const writer = new window.NDEFReader();
+      const writeAbort = new AbortController();
+      const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
+      await writer.write(
+        { records: [{ recordType: "text", data: `nfc:${uidInput}` }] },
+        { signal: writeAbort.signal }
+      );
+      clearTimeout(writeTimeout);
+      setTextWriteStatus("done");
+    } catch (err) {
+      setTextWriteStatus("error");
+    }
+  };
+
+  // -------------------------------------------------------------------------
   // Register badge (+ optional immediate assignment)
   // -------------------------------------------------------------------------
   const handleRegister = async () => {
@@ -548,6 +571,21 @@ function NfcBadgeTab() {
               Badge ready — kiosk URL written successfully.
             </p>
           )}
+          {/* TEMP TEST: write plain text record to diagnose foreground NFC */}
+          {NFC_SUPPORTED && uidInput && !nfcReading && (
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={handleWriteTextTest}
+                className="text-xs px-3 py-1.5 rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50 transition-colors"
+              >
+                [TEST] Write text record to badge
+              </button>
+              {textWriteStatus === "writing" && <span className="text-xs text-gray-500">Writing — keep badge in place…</span>}
+              {textWriteStatus === "done" && <span className="text-xs text-green-600">Text record written. Now test foreground tap on kiosk.</span>}
+              {textWriteStatus === "error" && <span className="text-xs text-red-600">Write failed.</span>}
+            </div>
+          )}
+
           {!nfcReading && nfcWriteStatus === "error" && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               UID captured but URL write failed — hold the badge closer and tap again, or write manually using NFC Tools.
