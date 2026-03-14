@@ -302,6 +302,7 @@ function NfcBadgeTab() {
   const [nfcReading, setNfcReading] = useState(false);
   const [nfcWriteStatus, setNfcWriteStatus] = useState(""); // "writing" | "done" | "error"
   const [writingBadgeId, setWritingBadgeId] = useState(null); // badge id being written
+  const [writeUrlResult, setWriteUrlResult] = useState({}); // badgeId → "done"|"error"
   const nfcAbortRef = useRef(null);
 
   // Assign modal state (for reassigning existing badges)
@@ -439,6 +440,8 @@ function NfcBadgeTab() {
   const handleWriteUrl = async (badge) => {
     if (!NFC_SUPPORTED) return;
     setWritingBadgeId(badge.id);
+    setWriteUrlResult(prev => ({ ...prev, [badge.id]: null }));
+    let success = false;
     try {
       const kioskUrl = `${window.location.origin}/kiosk?nfc=${badge.badge_uid}`;
       const writer = new window.NDEFReader();
@@ -449,12 +452,13 @@ function NfcBadgeTab() {
         { signal: writeAbort.signal }
       );
       clearTimeout(writeTimeout);
+      success = true;
     } catch (err) {
-      if (err?.name !== "AbortError") {
-        console.warn("[NFC] Write failed:", err.message);
-      }
+      console.warn("[NFC] Write failed:", err.message);
     } finally {
       setWritingBadgeId(null);
+      setWriteUrlResult(prev => ({ ...prev, [badge.id]: success ? "done" : "error" }));
+      setTimeout(() => setWriteUrlResult(prev => ({ ...prev, [badge.id]: null })), 5000);
     }
   };
 
@@ -669,6 +673,15 @@ function NfcBadgeTab() {
                               <span className="flex items-center gap-1 text-amber-600 text-xs">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                 Hold badge…
+                              </span>
+                            ) : writeUrlResult[badge.id] === "done" ? (
+                              <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
+                                <CheckCircle className="h-3.5 w-3.5" />
+                                URL written
+                              </span>
+                            ) : writeUrlResult[badge.id] === "error" ? (
+                              <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
+                                Write failed — try again
                               </span>
                             ) : (
                               <button
