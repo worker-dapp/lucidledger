@@ -163,6 +163,8 @@ jobs:
         ORACLE_BACKEND_ADDRESS=${{ vars.ORACLE_BACKEND_ADDRESS }}
         ORACLE_PRIVATE_KEY=${{ secrets.ORACLE_PRIVATE_KEY }}
         BASE_RPC_URL=${{ vars.BASE_RPC_URL }}
+        # NFC Oracle
+        NFC_ORACLE_ADDRESS=${{ vars.NFC_ORACLE_ADDRESS }}
         SERVER_ENV_EOF
 
         # Remove leading whitespace from heredoc indentation
