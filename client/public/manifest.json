@@ -1,0 +1,25 @@
+{
+  "name": "Lucid Ledger Kiosk",
+  "short_name": "LL Kiosk",
+  "description": "Clock in/out kiosk for Lucid Ledger",
+  "start_url": "/kiosk",
+  "scope": "/kiosk",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0D3B66",
+  "background_color": "#0D3B66",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

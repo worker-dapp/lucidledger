@@ -36,6 +36,23 @@ export default function KioskPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // PWA: inject manifest + register service worker so the kiosk page can
+  // be installed to the home screen as a standalone app.  This is kiosk-only
+  // — the manifest is NOT in index.html, so the main app (Privy auth,
+  // employer dashboard, etc.) is completely unaffected.
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "manifest";
+    link.href = "/manifest.json";
+    document.head.appendChild(link);
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/kiosk-sw.js").catch(() => {});
+    }
+
+    return () => { document.head.removeChild(link); };
+  }, []);
+
   // -------------------------------------------------------------------------
   // ZXing scanner setup / teardown
   // -------------------------------------------------------------------------
