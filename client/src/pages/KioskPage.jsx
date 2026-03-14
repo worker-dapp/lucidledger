@@ -101,12 +101,27 @@ export default function KioskPage() {
         const reader = new window.NDEFReader();
         await reader.scan({ signal: abortController.signal });
         setNfcState("active");
-        reader.addEventListener("reading", ({ serialNumber }) => {
-          if (!serialNumber) return;
+        reader.addEventListener("reading", ({ serialNumber, message }) => {
+          // Try serialNumber first (hardware UID); fall back to UID
+          // embedded in the NDEF URL record written during badge registration
+          let uid = serialNumber;
+          if (!uid && message?.records) {
+            for (const record of message.records) {
+              if (record.recordType === "url") {
+                try {
+                  const text = new TextDecoder().decode(record.data);
+                  const url = new URL(text);
+                  const nfcParam = url.searchParams.get("nfc");
+                  if (nfcParam) { uid = nfcParam; break; }
+                } catch { /* ignore malformed URL records */ }
+              }
+            }
+          }
+          if (!uid) return;
           const now = Date.now();
           if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
           lastScanAt.current = now;
-          submitNfcBadge(serialNumber, kioskToken);
+          submitNfcBadge(uid, kioskToken);
         }, { signal: abortController.signal });
       } catch (err) {
         if (err?.name === "AbortError") return;
