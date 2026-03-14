@@ -21,6 +21,7 @@ export default function KioskPage() {
   const [confirmation, setConfirmation] = useState(null);
   const [scanError, setScanError] = useState(null);
   const [nfcState, setNfcState] = useState("idle"); // "idle" | "active" | "needs-gesture"
+  const [nfcDebug, setNfcDebug] = useState(null); // temporary debug info
 
   const videoRef = useRef(null);
   const controlsRef = useRef(null); // ZXing scanner controls
@@ -102,6 +103,13 @@ export default function KioskPage() {
         await reader.scan({ signal: abortController.signal });
         setNfcState("active");
         reader.addEventListener("reading", ({ serialNumber, message }) => {
+          // Capture debug info so we can see what Chrome delivers on screen
+          const debugRecords = (message?.records || []).map(r => {
+            try { return `[${r.recordType}] ${new TextDecoder().decode(r.data)}`; }
+            catch { return `[${r.recordType}] (undecodable)`; }
+          });
+          setNfcDebug(`sn=${serialNumber || "(empty)"} records=${JSON.stringify(debugRecords)}`);
+
           // Try serialNumber first (hardware UID); fall back to UID
           // embedded in the NDEF URL record written during badge registration
           let uid = serialNumber;
@@ -351,6 +359,13 @@ export default function KioskPage() {
                 {nfcState === "active" && <span className="ml-2 text-green-400">● NFC</span>}
               </p>
             )}
+          </div>
+        )}
+
+        {/* Temporary NFC debug panel */}
+        {nfcDebug && (
+          <div className="absolute bottom-4 left-4 right-4 z-20 bg-black/80 text-green-300 text-xs font-mono p-3 rounded-xl break-all">
+            {nfcDebug}
           </div>
         )}
 
