@@ -557,6 +557,10 @@ class ApiService {
     });
   }
 
+  async deleteNfcBadge(badgeId) {
+    return this.request(`/nfc-badges/${badgeId}`, { method: 'DELETE' });
+  }
+
   // Health check
   async healthCheck() {
     const baseURL = import.meta.env.VITE_API_BASE_URL?.replace('/api', '');

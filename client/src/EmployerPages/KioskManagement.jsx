@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Monitor, PlusCircle, Loader2, Copy, Check, ExternalLink, RefreshCw, CheckCircle, CreditCard, Wifi, UserCheck, UserX, AlertTriangle } from "lucide-react";
+import { Monitor, PlusCircle, Loader2, Copy, Check, ExternalLink, RefreshCw, CheckCircle, CreditCard, Wifi, UserCheck, UserX, AlertTriangle, Trash2 } from "lucide-react";
 import apiService from "../services/api";
 
 // Web NFC feature detection (Android Chrome 89+)
@@ -498,6 +498,16 @@ function NfcBadgeTab() {
     setActionLoading(prev => ({ ...prev, [badge.id]: false }));
   };
 
+  const handleDeleteBadge = async (badge) => {
+    if (!window.confirm(`Delete badge ${badge.badge_uid}? This cannot be undone.`)) return;
+    setActionLoading(prev => ({ ...prev, [badge.id]: true }));
+    try {
+      await apiService.deleteNfcBadge(badge.id);
+      setBadges(prev => prev.filter(b => b.id !== badge.id));
+    } catch { /* silently fail */ }
+    setActionLoading(prev => ({ ...prev, [badge.id]: false }));
+  };
+
   const formatDate = (ts) => {
     if (!ts) return "—";
     return new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -699,6 +709,14 @@ function NfcBadgeTab() {
                               Lost
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteBadge(badge)}
+                            className="flex items-center gap-1 text-red-400 hover:text-red-600 font-medium"
+                            title="Permanently delete this badge"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
                         </>
                       )}
                     </div>

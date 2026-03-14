@@ -8,6 +8,7 @@ router.post('/nfc-badges', verifyToken, requireApprovedEmployer, NfcOracleContro
 router.get('/nfc-badges', verifyToken, requireApprovedEmployer, NfcOracleController.listBadges);
 router.patch('/nfc-badges/:id/assign', verifyToken, requireApprovedEmployer, NfcOracleController.assignBadge);
 router.patch('/nfc-badges/:id/suspend', verifyToken, requireApprovedEmployer, NfcOracleController.suspendBadge);
+router.delete('/nfc-badges/:id', verifyToken, requireApprovedEmployer, NfcOracleController.deleteBadge);
 
 // Kiosk: submit an NFC badge scan (kiosk device token auth, not Privy JWT)
 router.post('/nfc-scans', kioskAuth, NfcOracleController.submitNfcScan);
