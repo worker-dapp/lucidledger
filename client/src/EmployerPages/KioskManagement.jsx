@@ -383,7 +383,10 @@ function NfcBadgeTab() {
           const writeAbort = new AbortController();
           const writeTimeout = setTimeout(() => writeAbort.abort(), 4000);
           await writer.write(
-            { records: [{ recordType: "url", data: kioskUrl }] },
+            { records: [
+              { recordType: "url", data: kioskUrl },
+              { recordType: "text", data: `nfc:${serialNumber}` }
+            ]},
             { signal: writeAbort.signal }
           );
           clearTimeout(writeTimeout);
