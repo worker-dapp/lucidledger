@@ -60,7 +60,16 @@ export default function KioskPage() {
     document.head.appendChild(link);
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/kiosk-sw.js").catch(() => {});
+      // Clean up any stale registration that was incorrectly scoped to "/" — that
+      // would intercept all site navigation and break other pages (especially on iOS).
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const reg of registrations) {
+          if (reg.scope !== `${location.origin}/kiosk/`) {
+            reg.unregister();
+          }
+        }
+      });
+      navigator.serviceWorker.register("/kiosk-sw.js", { scope: "/kiosk/" }).catch(() => {});
     }
 
     return () => { document.head.removeChild(link); };
