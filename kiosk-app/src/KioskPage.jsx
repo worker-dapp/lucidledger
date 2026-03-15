@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserQRCodeReader } from "@zxing/browser";
 import { Capacitor } from "@capacitor/core";
-import { CapacitorNfc } from "@capgo/capacitor-nfc";
 
 // Production API base URL — override via .env.local for local dev.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
+const KIOSK_INPUT_MODE = "nfc";
+const DIAGNOSTIC_BUILD_ID = "nfc-reader-only-v4";
 
 // ---------------------------------------------------------------------------
 // Kiosk page — Capacitor native app version.
 //
-// NFC is handled via @capgo/capacitor-nfc which uses Android's
-// enableReaderMode() at the Activity level.  This bypasses both Samsung One
-// UI's browser interception layer AND the OS URL-intent dispatch that was
-// stealing our tags in the web version.  The NDEFReader Web NFC API is NOT used.
+// NFC is handled by the custom Android MainActivity using native
+// NfcAdapter.enableReaderMode(). The native layer emits CustomEvents into the
+// WebView, and React consumes those events as a normal kiosk input source.
 //
 // QR scanning is unchanged from the web version (ZXing BrowserQRCodeReader).
 //
@@ -40,50 +39,85 @@ export default function KioskPage() {
   const lastScanAt = useRef(0);
   const processingRef = useRef(false);
 
-  // -------------------------------------------------------------------------
-  // ZXing QR scanner — unchanged from web version
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    if (setupMode || !videoRef.current) return;
-
-    const reader = new BrowserQRCodeReader();
-
-    reader.decodeFromConstraints(
-      { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-      videoRef.current,
-      (result, error, controls) => {
-        controlsRef.current = controls;
-        if (!result) return;
-
-        const token = result.getText();
-        const now = Date.now();
-        if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
-
-        lastScanAt.current = now;
-        submitToken(token, kioskToken);
-      }
-    ).catch((err) => {
-      if (err?.name !== "AbortError") {
-        setScanError("Camera access denied. Please allow camera access and reload.");
-      }
-    });
-
-    return () => {
+  const clearSession = ({ setupMessage = "", preserveTokenInput = false } = {}) => {
+    try {
       controlsRef.current?.stop();
-    };
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    } catch {
+      // ignore camera teardown issues during reset
+    }
+    controlsRef.current = null;
+    processingRef.current = false;
+    lastScanAt.current = 0;
+
+    localStorage.removeItem("kioskToken");
+    setKioskToken("");
+    setSetupMode(true);
+    setTokenInput(preserveTokenInput ? tokenInput : "");
+    setSetupError(setupMessage);
+    setConfirmation(null);
+    setScanError(null);
+    setNfcStatus("idle");
+    setDebugLog(setupMessage ? [`${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} ${setupMessage}`] : []);
+  };
+
+  const handleApiFailure = (res, data, fallbackMessage) => {
+    const message = data?.message || fallbackMessage;
+    const code = data?.code ? ` (${data.code})` : "";
+    addDebug(`api failure: ${res?.status || "unknown"} ${message}${code}`);
+
+    if (res?.status === 401) {
+      clearSession({
+        setupMessage: "Kiosk token missing or invalid. Enter a valid device token.",
+        preserveTokenInput: false,
+      });
+      return;
+    }
+
+    setScanError(message);
+    setTimeout(() => setScanError(null), 3000);
+  };
+
+  const postKioskJson = async (path, kiosk, payload) => {
+    const url = `${API_BASE_URL}${path}`;
+    addDebug(`POST ${url}`);
+
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-kiosk-token": kiosk },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      const detail = `${error?.name || "Error"}: ${error?.message || "request failed"}`;
+      addDebug(`fetch error: ${detail}`);
+      setScanError(`Network error — ${detail}`);
+      setTimeout(() => setScanError(null), 5000);
+      return null;
+    }
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (error) {
+      addDebug(`response parse failed: ${error?.message || "invalid JSON"}`);
+      data = null;
+    }
+
+    addDebug(`response ${res.status}${data?.code ? ` ${data.code}` : ""}`);
+    return { res, data };
+  };
 
   // -------------------------------------------------------------------------
-  // NFC path A — NDEF_DISCOVERED intent via MainActivity.java (primary path).
-  //
-  // Samsung routes URL-type NFC tags through Android's intent dispatch even
-  // when enableReaderMode() is registered.  We register an NDEF_DISCOVERED
-  // intent filter for https://lucidledger.co/kiosk in AndroidManifest.xml so
-  // our app receives the intent instead of Chrome.  MainActivity extracts the
-  // ?nfc= param and fires a 'kiosk-nfc' CustomEvent on window.
+  // Native NFC bridge — MainActivity dispatches kiosk-nfc / kiosk-nfc-status
+  // CustomEvents into the WebView from Android reader mode.
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (setupMode || !kioskToken) return;
+    if (!Capacitor.isNativePlatform()) {
+      setNfcStatus("unavailable");
+      return;
+    }
 
     const handler = (e) => {
       const uid = e.detail?.uid;
@@ -95,75 +129,21 @@ export default function KioskPage() {
       submitNfcBadge(uid, kioskToken);
     };
 
+    const statusHandler = (e) => {
+      const status = e.detail?.status || "idle";
+      setNfcStatus(status);
+      addDebug(`nfc status: ${status}`);
+    };
+
     window.addEventListener("kiosk-nfc", handler);
-    return () => window.removeEventListener("kiosk-nfc", handler);
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    window.addEventListener("kiosk-nfc-status", statusHandler);
 
-  // -------------------------------------------------------------------------
-  // NFC path B — Capacitor enableReaderMode() (fallback for non-Samsung).
-  //
-  // event.tag.id is number[] (e.g. [0x04, 0xAB, 0xCD, ...]) — converted to
-  // uppercase hex string without separators to match the format stored during
-  // badge registration in KioskManagement (which strips ":" from serialNumber).
-  //
-  // Falls back to parsing the text record "nfc:<uid>" written during registration
-  // as a secondary UID source, in case a device returns an empty id array.
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    if (setupMode || !kioskToken) return;
-    if (!Capacitor.isNativePlatform()) {
-      // Running in browser (dev/preview) — NFC unavailable, QR-only mode.
-      setNfcStatus("unavailable");
-      return;
-    }
-
-    let listenerHandle = null;
-
-    (async () => {
-      try {
-        listenerHandle = await CapacitorNfc.addListener("nfcEvent", ({ tag }) => {
-          addDebug(`nfcEvent fired! type=${tag?.type ?? "?"} id=${JSON.stringify(tag?.id)}`);
-          const now = Date.now();
-          if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
-
-          // Primary: hardware UID from tag.id (number array → hex string)
-          let uid = (tag.id || [])
-            .map((b) => b.toString(16).padStart(2, "0"))
-            .join("")
-            .toUpperCase();
-
-          // Secondary: text record "nfc:<uid>" written during badge registration.
-          // Payload format: [statusByte, ...langCode, ...textBytes]
-          // where statusByte bits 5-0 = language code length.
-          if (!uid && tag.ndefMessage) {
-            for (const rec of tag.ndefMessage) {
-              if (rec.tnf === 1 && rec.type?.length === 1 && rec.type[0] === 0x54 && rec.payload) {
-                try {
-                  const langLen = rec.payload[0] & 0x3f;
-                  const text = new TextDecoder().decode(new Uint8Array(rec.payload.slice(1 + langLen)));
-                  if (text.startsWith("nfc:")) { uid = text.slice(4); break; }
-                } catch { /* ignore */ }
-              }
-            }
-          }
-
-          if (!uid) return;
-          lastScanAt.current = now;
-          submitNfcBadge(uid, kioskToken);
-        });
-
-        await CapacitorNfc.startScanning();
-        setNfcStatus("listening");
-        addDebug("startScanning() resolved OK");
-      } catch (err) {
-        console.error("[Kiosk] Capacitor NFC failed:", err);
-        setNfcStatus("unavailable");
-      }
-    })();
+    setNfcStatus("idle");
+    addDebug("waiting for native NFC reader");
 
     return () => {
-      listenerHandle?.remove();
-      CapacitorNfc.stopScanning().catch(() => {});
+      window.removeEventListener("kiosk-nfc", handler);
+      window.removeEventListener("kiosk-nfc-status", statusHandler);
     };
   }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -178,29 +158,21 @@ export default function KioskPage() {
     const gps = await captureGps();
 
     try {
-      const res = await fetch(`${API_BASE_URL}/presence-events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-kiosk-token": kiosk },
-        body: JSON.stringify({
-          token,
-          client_timestamp: new Date().toISOString(),
-          nonce: crypto.randomUUID(),
-          ...gps,
-        }),
+      const result = await postKioskJson("/presence-events", kiosk, {
+        token,
+        client_timestamp: new Date().toISOString(),
+        nonce: crypto.randomUUID(),
+        ...gps,
       });
-
-      const data = await res.json();
+      if (!result) return;
+      const { res, data } = result;
 
       if (res.ok && data.success) {
         setConfirmation(data.data);
         setTimeout(() => setConfirmation(null), 3000);
       } else {
-        setScanError(data.message || "Scan failed");
-        setTimeout(() => setScanError(null), 3000);
+        handleApiFailure(res, data, "Scan failed");
       }
-    } catch {
-      setScanError("Network error — please check connection");
-      setTimeout(() => setScanError(null), 3000);
     } finally {
       processingRef.current = false;
     }
@@ -217,29 +189,21 @@ export default function KioskPage() {
     const gps = await captureGps();
 
     try {
-      const res = await fetch(`${API_BASE_URL}/nfc-scans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-kiosk-token": kiosk },
-        body: JSON.stringify({
-          badge_uid: badgeUid,
-          client_timestamp: new Date().toISOString(),
-          nonce: crypto.randomUUID(),
-          ...gps,
-        }),
+      const result = await postKioskJson("/nfc-scans", kiosk, {
+        badge_uid: badgeUid,
+        client_timestamp: new Date().toISOString(),
+        nonce: crypto.randomUUID(),
+        ...gps,
       });
-
-      const data = await res.json();
+      if (!result) return;
+      const { res, data } = result;
 
       if (res.ok && data.success) {
         setConfirmation(data.data);
         setTimeout(() => setConfirmation(null), 3000);
       } else {
-        setScanError(data.message || "Scan failed");
-        setTimeout(() => setScanError(null), 3000);
+        handleApiFailure(res, data, "Scan failed");
       }
-    } catch {
-      setScanError("Network error — please check connection");
-      setTimeout(() => setScanError(null), 3000);
     } finally {
       processingRef.current = false;
     }
@@ -272,18 +236,24 @@ export default function KioskPage() {
     if (!t) { setSetupError("Token cannot be empty"); return; }
     localStorage.setItem("kioskToken", t);
     setKioskToken(t);
+    setTokenInput(t);
     setSetupMode(false);
     setSetupError("");
+    setConfirmation(null);
+    setScanError(null);
+    setDebugLog([]);
+    processingRef.current = false;
+    lastScanAt.current = 0;
   };
 
   const handleReset = () => {
-    controlsRef.current?.stop();
-    CapacitorNfc.stopScanning().catch(() => {});
-    localStorage.removeItem("kioskToken");
-    setKioskToken("");
-    setTokenInput("");
-    setSetupMode(true);
-    setNfcStatus("idle");
+    clearSession();
+
+    // A hard reload is the most reliable way to reset camera + WebView state
+    // inside the Capacitor shell after an active scan session.
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 50);
   };
 
   // -------------------------------------------------------------------------
@@ -344,27 +314,45 @@ export default function KioskPage() {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-[#0D3B66]">
-        <span className="text-white font-bold text-lg tracking-wide">Lucid Ledger Kiosk</span>
+        <div className="flex flex-col">
+          <span className="text-white font-bold text-lg tracking-wide">Lucid Ledger Kiosk TEST nfc-reader-only-v4</span>
+          <span className="text-[11px] text-white/70 font-mono tracking-wide">
+            Build {DIAGNOSTIC_BUILD_ID}
+          </span>
+          <span className="text-[10px] text-white/50 font-mono tracking-wide">
+            API {API_BASE_URL}
+          </span>
+        </div>
         <button onClick={handleReset} className="text-xs text-white/50 hover:text-white/80 transition-colors">
           Reset
         </button>
       </div>
 
-      {/* Camera + overlays */}
+      {/* Scan surface */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        <video
-          ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover"
-          playsInline
-          muted
-        />
+        {KIOSK_INPUT_MODE === "qr" && (
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            playsInline
+            muted
+          />
+        )}
+
+        {KIOSK_INPUT_MODE === "nfc" && (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_35%),linear-gradient(180deg,_#0b1220,_#111827)]" />
+        )}
 
         {/* Scan frame + status */}
         {!confirmation && !scanError && (
           <div className="relative z-10 flex flex-col items-center gap-4">
-            <div className="w-64 h-64 border-4 border-white/70 rounded-2xl" />
+            <div className={`rounded-2xl border-4 border-white/70 ${KIOSK_INPUT_MODE === "nfc" ? "w-72 h-72 flex items-center justify-center bg-white/5" : "w-64 h-64"}`}>
+              {KIOSK_INPUT_MODE === "nfc" && (
+                <span className="text-white text-lg font-semibold tracking-wide">Tap NFC Badge</span>
+              )}
+            </div>
             <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
-              Hold QR code to camera · or tap NFC badge
+              {KIOSK_INPUT_MODE === "nfc" ? "NFC-only diagnostic mode" : "QR-only diagnostic mode"}
             </p>
             {nfcStatus === "listening" && (
               <span className="inline-flex items-center gap-2 bg-green-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
@@ -374,7 +362,7 @@ export default function KioskPage() {
             )}
             {nfcStatus === "unavailable" && (
               <span className="inline-flex items-center gap-2 bg-yellow-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
-                QR only — NFC unavailable
+                NFC unavailable
               </span>
             )}
           </div>

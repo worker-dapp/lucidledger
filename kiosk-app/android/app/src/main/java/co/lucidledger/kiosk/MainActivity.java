@@ -1,105 +1,126 @@
 package co.lucidledger.kiosk;
 
-import android.app.PendingIntent;
-import android.content.Intent;
 import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
+import java.util.Arrays;
 
-public class MainActivity extends BridgeActivity {
+public class MainActivity extends BridgeActivity implements NfcAdapter.ReaderCallback {
 
     private static final String TAG = "KioskNFC";
+    private static final long NFC_LOCKOUT_MS = 30000L;
+
     private NfcAdapter nfcAdapter;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private String lastUid = null;
+    private long lastUidAt = 0L;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+    }
 
     @Override
     public void onResume() {
         super.onResume();
-        enableForegroundDispatch();
-        // Also handle any NFC intent that launched/resumed this activity
-        handleNfcIntent(getIntent());
+        enableReaderMode();
+        dispatchKioskNfcStatus(nfcAdapter != null && nfcAdapter.isEnabled() ? "listening" : "unavailable");
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        disableForegroundDispatch();
+        disableReaderMode();
     }
 
-    @Override
-    public void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        handleNfcIntent(intent);
-    }
-
-    // -------------------------------------------------------------------------
-    // enableForegroundDispatch registers this Activity to receive ALL NFC tags
-    // while in the foreground — no NDEF filter, raw tag level.  This is the
-    // same mechanism Chrome uses for NDEFReader.scan(), but without the
-    // browser's "user gesture" restriction.
-    // -------------------------------------------------------------------------
-    private void enableForegroundDispatch() {
-        if (nfcAdapter == null) {
-            nfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        }
-        if (nfcAdapter == null || !nfcAdapter.isEnabled()) return;
-
-        Intent nfcIntent = new Intent(this, getClass())
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0, nfcIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-
-        // null filters = intercept ALL tag types
-        nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
-        Log.d(TAG, "NFC foreground dispatch enabled");
-    }
-
-    private void disableForegroundDispatch() {
-        if (nfcAdapter != null) {
-            try {
-                nfcAdapter.disableForegroundDispatch(this);
-            } catch (Exception e) {
-                Log.w(TAG, "Error disabling foreground dispatch", e);
-            }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // When any NFC tag is tapped, extract the raw hardware UID from EXTRA_ID.
-    // No NDEF parsing — just the chip serial number, which is what was stored
-    // during badge registration in KioskManagement.
-    // -------------------------------------------------------------------------
-    private void handleNfcIntent(Intent intent) {
-        if (intent == null) return;
-
-        String action = intent.getAction();
-        boolean isNfcAction = NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)
-                || NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)
-                || NfcAdapter.ACTION_TECH_DISCOVERED.equals(action);
-        if (!isNfcAction) return;
-
-        byte[] idBytes = intent.getByteArrayExtra(NfcAdapter.EXTRA_ID);
-        if (idBytes == null || idBytes.length == 0) {
-            Log.w(TAG, "NFC intent received but EXTRA_ID is empty");
+    private void enableReaderMode() {
+        if (nfcAdapter == null || !nfcAdapter.isEnabled()) {
+            Log.w(TAG, "NFC unavailable or disabled");
             return;
         }
 
-        StringBuilder uid = new StringBuilder();
-        for (byte b : idBytes) {
-            uid.append(String.format("%02X", b));
+        Bundle options = new Bundle();
+        int flags = NfcAdapter.FLAG_READER_NFC_A
+                | NfcAdapter.FLAG_READER_NFC_B
+                | NfcAdapter.FLAG_READER_NFC_F
+                | NfcAdapter.FLAG_READER_NFC_V
+                | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
+                | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS;
+
+        nfcAdapter.enableReaderMode(this, this, flags, options);
+        Log.d(TAG, "NFC reader mode enabled");
+    }
+
+    private void disableReaderMode() {
+        if (nfcAdapter == null) return;
+        try {
+            nfcAdapter.disableReaderMode(this);
+            Log.d(TAG, "NFC reader mode disabled");
+        } catch (Exception e) {
+            Log.w(TAG, "Error disabling reader mode", e);
         }
-        Log.d(TAG, "NFC tag UID: " + uid);
+    }
 
-        final String safeUid = uid.toString();
+    @Override
+    public void onTagDiscovered(Tag tag) {
+        if (tag == null) return;
 
-        // Fire a custom window event into the WebView.
-        // Using post() ensures WebView is ready on the UI thread.
-        getBridge().getWebView().post(() ->
-            getBridge().getWebView().evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('kiosk-nfc', { detail: { uid: '" + safeUid + "' } }))",
-                null
-            )
+        byte[] idBytes = tag.getId();
+        if (idBytes == null || idBytes.length == 0) {
+            Log.w(TAG, "Tag discovered but tag.getId() is empty");
+            return;
+        }
+
+        StringBuilder uidBuilder = new StringBuilder();
+        for (byte b : idBytes) {
+            uidBuilder.append(String.format("%02X", b));
+        }
+        String uid = uidBuilder.toString();
+
+        long now = System.currentTimeMillis();
+        synchronized (this) {
+            if (uid.equals(lastUid) && (now - lastUidAt) < NFC_LOCKOUT_MS) {
+                Log.d(TAG, "Ignoring duplicate NFC tag within lockout window: " + uid);
+                return;
+            }
+            lastUid = uid;
+            lastUidAt = now;
+        }
+
+        Log.d(TAG, "NFC tag discovered uid=" + uid + " techs=" + Arrays.toString(tag.getTechList()));
+        dispatchKioskNfcEvent(uid);
+    }
+
+    private void dispatchKioskNfcStatus(String status) {
+        dispatchJavascriptEvent(
+                "window.dispatchEvent(new CustomEvent('kiosk-nfc-status', { detail: { status: '" + escapeJs(status) + "' } }))"
         );
+    }
+
+    private void dispatchKioskNfcEvent(String uid) {
+        dispatchJavascriptEvent(
+                "window.dispatchEvent(new CustomEvent('kiosk-nfc', { detail: { uid: '" + escapeJs(uid) + "' } }))"
+        );
+    }
+
+    private void dispatchJavascriptEvent(String script) {
+        mainHandler.post(() -> {
+            if (getBridge() == null || getBridge().getWebView() == null) {
+                Log.w(TAG, "Bridge/WebView not ready; dropping NFC event");
+                return;
+            }
+            getBridge().getWebView().evaluateJavascript(script, null);
+        });
+    }
+
+    private String escapeJs(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("'", "\\'");
     }
 }

@@ -14,7 +14,6 @@
   "dependencies": {
     "@capacitor/android": "^7.0.0",
     "@capacitor/core": "^7.0.0",
-    "@capgo/capacitor-nfc": "^7.2.0",
     "@tailwindcss/vite": "^4.1.12",
     "@vitejs/plugin-react": "^4.7.0",
     "@zxing/browser": "^0.1.5",

@@ -22,17 +22,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- NFC: receive NDEF_DISCOVERED when our kiosk URL is on the tag.
-                 This gives our app priority over Chrome for NFC URL dispatch,
-                 so Samsung's intent routing works in our favour. -->
-            <intent-filter>
-                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="https"
-                      android:host="lucidledger.co"
-                      android:pathPrefix="/kiosk" />
-            </intent-filter>
-
         </activity>
 
         <provider
@@ -51,6 +40,4 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
-    <!-- Camera permission for QR scanning -->
-    <uses-permission android:name="android.permission.CAMERA" />
 </manifest>
