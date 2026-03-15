@@ -325,7 +325,10 @@ class QrOracleController {
     try {
       const employer = req.employer;
       const kiosks = await KioskDevice.findAll({
-        where: { employer_id: employer.id },
+        where: {
+          employer_id: employer.id,
+          status: { [Op.ne]: 'deleted' }
+        },
         attributes: [
           'id', 'device_id', 'site_name', 'status', 'registered_at',
           [sequelize.fn('COUNT', sequelize.col('presenceEvents.id')), 'scan_count'],
@@ -412,6 +415,45 @@ class QrOracleController {
     } catch (error) {
       console.error('suspendKiosk error:', error);
       return res.status(500).json({ success: false, message: 'Error suspending kiosk', error: error.message });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // DELETE /api/kiosk-devices/:id
+  // Soft-delete a suspended kiosk device so it no longer appears in the UI.
+  // Auth: verifyToken + requireApprovedEmployer
+  // ---------------------------------------------------------------------------
+  static async deleteKiosk(req, res) {
+    try {
+      const employer = req.employer;
+      const kiosk = await KioskDevice.findOne({
+        where: { id: req.params.id, employer_id: employer.id }
+      });
+      if (!kiosk) {
+        return res.status(404).json({ success: false, message: 'Kiosk not found' });
+      }
+
+      if (kiosk.status !== 'suspended') {
+        return res.status(400).json({ success: false, message: 'Kiosk must be suspended before deletion' });
+      }
+
+      await kiosk.update({ status: 'deleted' });
+
+      logAction({
+        actorType: 'employer',
+        actorId: employer.id,
+        actorName: employer.company_name,
+        actionType: 'kiosk_deleted',
+        actionDescription: `Kiosk deleted: ${kiosk.site_name || kiosk.device_id}`,
+        entityType: 'kiosk_device',
+        entityId: kiosk.id,
+        employerId: employer.id
+      });
+
+      return res.status(200).json({ success: true, message: 'Kiosk deleted' });
+    } catch (error) {
+      console.error('deleteKiosk error:', error);
+      return res.status(500).json({ success: false, message: 'Error deleting kiosk', error: error.message });
     }
   }
 }
