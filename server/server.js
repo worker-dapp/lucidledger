@@ -54,8 +54,34 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // CORS configuration
+// Supports both the browser dev app and Capacitor native WebViews.
+const defaultCorsOrigins = [
+  'http://localhost:5173',
+  'https://localhost',
+  'capacitor://localhost'
+];
+const configuredCorsOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedCorsOrigins = [...new Set([
+  ...defaultCorsOrigins,
+  ...configuredCorsOrigins
+])];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow same-origin/non-browser requests such as curl or server-to-server checks.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedCorsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
   credentials: true
 }));
 
@@ -198,7 +224,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+      console.log(`🌐 CORS Origins: ${allowedCorsOrigins.join(', ')}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
