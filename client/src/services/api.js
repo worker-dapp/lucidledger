@@ -531,6 +531,11 @@ class ApiService {
     return this.request(`/kiosk-devices/${kioskId}/regenerate-token`, { method: 'POST' });
   }
 
+  // Employer: delete a suspended kiosk device (soft-delete)
+  async deleteKioskDevice(kioskId) {
+    return this.request(`/kiosk-devices/${kioskId}`, { method: 'DELETE' });
+  }
+
   // Employer: NFC badge management
   async registerNfcBadge(badgeUid, employeeId, label) {
     return this.request('/nfc-badges', {

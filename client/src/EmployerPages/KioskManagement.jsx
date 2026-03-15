@@ -117,6 +117,16 @@ function KioskTab() {
     setActionLoading(prev => ({ ...prev, [kioskId]: false }));
   };
 
+  const handleDelete = async (kioskId) => {
+    setActionLoading(prev => ({ ...prev, [kioskId]: true }));
+    try {
+      await apiService.deleteKioskDevice(kioskId);
+      setKiosks(prev => prev.filter(k => k.id !== kioskId));
+      if (revealedToken?.kioskId === kioskId) setRevealedToken(null);
+    } catch { /* silently fail */ }
+    setActionLoading(prev => ({ ...prev, [kioskId]: false }));
+  };
+
   const handleCopyToken = () => {
     if (!revealedToken?.token) return;
     navigator.clipboard.writeText(revealedToken.token).then(() => {
@@ -267,6 +277,16 @@ function KioskTab() {
                               className="text-red-500 hover:text-red-700 font-medium"
                             >
                               Suspend
+                            </button>
+                          )}
+                          {kiosk.status === "suspended" && (
+                            <button
+                              onClick={() => handleDelete(kiosk.id)}
+                              className="flex items-center gap-1 text-gray-600 hover:text-gray-800 font-medium"
+                              title="Delete suspended kiosk"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
                             </button>
                           )}
                         </>

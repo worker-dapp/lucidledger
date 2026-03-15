@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
+import { BrowserQRCodeReader } from "@zxing/browser";
 
 // Production API base URL — override via .env.local for local dev.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SCAN_COOLDOWN_MS = 4000; // match server-side cooldown
-const KIOSK_INPUT_MODE = "nfc";
-const DIAGNOSTIC_BUILD_ID = "nfc-reader-only-v4";
+const DEFAULT_KIOSK_MODE = "nfc";
 
 // ---------------------------------------------------------------------------
 // Kiosk page — Capacitor native app version.
@@ -23,16 +23,14 @@ export default function KioskPage() {
   const [setupMode, setSetupMode] = useState(!localStorage.getItem("kioskToken"));
   const [tokenInput, setTokenInput] = useState("");
   const [setupError, setSetupError] = useState("");
+  const [setupSubmitting, setSetupSubmitting] = useState(false);
+  const [kioskMode, setKioskMode] = useState(() => localStorage.getItem("kioskMode") || DEFAULT_KIOSK_MODE);
+  const [setupKioskMode, setSetupKioskMode] = useState(() => localStorage.getItem("kioskMode") || DEFAULT_KIOSK_MODE);
 
   const [confirmation, setConfirmation] = useState(null);
   const [scanError, setScanError] = useState(null);
   const [nfcStatus, setNfcStatus] = useState("idle"); // idle | listening | unavailable
-  const [debugLog, setDebugLog] = useState([]);
-
-  const addDebug = (msg) => {
-    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setDebugLog((prev) => [`${ts} ${msg}`, ...prev].slice(0, 12));
-  };
+  const nfcUiActive = kioskMode === "nfc" && !setupMode && Capacitor.isNativePlatform();
 
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
@@ -50,20 +48,20 @@ export default function KioskPage() {
     lastScanAt.current = 0;
 
     localStorage.removeItem("kioskToken");
+    localStorage.removeItem("kioskMode");
     setKioskToken("");
     setSetupMode(true);
     setTokenInput(preserveTokenInput ? tokenInput : "");
+    setKioskMode(DEFAULT_KIOSK_MODE);
+    setSetupKioskMode(DEFAULT_KIOSK_MODE);
     setSetupError(setupMessage);
     setConfirmation(null);
     setScanError(null);
     setNfcStatus("idle");
-    setDebugLog(setupMessage ? [`${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} ${setupMessage}`] : []);
   };
 
   const handleApiFailure = (res, data, fallbackMessage) => {
     const message = data?.message || fallbackMessage;
-    const code = data?.code ? ` (${data.code})` : "";
-    addDebug(`api failure: ${res?.status || "unknown"} ${message}${code}`);
 
     if (res?.status === 401) {
       clearSession({
@@ -78,19 +76,15 @@ export default function KioskPage() {
   };
 
   const postKioskJson = async (path, kiosk, payload) => {
-    const url = `${API_BASE_URL}${path}`;
-    addDebug(`POST ${url}`);
-
     let res;
     try {
-      res = await fetch(url, {
+      res = await fetch(`${API_BASE_URL}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-kiosk-token": kiosk },
         body: JSON.stringify(payload),
       });
     } catch (error) {
       const detail = `${error?.name || "Error"}: ${error?.message || "request failed"}`;
-      addDebug(`fetch error: ${detail}`);
       setScanError(`Network error — ${detail}`);
       setTimeout(() => setScanError(null), 5000);
       return null;
@@ -99,30 +93,72 @@ export default function KioskPage() {
     let data = null;
     try {
       data = await res.json();
-    } catch (error) {
-      addDebug(`response parse failed: ${error?.message || "invalid JSON"}`);
+    } catch {
       data = null;
     }
-
-    addDebug(`response ${res.status}${data?.code ? ` ${data.code}` : ""}`);
     return { res, data };
   };
+
+  useEffect(() => {
+    if (setupMode || kioskMode !== "qr" || !videoRef.current) return;
+
+    const reader = new BrowserQRCodeReader();
+
+    reader.decodeFromConstraints(
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      },
+      videoRef.current,
+      (result, _error, controls) => {
+        controlsRef.current = controls;
+        if (!result) return;
+
+        const token = result.getText();
+        const now = Date.now();
+        if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
+
+        lastScanAt.current = now;
+        submitToken(token, kioskToken);
+      }
+    ).catch((err) => {
+      if (err?.name !== "AbortError") {
+        setScanError("Camera access denied. Please allow camera access and try again.");
+      }
+    });
+
+    return () => {
+      try {
+        controlsRef.current?.stop();
+      } catch {
+        // ignore camera teardown issues
+      }
+      controlsRef.current = null;
+    };
+  }, [setupMode, kioskMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Native NFC bridge — MainActivity dispatches kiosk-nfc / kiosk-nfc-status
   // CustomEvents into the WebView from Android reader mode.
   // -------------------------------------------------------------------------
   useEffect(() => {
-    if (setupMode || !kioskToken) return;
+    if (setupMode || !kioskToken || kioskMode !== "nfc") {
+      setNfcStatus("idle");
+      return;
+    }
     if (!Capacitor.isNativePlatform()) {
       setNfcStatus("unavailable");
       return;
     }
 
+    setNfcStatus("listening");
+
     const handler = (e) => {
       const uid = e.detail?.uid;
       if (!uid) return;
-      addDebug(`kiosk-nfc event: uid=${uid}`);
       const now = Date.now();
       if (processingRef.current || now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
       lastScanAt.current = now;
@@ -132,20 +168,18 @@ export default function KioskPage() {
     const statusHandler = (e) => {
       const status = e.detail?.status || "idle";
       setNfcStatus(status);
-      addDebug(`nfc status: ${status}`);
     };
 
     window.addEventListener("kiosk-nfc", handler);
     window.addEventListener("kiosk-nfc-status", statusHandler);
 
     setNfcStatus("idle");
-    addDebug("waiting for native NFC reader");
 
     return () => {
       window.removeEventListener("kiosk-nfc", handler);
       window.removeEventListener("kiosk-nfc-status", statusHandler);
     };
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setupMode, kioskMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Submit QR token scan
@@ -231,19 +265,79 @@ export default function KioskPage() {
   // -------------------------------------------------------------------------
   // Setup flow
   // -------------------------------------------------------------------------
-  const handleSetup = () => {
-    const t = tokenInput.trim();
+  const validateKioskToken = async (token) => {
+    const result = await postKioskJson("/nfc-scans", token, {
+      badge_uid: "__kiosk_token_validation__",
+      client_timestamp: new Date().toISOString(),
+      nonce: crypto.randomUUID(),
+    });
+
+    if (!result) {
+      return {
+        valid: false,
+        message: "Could not reach server to validate kiosk token",
+      };
+    }
+
+    const { res, data } = result;
+
+    if (res.status === 401) {
+      return {
+        valid: false,
+        message: data?.message || "Invalid or inactive kiosk token",
+      };
+    }
+
+    // Any non-401 response proves the kiosk token passed kioskAuth.
+    return { valid: true };
+  };
+
+  const normalizeKioskTokenInput = (value) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    try {
+      const url = new URL(trimmed);
+      const urlToken = url.searchParams.get("token");
+      if (urlToken) {
+        return urlToken.trim();
+      }
+    } catch {
+      // Not a URL; treat as raw token
+    }
+
+    return trimmed;
+  };
+
+  const handleSetup = async () => {
+    const t = normalizeKioskTokenInput(tokenInput);
     if (!t) { setSetupError("Token cannot be empty"); return; }
-    localStorage.setItem("kioskToken", t);
-    setKioskToken(t);
-    setTokenInput(t);
-    setSetupMode(false);
+    if (setupSubmitting) return;
+
+    setSetupSubmitting(true);
     setSetupError("");
-    setConfirmation(null);
-    setScanError(null);
-    setDebugLog([]);
-    processingRef.current = false;
-    lastScanAt.current = 0;
+
+    try {
+      const validation = await validateKioskToken(t);
+      if (!validation.valid) {
+        setSetupError(validation.message);
+        return;
+      }
+
+      localStorage.setItem("kioskToken", t);
+      localStorage.setItem("kioskMode", setupKioskMode);
+      setKioskToken(t);
+      setTokenInput(t);
+      setKioskMode(setupKioskMode);
+      setSetupMode(false);
+      setSetupError("");
+      setConfirmation(null);
+      setScanError(null);
+      processingRef.current = false;
+      lastScanAt.current = 0;
+    } finally {
+      setSetupSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -282,6 +376,36 @@ export default function KioskPage() {
             <p className="text-sm text-gray-500 mt-1">
               Enter the kiosk device token provided by your employer's Lucid Ledger account.
             </p>
+            <p className="text-xs text-gray-400 mt-1">
+              You can paste either the raw token or the full kiosk setup link.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Default Scan Mode</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSetupKioskMode("nfc")}
+                className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${
+                  setupKioskMode === "nfc"
+                    ? "border-[#0D3B66] bg-[#0D3B66] text-white"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                NFC
+              </button>
+              <button
+                type="button"
+                onClick={() => setSetupKioskMode("qr")}
+                className={`rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${
+                  setupKioskMode === "qr"
+                    ? "border-[#0D3B66] bg-[#0D3B66] text-white"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                QR
+              </button>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">Device Token</label>
@@ -289,7 +413,7 @@ export default function KioskPage() {
               type="text"
               value={tokenInput}
               onChange={(e) => setTokenInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSetup()}
+            onKeyDown={(e) => e.key === "Enter" && handleSetup()}
               placeholder="Paste token here…"
               className="w-full border border-gray-200 rounded-xl p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0D3B66]"
               autoFocus
@@ -298,9 +422,10 @@ export default function KioskPage() {
           </div>
           <button
             onClick={handleSetup}
-            className="w-full py-3 rounded-xl bg-[#0D3B66] text-white font-semibold text-sm hover:bg-[#0a2f52] transition-colors"
+            disabled={setupSubmitting}
+            className="w-full py-3 rounded-xl bg-[#0D3B66] text-white font-semibold text-sm hover:bg-[#0a2f52] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Activate Kiosk
+            {setupSubmitting ? "Validating…" : "Activate Kiosk"}
           </button>
         </div>
       </div>
@@ -315,22 +440,21 @@ export default function KioskPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-[#0D3B66]">
         <div className="flex flex-col">
-          <span className="text-white font-bold text-lg tracking-wide">Lucid Ledger Kiosk TEST nfc-reader-only-v4</span>
-          <span className="text-[11px] text-white/70 font-mono tracking-wide">
-            Build {DIAGNOSTIC_BUILD_ID}
-          </span>
-          <span className="text-[10px] text-white/50 font-mono tracking-wide">
-            API {API_BASE_URL}
-          </span>
+          <span className="text-white font-bold text-lg tracking-wide">Lucid Ledger Kiosk</span>
         </div>
-        <button onClick={handleReset} className="text-xs text-white/50 hover:text-white/80 transition-colors">
-          Reset
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-white/80 border border-white/20 rounded-full px-3 py-1">
+            Mode: {kioskMode === "nfc" ? "NFC" : "QR"}
+          </span>
+          <button onClick={handleReset} className="text-xs text-white/50 hover:text-white/80 transition-colors">
+            Reset
+          </button>
+        </div>
       </div>
 
       {/* Scan surface */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {KIOSK_INPUT_MODE === "qr" && (
+        {kioskMode === "qr" && (
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
@@ -339,30 +463,38 @@ export default function KioskPage() {
           />
         )}
 
-        {KIOSK_INPUT_MODE === "nfc" && (
+        {kioskMode === "nfc" && (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_35%),linear-gradient(180deg,_#0b1220,_#111827)]" />
         )}
 
         {/* Scan frame + status */}
         {!confirmation && !scanError && (
           <div className="relative z-10 flex flex-col items-center gap-4">
-            <div className={`rounded-2xl border-4 border-white/70 ${KIOSK_INPUT_MODE === "nfc" ? "w-72 h-72 flex items-center justify-center bg-white/5" : "w-64 h-64"}`}>
-              {KIOSK_INPUT_MODE === "nfc" && (
+            <div className={`rounded-2xl border-4 border-white/70 ${kioskMode === "nfc" ? "w-72 h-72 flex items-center justify-center bg-white/5" : "w-64 h-64 bg-black/20 backdrop-blur-sm"}`}>
+              {kioskMode === "nfc" && (
                 <span className="text-white text-lg font-semibold tracking-wide">Tap NFC Badge</span>
+              )}
+              {kioskMode === "qr" && (
+                <div className="w-full h-full border border-dashed border-white/50 rounded-xl" />
               )}
             </div>
             <p className="text-white/80 text-sm font-medium bg-black/40 px-4 py-2 rounded-full">
-              {KIOSK_INPUT_MODE === "nfc" ? "NFC-only diagnostic mode" : "QR-only diagnostic mode"}
+              {kioskMode === "nfc" ? "NFC mode" : "QR mode"}
             </p>
-            {nfcStatus === "listening" && (
+            {kioskMode === "nfc" && nfcUiActive && (
               <span className="inline-flex items-center gap-2 bg-green-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
                 <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
                 NFC active
               </span>
             )}
-            {nfcStatus === "unavailable" && (
+            {kioskMode === "nfc" && !nfcUiActive && nfcStatus === "unavailable" && (
               <span className="inline-flex items-center gap-2 bg-yellow-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
                 NFC unavailable
+              </span>
+            )}
+            {kioskMode === "qr" && (
+              <span className="inline-flex items-center gap-2 bg-sky-600/80 text-white text-xs font-medium px-3 py-1.5 rounded-full">
+                Camera scanner active
               </span>
             )}
           </div>
@@ -389,13 +521,6 @@ export default function KioskPage() {
             <div className={`w-full py-2 rounded-xl text-center font-bold text-lg ${confirmation.eventType === "clock_in" ? "bg-green-500 text-white" : "bg-amber-500 text-white"}`}>
               ✓ Recorded
             </div>
-          </div>
-        )}
-
-        {/* DEBUG PANEL — remove before release */}
-        {debugLog.length > 0 && (
-          <div className="absolute bottom-4 left-2 right-2 z-20 bg-black/80 text-green-400 text-xs font-mono p-2 rounded-xl max-h-40 overflow-hidden">
-            {debugLog.map((line, i) => <div key={i}>{line}</div>)}
           </div>
         )}
 

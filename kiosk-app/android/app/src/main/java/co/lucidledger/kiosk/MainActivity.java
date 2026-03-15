@@ -12,7 +12,7 @@ import java.util.Arrays;
 public class MainActivity extends BridgeActivity implements NfcAdapter.ReaderCallback {
 
     private static final String TAG = "KioskNFC";
-    private static final long NFC_LOCKOUT_MS = 30000L;
+    private static final long NFC_LOCKOUT_MS = 3000L;
 
     private NfcAdapter nfcAdapter;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
