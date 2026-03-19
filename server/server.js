@@ -37,19 +37,30 @@ app.use(helmet());
 
 // Rate limiting (disabled in development)
 if (process.env.NODE_ENV === 'production') {
+  // Key by wallet address for authenticated requests, fall back to IP for
+  // unauthenticated requests (health checks, bots). This eliminates the
+  // shared-IP problem for classrooms and workplaces where many users share
+  // a single NAT address.
+  const perUserKeyGenerator = (req) => {
+    const wallet = req.headers['x-wallet-address'];
+    return wallet ? `wallet:${wallet}` : req.ip;
+  };
+
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5000, // high limit to accommodate classroom/institutional NAT (many users behind one IP)
-    message: 'Too many requests from this IP, please try again later.'
+    max: 300, // 300 req/15 min per user (wallet) or per IP for unauthenticated
+    keyGenerator: perUserKeyGenerator,
+    message: 'Too many requests, please try again later.'
   });
   const adminLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // stricter limit for sensitive admin endpoints
+    max: 50, // stricter limit for sensitive admin endpoints
+    keyGenerator: perUserKeyGenerator,
     message: 'Too many requests to admin endpoints, please try again later.'
   });
   app.use(limiter);
   app.use('/api/admin', adminLimiter);
-  console.log('🛡️  Rate limiting enabled (production mode)');
+  console.log('🛡️  Rate limiting enabled (production mode, per-user)');
 } else {
   console.log('⚠️  Rate limiting disabled (development mode)');
 }
