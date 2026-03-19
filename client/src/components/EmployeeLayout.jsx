@@ -12,11 +12,16 @@ const EmployeeLayout = ({ children }) => {
   const { user, smartWalletAddress, primaryWallet } = useAuth();
   const [employeeData, setEmployeeData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isFetchingRef = React.useRef(false);
 
-  // Fetch employee profile once — shared with all child pages via EmployeeContext
+  // Fetch employee profile once — shared with all child pages via EmployeeContext.
+  // isFetchingRef prevents duplicate fetches when user, smartWalletAddress, and
+  // primaryWallet all resolve near-simultaneously, firing this effect multiple times.
   useEffect(() => {
     const fetchEmployee = async () => {
       if (!user) return;
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
       setIsLoading(true);
       try {
         const userEmail = user?.email?.address || user?.email;
@@ -33,6 +38,7 @@ const EmployeeLayout = ({ children }) => {
         console.error("Error fetching employee data:", err);
       } finally {
         setIsLoading(false);
+        isFetchingRef.current = false;
       }
     };
 
