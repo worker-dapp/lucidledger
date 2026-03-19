@@ -24,15 +24,21 @@ const EmployerLayout = ({ children }) => {
   const { user, smartWalletAddress } = useAuth();
   const [employerData, setEmployerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isFetchingRef = React.useRef(false);
 
   const approvalStatus = employerData?.approval_status ?? null;
   const rejectionReason = employerData?.rejection_reason ?? null;
 
   const closeSidebar = () => setSidebarOpen(false);
 
-  // Fetch employer data once — shared with all child pages via EmployerContext
+  // Fetch employer data once — shared with all child pages via EmployerContext.
+  // isFetchingRef prevents duplicate fetches when both smartWalletAddress and
+  // user?.email?.address resolve near-simultaneously, which would otherwise fire
+  // this effect twice and cause all child tabs to double-fetch their own data.
   useEffect(() => {
     const fetchEmployer = async () => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
       setIsLoading(true);
       try {
         let response = null;
@@ -49,6 +55,7 @@ const EmployerLayout = ({ children }) => {
         console.error("Error fetching employer data:", error);
       } finally {
         setIsLoading(false);
+        isFetchingRef.current = false;
       }
     };
 
