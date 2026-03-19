@@ -7,7 +7,7 @@ import AwaitingDeploymentTab from "./AwaitingDeploymentTab";
 import { FileText, Users, Rocket } from "lucide-react";
 
 const ContractFactory = () => {
-  const { employerId } = useEmployer();
+  const { employerId, isLoading } = useEmployer();
   const [activeTab, setActiveTab] = useState("contracts");
 
   const tabs = [
@@ -94,7 +94,7 @@ const ContractFactory = () => {
 
         {/* Tab Content */}
         <div className={activeTab === "contracts" ? "" : "bg-white rounded-xl shadow-sm border border-gray-200 p-6"}>
-          {activeTab === "contracts" && <ContractLibrary employerId={employerId} />}
+          {activeTab === "contracts" && <ContractLibrary employerId={employerId} isLoading={isLoading} />}
           {activeTab === "posted" && <PostedJobsTab employerId={employerId} />}
           {activeTab === "applications" && <ApplicationReviewTab employerId={employerId} />}
           {activeTab === "deployment" && <AwaitingDeploymentTab employerId={employerId} />}

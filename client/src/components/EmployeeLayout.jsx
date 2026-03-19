@@ -11,11 +11,13 @@ export const useEmployee = () => useContext(EmployeeContext);
 const EmployeeLayout = ({ children }) => {
   const { user, smartWalletAddress, primaryWallet } = useAuth();
   const [employeeData, setEmployeeData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch employee profile once — shared with all child pages via EmployeeContext
   useEffect(() => {
     const fetchEmployee = async () => {
       if (!user) return;
+      setIsLoading(true);
       try {
         const userEmail = user?.email?.address || user?.email;
         if (userEmail) {
@@ -29,6 +31,8 @@ const EmployeeLayout = ({ children }) => {
         }
       } catch (err) {
         console.error("Error fetching employee data:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -36,7 +40,7 @@ const EmployeeLayout = ({ children }) => {
   }, [user, smartWalletAddress, primaryWallet]);
 
   return (
-    <EmployeeContext.Provider value={{ employeeData, employeeId: employeeData?.id ?? null }}>
+    <EmployeeContext.Provider value={{ employeeData, employeeId: employeeData?.id ?? null, isLoading }}>
       {children ?? <Outlet />}
     </EmployeeContext.Provider>
   );

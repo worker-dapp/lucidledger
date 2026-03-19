@@ -6,7 +6,7 @@ import PostJobModal from "./PostJobModal";
 import EditTemplateModal from "./EditTemplateModal";
 import { Plus, AlertCircle, FileText } from "lucide-react";
 
-const ContractLibrary = ({ employerId }) => {
+const ContractLibrary = ({ employerId, isLoading }) => {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,6 +77,17 @@ const ContractLibrary = ({ employerId }) => {
     setSelectedContract(null);
     fetchContracts();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#EE964B] mx-auto mb-3"></div>
+          <p className="text-sm text-gray-500">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!employerId) {
     return (

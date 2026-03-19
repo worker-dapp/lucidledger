@@ -107,6 +107,10 @@ class ApiService {
     return this.request(`/employees/${id}`);
   }
 
+  async getProfileStatus(walletAddress) {
+    return this.request(`/profile-status?wallet=${encodeURIComponent(walletAddress)}`);
+  }
+
   async getEmployeeByEmail(email) {
     return this.request(`/employees/email/${email}`);
   }

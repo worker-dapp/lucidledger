@@ -135,7 +135,11 @@ const AppContent = () => {
     // Don't run check until initial load is complete to prevent FOUC
     // Use user object as primary auth check - if user exists, they're authenticated
     const isUserAuthenticated = isAuthenticated === true || (user && isAuthenticated !== false);
-    const shouldCheck = loadingComplete && initialLoadComplete && isUserAuthenticated && user && isPublicPage && !hasRedirected && !checkingProfile;
+    // Also require smartWalletAddress to be initialized before checking — it is the primary
+    // DB identity key. Without it the wallet lookup is skipped entirely, profileExists stays
+    // false, and existing users get incorrectly routed to onboarding. smartWalletAddress is
+    // already in the dep array so the effect re-fires automatically when it becomes available.
+    const shouldCheck = loadingComplete && initialLoadComplete && isUserAuthenticated && user && isPublicPage && !hasRedirected && !checkingProfile && !!smartWalletAddress;
 
     if (shouldCheck) {
       // AIRBNB-STYLE ROLE TRACKING:
@@ -161,7 +165,7 @@ const AppContent = () => {
 
       // Check if user already has a profile in backend (works for both email and phone login)
       const checkProfileAndRedirect = async () => {
-        // Abort if user logged out during the 300ms delay
+        // Abort if user logged out before the check could run
         if (isAuthenticatedRef.current === false) {
           setCheckingProfile(false);
           return;
@@ -180,8 +184,8 @@ const AppContent = () => {
             return;
           }
 
-          // DUAL-ROLE LOGIC:
-          // 1. Check if profile exists for intended role (by wallet address)
+          // DUAL-ROLE LOGIC — single API call returns both role statuses in parallel:
+          // 1. Check if profile exists for intended role
           // 2. If not found, check other role — only redirect there if no explicit pendingRole
           // 3. If pendingRole is set and no profile for that role, send to onboarding (dual-role creation)
           // 4. Persist intended role to localStorage and redirect
@@ -191,64 +195,26 @@ const AppContent = () => {
           const walletAddress = smartWalletAddress || primaryWallet?.address;
           const hasPendingRole = !!localStorage.getItem('pendingRole');
 
-          // Check intended role's table by wallet address
-          // Wallet is the primary identity key — every Privy user has one
-          if (walletAddress) {
-            try {
-              if (intendedRole === 'employer') {
-                const response = await apiService.getEmployerByWallet(walletAddress);
-                if (response?.data) {
-                  profileExists = true;
-                }
-              } else {
-                const response = await apiService.getEmployeeByWallet(walletAddress);
-                if (response?.data) {
-                  profileExists = true;
-                }
-              }
-            } catch (err) {
-              // Ignore 404s (expected if profile doesn't exist)
-            }
+          const statusResponse = await apiService.getProfileStatus(walletAddress);
+          const { employee, employer } = statusResponse?.data ?? {};
+
+          const intendedIsEmployer = intendedRole === 'employer';
+          const intendedProfile = intendedIsEmployer ? employer : employee;
+          const otherProfile = intendedIsEmployer ? employee : employer;
+
+          let otherRoleExists = !!otherProfile;
+
+          if (intendedProfile) {
+            profileExists = true;
+          } else if (otherProfile && !hasPendingRole) {
+            // Returning user landed on the wrong side — redirect to where their profile lives
+            intendedRole = intendedIsEmployer ? 'employee' : 'employer';
+            profileExists = true;
           }
 
-          // If no profile for intended role, check the other role's table
-          // Only redirect to the other role if the user didn't explicitly choose a role
-          // (i.e., no pendingRole — they're a returning user who may have landed on the wrong side)
-          // If pendingRole IS set, the user explicitly chose this role via a landing page,
-          // so we respect their choice and send them to onboarding for a new profile
-          let otherRoleExists = false;
-          if (!profileExists && walletAddress) {
-            const otherRole = intendedRole === 'employer' ? 'employee' : 'employer';
-            try {
-              const response = otherRole === 'employer'
-                ? await apiService.getEmployerByWallet(walletAddress)
-                : await apiService.getEmployeeByWallet(walletAddress);
-              if (response?.data) {
-                otherRoleExists = true;
-                if (!hasPendingRole) {
-                  // No explicit role intent — redirect to existing profile
-                  intendedRole = otherRole;
-                  profileExists = true;
-                }
-              }
-            } catch (err) { /* 404 expected */ }
+          if (profileExists && otherProfile) {
+            hasOtherRole = true;
           }
-
-          // Check if user has both roles (for role switcher UI)
-          if (profileExists && !otherRoleExists && walletAddress) {
-            try {
-              const response = intendedRole === 'employer'
-                ? await apiService.getEmployeeByWallet(walletAddress)
-                : await apiService.getEmployerByWallet(walletAddress);
-              if (response?.data) {
-                hasOtherRole = true;
-              }
-            } catch (err) {
-              // Ignore 404s
-            }
-          }
-          // If we found the other role but didn't redirect (pendingRole was set),
-          // mark hasOtherRole so the UI knows this user has a profile on the other side
           if (otherRoleExists && !profileExists) {
             hasOtherRole = true;
           }
@@ -303,16 +269,18 @@ const AppContent = () => {
           }
         } catch (error) {
           console.error('Error during profile check:', error);
-          // If profile checking failed with an error, we cannot trust
-          // the user has a valid profile. Redirect to profile creation to be safe.
-          navigate('/user-profile', { replace: true });
+          // A network or server error during the check does NOT mean the user has no profile.
+          // Routing to /user-profile here would send established users back to onboarding
+          // every time there's a transient API failure. Reset flags so they can retry.
+          setHasRedirected(false);
         } finally {
           setCheckingProfile(false);
         }
       };
 
-      // Add a small delay to ensure user state is fully set, then check profile
-      setTimeout(checkProfileAndRedirect, 300);
+      // smartWalletAddress is now guaranteed non-null before this block runs,
+      // so no artificial delay is needed. Run immediately.
+      checkProfileAndRedirect();
     }
   }, [isLoading, isAuthenticated, user, primaryWallet, smartWalletAddress, location.pathname, navigate, hasRedirected, checkingProfile, initialLoadComplete]);
 

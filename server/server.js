@@ -8,6 +8,7 @@ require('dotenv').config();
 
 // Import database connection
 const { sequelize } = require('./config/database');
+const { Employee, Employer } = require('./models');
 
 // Import routes
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -109,6 +110,23 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
+});
+
+// Combined profile-status endpoint — replaces 3 sequential login lookups with 1 parallel call
+const { verifyToken } = require('./middleware/authMiddleware');
+app.get('/api/profile-status', verifyToken, async (req, res) => {
+  const { wallet } = req.query;
+  if (!wallet) return res.status(400).json({ success: false, message: 'wallet query param required' });
+  try {
+    const [employee, employer] = await Promise.all([
+      Employee.findOne({ where: { wallet_address: wallet } }).catch(() => null),
+      Employer.findOne({ where: { wallet_address: wallet } }).catch(() => null),
+    ]);
+    res.json({ success: true, data: { employee: employee ?? null, employer: employer ?? null } });
+  } catch (err) {
+    console.error('Error in profile-status:', err);
+    res.status(500).json({ success: false, message: 'Error checking profile status' });
+  }
 });
 
 // API routes
