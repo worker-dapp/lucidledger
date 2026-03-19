@@ -39,12 +39,12 @@ app.use(helmet());
 if (process.env.NODE_ENV === 'production') {
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 5000, // high limit to accommodate classroom/institutional NAT (many users behind one IP)
     message: 'Too many requests from this IP, please try again later.'
   });
   const adminLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // stricter limit for sensitive admin endpoints
+    max: 200, // stricter limit for sensitive admin endpoints
     message: 'Too many requests to admin endpoints, please try again later.'
   });
   app.use(limiter);
