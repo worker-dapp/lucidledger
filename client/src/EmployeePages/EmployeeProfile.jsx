@@ -176,17 +176,6 @@ const EmployeeProfile = () => {
     fetchUserDetails();
   }, [user, primaryWallet]);
 
-  useEffect(() => {
-    if (user) {
-      // Fallback to auth user data if DB data not available
-      if (!userDetails) {
-        setFirstName(user.first_name || '');
-        setLastName(user.last_name || '');
-        setEmail(user.email?.address || user.email || '');
-      }
-    }
-  }, [user, userDetails]);
-
   // Sync newly linked Privy credentials to the database
   const privyEmail = user?.email?.address || '';
   const privyPhone = user?.phone?.number || '';
@@ -245,6 +234,10 @@ const EmployeeProfile = () => {
   };
 
   const handleSaveContact = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setMessage('First name and last name are required.');
+      return;
+    }
     const contactData = {
       first_name: firstName,
       last_name: lastName,

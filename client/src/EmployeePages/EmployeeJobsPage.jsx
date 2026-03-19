@@ -9,7 +9,7 @@ import EmployeeLayout, { useEmployee } from "../components/EmployeeLayout";
 
 const EmployeeJobsPageInner = () => {
   const { user, primaryWallet, smartWalletAddress, login } = useAuth();
-  const { employeeData, employeeId } = useEmployee();
+  const { employeeData, employeeId, isLoading: profileLoading } = useEmployee();
   const navigate = useNavigate();
   const location = useLocation();
   const [jobs, setJobs] = useState([]);
@@ -220,6 +220,7 @@ const EmployeeJobsPageInner = () => {
 
     const employeeId = employeeData?.id;
     if (!employeeId) {
+      if (profileLoading) return; // Profile fetch still in flight — silently wait
       alert('Unable to find your employee profile. Please complete your profile first.');
       return;
     }
@@ -280,6 +281,7 @@ const EmployeeJobsPageInner = () => {
 
     const employeeId = employeeData?.id;
     if (!employeeId) {
+      if (profileLoading) return; // Profile fetch still in flight — silently wait
       alert('Unable to find your employee profile. Please complete your profile first.');
       return;
     }
@@ -901,8 +903,19 @@ const EmployeeJobsPageInner = () => {
                           Offer Made
                         </span>
                       </div>
+                    ) : !selectedJob.application_id ? (
+                      // All Jobs tab: application_id not loaded here — direct to Offers tab
+                      <div className="w-full text-center py-3">
+                        <p className="text-sm text-gray-600 mb-2">You have an offer for this job.</p>
+                        <button
+                          onClick={() => setActiveFilter('offers')}
+                          className="px-6 py-2 rounded-lg font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition-all"
+                        >
+                          Go to Offers tab to sign
+                        </button>
+                      </div>
                     ) : (
-                      // Offers / All tabs: action buttons
+                      // Offers tab: action buttons
                       <div className="flex gap-3 w-full">
                         <button
                           onClick={handleSignContract}
@@ -1132,6 +1145,17 @@ const EmployeeJobsPageInner = () => {
                         <span className="inline-block px-4 py-2 rounded-lg text-sm font-medium bg-green-100 text-green-800">
                           Offer Made
                         </span>
+                      </div>
+                    ) : !selectedJob.application_id ? (
+                      // All Jobs tab: application_id not loaded here — direct to Offers tab
+                      <div className="w-full text-center py-3">
+                        <p className="text-sm text-gray-600 mb-2">You have an offer for this job.</p>
+                        <button
+                          onClick={() => setActiveFilter('offers')}
+                          className="px-6 py-2 rounded-lg font-semibold text-sm bg-green-600 text-white hover:bg-green-700 transition-all"
+                        >
+                          Go to Offers tab to sign
+                        </button>
                       </div>
                     ) : (
                       <div className="flex gap-3 w-full">

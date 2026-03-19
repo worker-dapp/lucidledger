@@ -14,7 +14,7 @@ const sequelize = new Sequelize(
     dialect: 'postgres',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
-      max: 5,
+      max: 10, // safe ceiling for db.t3.micro (2 vCPUs, 1GB RAM)
       min: 0,
       acquire: 30000,
       idle: 10000,

@@ -23,6 +23,7 @@ const EmployerLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, smartWalletAddress } = useAuth();
   const [employerData, setEmployerData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const approvalStatus = employerData?.approval_status ?? null;
   const rejectionReason = employerData?.rejection_reason ?? null;
@@ -32,6 +33,7 @@ const EmployerLayout = ({ children }) => {
   // Fetch employer data once — shared with all child pages via EmployerContext
   useEffect(() => {
     const fetchEmployer = async () => {
+      setIsLoading(true);
       try {
         let response = null;
         if (smartWalletAddress) {
@@ -45,11 +47,15 @@ const EmployerLayout = ({ children }) => {
         }
       } catch (error) {
         console.error("Error fetching employer data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     if (smartWalletAddress || user?.email?.address) {
       fetchEmployer();
+    } else {
+      setIsLoading(false);
     }
   }, [smartWalletAddress, user?.email?.address]);
 
@@ -167,7 +173,7 @@ const EmployerLayout = ({ children }) => {
 
         <div className="flex-1 min-w-0">
           <div className="px-4 sm:px-6 lg:px-8 py-8">
-            <EmployerContext.Provider value={{ employerId: employerData?.id ?? null, approvalStatus, rejectionReason, employerData }}>
+            <EmployerContext.Provider value={{ employerId: employerData?.id ?? null, approvalStatus, rejectionReason, employerData, isLoading }}>
               {children ?? <Outlet />}
             </EmployerContext.Provider>
           </div>
