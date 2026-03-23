@@ -291,7 +291,7 @@ const AppContent = () => {
   }, [logout, navigate]);
 
   const { showWarning, stayLoggedIn } = useIdleTimeout({
-    enabled: isAuthenticated === true,
+    enabled: false, // Temporarily disabled for demo
     onTimeout: handleIdleTimeout,
   });
 
