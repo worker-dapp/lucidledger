@@ -215,7 +215,8 @@ async function runMigrationsOnStartup() {
       '023-fix-payment-tx-hash-constraint.sql',
       '024-add-employer-id-to-audit-log.sql',
       '025-qr-oracle.sql',
-      '026-nfc-oracle.sql'
+      '026-nfc-oracle.sql',
+      '027-drop-duplicate-email-constraints.sql'
     ];
 
     for (const file of migrationFiles) {
