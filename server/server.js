@@ -70,7 +70,8 @@ if (process.env.NODE_ENV === 'production') {
 const defaultCorsOrigins = [
   'http://localhost:5173',
   'https://localhost',
-  'capacitor://localhost'
+  'capacitor://localhost',
+  'https://www.lucidledger.co'
 ];
 const configuredCorsOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
