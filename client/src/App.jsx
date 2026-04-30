@@ -193,7 +193,10 @@ const AppContent = () => {
           let profileExists = false;
           let hasOtherRole = false;
           const walletAddress = smartWalletAddress || primaryWallet?.address;
-          const hasPendingRole = !!localStorage.getItem('pendingRole');
+          // Only trust pendingRole when the user explicitly clicked login/signup
+          // this session (loginIntent set). For Privy auto-reauth, pendingRole
+          // may be stale and should not block the "found you on the other side" redirect.
+          const hasPendingRole = !!localStorage.getItem('pendingRole') && !!localStorage.getItem('loginIntent');
 
           const statusResponse = await apiService.getProfileStatus(walletAddress);
           const { employee, employer, mediator } = statusResponse?.data ?? {};
