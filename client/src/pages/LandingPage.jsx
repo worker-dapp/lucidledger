@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Navbar from "../components/Navbar";
@@ -15,11 +15,6 @@ const LandingPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
-  // Set pendingRole to 'employee' when visiting this landing page
-  // This ensures users logging in from here get the employee flow
-  useEffect(() => {
-    localStorage.setItem('pendingRole', 'employee');
-  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();

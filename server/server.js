@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Import database connection
 const { sequelize } = require('./config/database');
-const { Employee, Employer } = require('./models');
+const { Employee, Employer, Mediator } = require('./models');
 
 // Import routes
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -128,12 +128,17 @@ const { verifyToken } = require('./middleware/authMiddleware');
 app.get('/api/profile-status', verifyToken, async (req, res) => {
   const { wallet } = req.query;
   if (!wallet) return res.status(400).json({ success: false, message: 'wallet query param required' });
+  const email = req.user?.email || null;
   try {
-    const [employee, employer] = await Promise.all([
+    const { Op } = require('sequelize');
+    const [employee, employer, mediator] = await Promise.all([
       Employee.findOne({ where: { wallet_address: wallet } }).catch(() => null),
       Employer.findOne({ where: { wallet_address: wallet } }).catch(() => null),
+      email
+        ? Mediator.findOne({ where: { email: { [Op.iLike]: email } } }).catch(() => null)
+        : Promise.resolve(null),
     ]);
-    res.json({ success: true, data: { employee: employee ?? null, employer: employer ?? null } });
+    res.json({ success: true, data: { employee: employee ?? null, employer: employer ?? null, mediator: mediator ?? null } });
   } catch (err) {
     console.error('Error in profile-status:', err);
     res.status(500).json({ success: false, message: 'Error checking profile status' });

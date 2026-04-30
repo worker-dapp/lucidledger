@@ -176,9 +176,9 @@ const AppContent = () => {
           // and send them directly to the admin dashboard.
           const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '')
             .split(',')
-            .map((e) => e.trim())
+            .map((e) => e.trim().toLowerCase())
             .filter(Boolean);
-          const userEmail = user?.email?.address;
+          const userEmail = user?.email?.address?.toLowerCase();
           if (userEmail && adminEmails.includes(userEmail)) {
             navigate('/admin', { replace: true });
             return;
@@ -196,7 +196,13 @@ const AppContent = () => {
           const hasPendingRole = !!localStorage.getItem('pendingRole');
 
           const statusResponse = await apiService.getProfileStatus(walletAddress);
-          const { employee, employer } = statusResponse?.data ?? {};
+          const { employee, employer, mediator } = statusResponse?.data ?? {};
+
+          // MEDIATOR SHORT-CIRCUIT: redirect before role logic runs
+          if (mediator) {
+            navigate('/resolve-disputes', { replace: true });
+            return;
+          }
 
           const intendedIsEmployer = intendedRole === 'employer';
           const intendedProfile = intendedIsEmployer ? employer : employee;
