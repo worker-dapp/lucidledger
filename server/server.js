@@ -131,9 +131,16 @@ app.get('/api/profile-status', verifyToken, async (req, res) => {
   const email = req.user?.email || null;
   try {
     const { Op } = require('sequelize');
+    // Look up by wallet OR email so profiles created with a different wallet
+    // address (e.g. before smart wallets) are still found.
+    const walletOrEmail = (table) => {
+      const conditions = [{ wallet_address: wallet }];
+      if (email) conditions.push({ email: { [Op.iLike]: email } });
+      return table.findOne({ where: { [Op.or]: conditions } }).catch(() => null);
+    };
     const [employee, employer, mediator] = await Promise.all([
-      Employee.findOne({ where: { wallet_address: wallet } }).catch(() => null),
-      Employer.findOne({ where: { wallet_address: wallet } }).catch(() => null),
+      walletOrEmail(Employee),
+      walletOrEmail(Employer),
       email
         ? Mediator.findOne({ where: { email: { [Op.iLike]: email } } }).catch(() => null)
         : Promise.resolve(null),
