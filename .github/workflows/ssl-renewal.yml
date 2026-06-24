@@ -107,21 +107,29 @@ jobs:
             # Use --force-renewal if certificate is expired
             if [ "$EXPIRY_EPOCH" != "0" ] && [ "$EXPIRY_EPOCH" -le "$CURRENT_EPOCH" ]; then
               echo "🔄 Forcing certificate renewal (certificate expired)..."
-              RENEW_CMD="docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --force-renewal"
+              RENEW_CMD="docker compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --force-renewal"
             else
-              RENEW_CMD="docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet"
+              RENEW_CMD="docker compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --quiet"
             fi
-            
+
             if eval "$RENEW_CMD"; then
               echo "✅ SSL certificates renewed successfully!"
-              
-              # Reload Nginx to use new certificates
-              docker-compose -f docker-compose.nginx.yml restart nginx || docker exec nginx-proxy nginx -s reload
-              echo "✅ Nginx reloaded with new certificates"
+
+              # Graceful reload — nginx re-reads certs without dropping connections
+              docker exec nginx-proxy nginx -s reload
+              sleep 3
+
+              # Verify nginx is now serving the renewed certificate
+              SERVED_EXPIRY=$(echo | openssl s_client -connect localhost:443 -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)
+              if [ -n "$SERVED_EXPIRY" ]; then
+                echo "✅ Nginx reloaded — serving cert expiring: $SERVED_EXPIRY"
+              else
+                echo "⚠️  Could not verify served cert — check nginx manually"
+              fi
             else
               echo "❌ Certificate renewal failed"
               echo "💡 Trying dry-run to diagnose issue..."
-              docker-compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --dry-run || true
+              docker compose -f docker-compose.nginx.yml run --rm certbot renew --webroot --webroot-path=/var/www/html --dry-run || true
               exit 1
             fi
           fi
