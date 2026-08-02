@@ -13,5 +13,6 @@ router.put('/:id', verifyToken, requireApprovedEmployer, JobPostingController.up
 router.delete('/:id', verifyToken, requireApprovedEmployer, JobPostingController.deleteJobPosting);
 router.post('/:id/close', verifyToken, requireApprovedEmployer, JobPostingController.closeJobPosting);
 router.post('/:id/activate', verifyToken, requireApprovedEmployer, JobPostingController.activateJobPosting);
+router.patch('/:id/recruiter', verifyToken, requireApprovedEmployer, JobPostingController.assignRecruiter);
 
 module.exports = router;

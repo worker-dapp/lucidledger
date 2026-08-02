@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Import database connection
 const { sequelize } = require('./config/database');
-const { Employee, Employer, Mediator } = require('./models');
+const { Employee, Employer, Mediator, Recruiter } = require('./models');
 
 // Import routes
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -27,6 +27,7 @@ const adminEmployerRoutes = require('./routes/adminEmployerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const qrOracleRoutes = require('./routes/qrOracleRoutes');
 const nfcOracleRoutes = require('./routes/nfcOracleRoutes');
+const recruiterRoutes = require('./routes/recruiterRoutes');
 const { validateWalletAddress } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -132,14 +133,17 @@ app.get('/api/profile-status', verifyToken, async (req, res) => {
   const email = req.user?.email || null;
   try {
     const { Op } = require('sequelize');
-    const [employee, employer, mediator] = await Promise.all([
+    const [employee, employer, mediator, recruiter] = await Promise.all([
       Employee.findOne({ where: { wallet_address: wallet } }).catch(() => null),
       Employer.findOne({ where: { wallet_address: wallet } }).catch(() => null),
       email
         ? Mediator.findOne({ where: { email: { [Op.iLike]: email } } }).catch(() => null)
         : Promise.resolve(null),
+      email
+        ? Recruiter.findOne({ where: { email: { [Op.iLike]: email }, status: 'active' } }).catch(() => null)
+        : Promise.resolve(null),
     ]);
-    res.json({ success: true, data: { employee: employee ?? null, employer: employer ?? null, mediator: mediator ?? null } });
+    res.json({ success: true, data: { employee: employee ?? null, employer: employer ?? null, mediator: mediator ?? null, recruiter: recruiter ?? null } });
   } catch (err) {
     console.error('Error in profile-status:', err);
     res.status(500).json({ success: false, message: 'Error checking profile status' });
@@ -163,6 +167,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin/employers', adminEmployerRoutes);
 app.use('/api', qrOracleRoutes);
 app.use('/api', nfcOracleRoutes);
+app.use('/api/recruiters', recruiterRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -222,7 +227,10 @@ async function runMigrationsOnStartup() {
       '024-add-employer-id-to-audit-log.sql',
       '025-qr-oracle.sql',
       '026-nfc-oracle.sql',
-      '027-drop-duplicate-email-constraints.sql'
+      '027-drop-duplicate-email-constraints.sql',
+      '028-create-recruiters.sql',
+      '029-add-recruiter-to-job-postings.sql',
+      '030-create-recruiter-fee-payments.sql'
     ];
 
     for (const file of migrationFiles) {
