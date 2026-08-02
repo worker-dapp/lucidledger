@@ -401,6 +401,26 @@ class ApiService {
     });
   }
 
+  async getApplicationsByRecruiter(recruiterId, status = null, jobPostingId = null) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (jobPostingId) params.set('job_posting_id', jobPostingId);
+    const query = params.toString();
+    return this.request(`/job-applications/recruiter/${recruiterId}${query ? `?${query}` : ''}`);
+  }
+
+  async bulkUpdateApplicationStatusAsRecruiter(applicationIds, status, recruiterId) {
+    return this.request('/job-applications/recruiter/bulk-status', {
+      method: 'POST',
+      body: JSON.stringify({
+        application_ids: applicationIds,
+        status,
+        actor_type: 'recruiter',
+        actor_id: recruiterId,
+      }),
+    });
+  }
+
   // Mediator API methods
   async checkMediator(email) {
     return this.request(`/mediators/check/${encodeURIComponent(email)}`);
@@ -597,6 +617,55 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
+  }
+
+  // Recruiter Management
+  async checkRecruiter(email) {
+    return this.request(`/recruiters/check/${encodeURIComponent(email)}`);
+  }
+
+  async createRecruiter(data) {
+    return this.request('/recruiters', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async getRecruiterById(id) {
+    return this.request(`/recruiters/${id}`);
+  }
+
+  async getAllRecruiters(search = '') {
+    const params = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.request(`/recruiters${params}`);
+  }
+
+  async updateRecruiter(id, data) {
+    return this.request(`/recruiters/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async getAssignedJobs(recruiterId) {
+    return this.request(`/recruiters/${recruiterId}/assigned-jobs`);
+  }
+
+  async assignRecruiter(jobPostingId, recruiterId, feeAmount, feeCurrency = 'USD') {
+    return this.request(`/job-postings/${jobPostingId}/recruiter`, {
+      method: 'PATCH',
+      body: JSON.stringify({ recruiter_id: recruiterId, recruiter_fee_amount: feeAmount, recruiter_fee_currency: feeCurrency }),
+    });
+  }
+
+  async unassignRecruiter(jobPostingId) {
+    return this.request(`/job-postings/${jobPostingId}/recruiter`, {
+      method: 'PATCH',
+      body: JSON.stringify({ recruiter_id: null }),
+    });
+  }
+
+  async createRecruiterFeePayment(data) {
+    return this.request('/recruiters/fee-payments', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async getRecruiterFeePayments(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/recruiters/fee-payments${query ? `?${query}` : ''}`);
   }
 }
 

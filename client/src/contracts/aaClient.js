@@ -193,6 +193,24 @@ export const encodeApproveData = (spender, amount, decimals = 6) => {
   });
 };
 
+export const encodeTransferData = (to, amount, decimals = 6) => {
+  return encodeFunctionData({
+    abi: [
+      {
+        name: "transfer",
+        type: "function",
+        inputs: [
+          { name: "to", type: "address" },
+          { name: "amount", type: "uint256" },
+        ],
+        outputs: [{ type: "bool" }],
+      },
+    ],
+    functionName: "transfer",
+    args: [to, parseUnits(amount.toString(), decimals)],
+  });
+};
+
 export const isContract = async (address) => {
   const code = await publicClient.getBytecode({ address });
   return code !== undefined && code !== "0x";

@@ -1,0 +1,211 @@
+const { Recruiter, JobPosting, RecruiterFeePayment, Employer } = require('../models');
+const { Op } = require('sequelize');
+
+const ALLOWED_PROFILE_FIELDS = [
+  'first_name', 'last_name', 'phone_number', 'wallet_address', 'agency_name'
+];
+
+class RecruiterController {
+  // Self-signup: create a recruiter profile
+  static async createRecruiter(req, res) {
+    try {
+      const { email, first_name, last_name, phone_number, agency_name } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+
+      const existing = await Recruiter.findOne({ where: { email: email.toLowerCase() } });
+      if (existing) {
+        return res.status(409).json({ success: false, message: 'A recruiter with this email already exists' });
+      }
+
+      const recruiter = await Recruiter.create({
+        email: email.toLowerCase(),
+        first_name,
+        last_name,
+        phone_number,
+        agency_name,
+        status: 'active'
+      });
+
+      res.status(201).json({ success: true, data: recruiter });
+    } catch (error) {
+      console.error('Error creating recruiter:', error);
+      res.status(500).json({ success: false, message: 'Error creating recruiter', error: error.message });
+    }
+  }
+
+  // Check if email belongs to an active recruiter (used for auth/role routing)
+  static async checkRecruiterByEmail(req, res) {
+    try {
+      const { email } = req.params;
+
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+
+      const recruiter = await Recruiter.findOne({
+        where: { email: email.toLowerCase(), status: 'active' },
+        attributes: ['id', 'email', 'first_name', 'last_name', 'agency_name', 'wallet_address', 'status']
+      });
+
+      if (!recruiter) {
+        return res.status(404).json({ success: false, isRecruiter: false, message: 'No active recruiter found with this email' });
+      }
+
+      res.status(200).json({ success: true, isRecruiter: true, data: recruiter });
+    } catch (error) {
+      console.error('Error checking recruiter:', error);
+      res.status(500).json({ success: false, message: 'Error checking recruiter status', error: error.message });
+    }
+  }
+
+  // Get recruiter by ID
+  static async getRecruiterById(req, res) {
+    try {
+      const recruiter = await Recruiter.findByPk(req.params.id);
+      if (!recruiter) {
+        return res.status(404).json({ success: false, message: 'Recruiter not found' });
+      }
+      res.status(200).json({ success: true, data: recruiter });
+    } catch (error) {
+      console.error('Error fetching recruiter:', error);
+      res.status(500).json({ success: false, message: 'Error fetching recruiter', error: error.message });
+    }
+  }
+
+  // Get all active recruiters (for employer search/assign UI)
+  static async getAllRecruiters(req, res) {
+    try {
+      const { search } = req.query;
+      const where = { status: 'active' };
+
+      if (search) {
+        where[Op.or] = [
+          { first_name: { [Op.iLike]: `%${search}%` } },
+          { last_name: { [Op.iLike]: `%${search}%` } },
+          { agency_name: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } }
+        ];
+      }
+
+      const recruiters = await Recruiter.findAll({
+        where,
+        attributes: ['id', 'email', 'first_name', 'last_name', 'agency_name', 'status'],
+        order: [['agency_name', 'ASC'], ['last_name', 'ASC']]
+      });
+
+      res.status(200).json({ success: true, data: recruiters, count: recruiters.length });
+    } catch (error) {
+      console.error('Error fetching recruiters:', error);
+      res.status(500).json({ success: false, message: 'Error fetching recruiters', error: error.message });
+    }
+  }
+
+  // Update recruiter profile (self-update)
+  static async updateRecruiter(req, res) {
+    try {
+      const recruiter = await Recruiter.findByPk(req.params.id);
+      if (!recruiter) {
+        return res.status(404).json({ success: false, message: 'Recruiter not found' });
+      }
+
+      // Only allow the recruiter to update their own profile
+      const userEmail = req.user?.email;
+      if (!userEmail || userEmail.toLowerCase() !== recruiter.email.toLowerCase()) {
+        return res.status(403).json({ success: false, message: 'You can only update your own profile' });
+      }
+
+      const updates = ALLOWED_PROFILE_FIELDS.reduce((acc, key) => {
+        if (req.body[key] !== undefined) acc[key] = req.body[key];
+        return acc;
+      }, {});
+
+      await recruiter.update(updates);
+      res.status(200).json({ success: true, data: recruiter });
+    } catch (error) {
+      console.error('Error updating recruiter:', error);
+      res.status(500).json({ success: false, message: 'Error updating recruiter', error: error.message });
+    }
+  }
+
+  // Get jobs assigned to this recruiter
+  static async getAssignedJobs(req, res) {
+    try {
+      const { id } = req.params;
+
+      const recruiter = await Recruiter.findByPk(id);
+      if (!recruiter) {
+        return res.status(404).json({ success: false, message: 'Recruiter not found' });
+      }
+
+      const jobs = await JobPosting.findAll({
+        where: { recruiter_id: id },
+        include: [{ model: Employer, as: 'employer', attributes: ['id', 'company_name', 'email'] }],
+        order: [['created_at', 'DESC']]
+      });
+
+      res.status(200).json({ success: true, data: jobs, count: jobs.length });
+    } catch (error) {
+      console.error('Error fetching assigned jobs:', error);
+      res.status(500).json({ success: false, message: 'Error fetching assigned jobs', error: error.message });
+    }
+  }
+
+  // Create a recruiter fee payment record
+  static async createFeePayment(req, res) {
+    try {
+      const { job_posting_id, recruiter_id, employer_id, fee_amount, fee_currency, tx_hash, payment_reference_id, notes } = req.body;
+
+      if (!job_posting_id || !recruiter_id || !employer_id || !fee_amount) {
+        return res.status(400).json({ success: false, message: 'job_posting_id, recruiter_id, employer_id, and fee_amount are required' });
+      }
+
+      const payment = await RecruiterFeePayment.create({
+        job_posting_id,
+        recruiter_id,
+        employer_id,
+        fee_amount,
+        fee_currency: fee_currency || 'USD',
+        payment_status: (tx_hash || payment_reference_id) ? 'paid' : 'pending',
+        tx_hash: tx_hash || null,
+        payment_reference_id: payment_reference_id || null,
+        paid_at: (tx_hash || payment_reference_id) ? new Date() : null,
+        notes: notes || null
+      });
+
+      res.status(201).json({ success: true, data: payment });
+    } catch (error) {
+      console.error('Error creating fee payment:', error);
+      res.status(500).json({ success: false, message: 'Error creating fee payment', error: error.message });
+    }
+  }
+
+  // Get fee payments for a job posting or recruiter
+  static async getFeePayments(req, res) {
+    try {
+      const { job_posting_id, recruiter_id, employer_id } = req.query;
+      const where = {};
+      if (job_posting_id) where.job_posting_id = job_posting_id;
+      if (recruiter_id) where.recruiter_id = recruiter_id;
+      if (employer_id) where.employer_id = employer_id;
+
+      const payments = await RecruiterFeePayment.findAll({
+        where,
+        include: [
+          { model: Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name', 'email'] },
+          { model: JobPosting, as: 'jobPosting', attributes: ['id', 'title'] }
+        ],
+        order: [['created_at', 'DESC']]
+      });
+
+      res.status(200).json({ success: true, data: payments, count: payments.length });
+    } catch (error) {
+      console.error('Error fetching fee payments:', error);
+      res.status(500).json({ success: false, message: 'Error fetching fee payments', error: error.message });
+    }
+  }
+}
+
+module.exports = RecruiterController;

@@ -113,6 +113,21 @@ const JobPosting = sequelize.define('JobPosting', {
   accepted_count: {
     type: DataTypes.INTEGER,
     defaultValue: 0
+  },
+  // Recruiter assignment
+  recruiter_id: {
+    type: DataTypes.BIGINT,
+    allowNull: true,
+    references: { model: 'recruiters', key: 'id' },
+    onDelete: 'SET NULL'
+  },
+  recruiter_fee_amount: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true
+  },
+  recruiter_fee_currency: {
+    type: DataTypes.STRING(10),
+    defaultValue: 'USD'
   }
 }, {
   tableName: 'job_postings',
@@ -138,6 +153,14 @@ JobPosting.associate = function(models) {
   JobPosting.belongsTo(models.ContractTemplate, {
     foreignKey: 'template_id',
     as: 'template'
+  });
+  JobPosting.belongsTo(models.Recruiter, {
+    foreignKey: 'recruiter_id',
+    as: 'recruiter'
+  });
+  JobPosting.hasMany(models.RecruiterFeePayment, {
+    foreignKey: 'job_posting_id',
+    as: 'recruiterFeePayments'
   });
 };
 

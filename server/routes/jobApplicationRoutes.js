@@ -18,6 +18,10 @@ router.get('/applied/:employee_id', verifyToken, jobApplicationController.getApp
 router.get('/employer/:employer_id', verifyToken, requireApprovedEmployer, jobApplicationController.getApplicationsByEmployer);
 router.post('/bulk-status', verifyToken, requireApprovedEmployer, jobApplicationController.bulkUpdateApplicationStatus);
 
+// Recruiter candidate pipeline (jobs assigned to the recruiter)
+router.get('/recruiter/:recruiter_id', verifyToken, jobApplicationController.getApplicationsByRecruiter);
+router.post('/recruiter/bulk-status', verifyToken, jobApplicationController.bulkUpdateApplicationStatus);
+
 // Update application status
 router.patch('/:applicationId/status', verifyToken, jobApplicationController.updateApplicationStatus);
 

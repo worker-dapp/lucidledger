@@ -344,11 +344,11 @@ exports.getAppliedJobs = async (req, res) => {
   }
 };
 
-// Update application status (for employers)
+// Update application status (for employers, or recruiters acting on assigned jobs)
 exports.updateApplicationStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
-    const { status, offer_signature, offer_signed_at } = req.body;
+    const { status, offer_signature, offer_signed_at, actor_type, actor_id } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -425,8 +425,8 @@ exports.updateApplicationStatus = async (req, res) => {
       });
       const isWorkerDecline = status === 'declined';
       await logAction({
-        actorType: isWorkerDecline ? 'employee' : 'employer',
-        actorId: isWorkerDecline ? application.employee_id : (jobForLog?.employer_id || null),
+        actorType: isWorkerDecline ? 'employee' : (actor_type || 'employer'),
+        actorId: isWorkerDecline ? application.employee_id : (actor_id || jobForLog?.employer_id || null),
         actorName: null,
         actionType: isWorkerDecline ? 'offer_declined' : (status === 'accepted' ? 'application_accepted' : 'application_rejected'),
         actionDescription: isWorkerDecline
@@ -507,10 +507,63 @@ exports.getApplicationsByEmployer = async (req, res) => {
   }
 };
 
+// Get applications for a recruiter (filterable) — jobs the recruiter has been assigned to
+exports.getApplicationsByRecruiter = async (req, res) => {
+  try {
+    const { recruiter_id } = req.params;
+    const { status, job_posting_id } = req.query;
+
+    const applicationWhere = {};
+    if (status) {
+      if (status === 'pending') {
+        applicationWhere.application_status = {
+          [Op.or]: [{ [Op.is]: null }, 'pending']
+        };
+      } else {
+        applicationWhere.application_status = status;
+      }
+    }
+    if (job_posting_id) {
+      applicationWhere.job_posting_id = job_posting_id;
+    }
+
+    const applications = await JobApplication.findAll({
+      where: applicationWhere,
+      include: [
+        {
+          model: JobPosting,
+          as: 'job',
+          where: { recruiter_id },
+          required: true,
+          include: [{ model: Employer, as: 'employer', attributes: ['id', 'company_name', 'email'] }]
+        },
+        {
+          model: Employee,
+          as: 'employee'
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.status(200).json({
+      success: true,
+      data: applications,
+      count: applications.length
+    });
+  } catch (error) {
+    console.error('Error fetching applications by recruiter:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching applications',
+      error: error.message
+    });
+  }
+};
+
 // Bulk update application status (accept/reject)
 exports.bulkUpdateApplicationStatus = async (req, res) => {
   try {
-    const { application_ids, status } = req.body;
+    const { application_ids, status, actor_type, actor_id } = req.body;
 
     if (!Array.isArray(application_ids) || application_ids.length === 0 || !status) {
       return res.status(400).json({
@@ -542,8 +595,8 @@ exports.bulkUpdateApplicationStatus = async (req, res) => {
       const actionType = status === 'accepted' ? 'application_accepted' : 'application_rejected';
       await Promise.all(appsForLog.map((app) =>
         logAction({
-          actorType:         'employer',
-          actorId:           app.job?.employer_id || null,
+          actorType:         actor_type || 'employer',
+          actorId:           actor_id || app.job?.employer_id || null,
           actorName:         null,
           actionType,
           actionDescription: `Application ${status} for "${app.job?.title || 'job'}"`,

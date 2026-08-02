@@ -1,4 +1,4 @@
-const { sequelize, JobPosting, ContractTemplate, Employer, JobApplication } = require('../models');
+const { sequelize, JobPosting, ContractTemplate, Employer, JobApplication, Recruiter } = require('../models');
 const { Op } = require('sequelize');
 
 class JobPostingController {
@@ -126,9 +126,15 @@ class JobPostingController {
             as: 'applications',
             attributes: [],
             required: false
+          },
+          {
+            model: Recruiter,
+            as: 'recruiter',
+            attributes: ['id', 'first_name', 'last_name', 'agency_name', 'email', 'wallet_address'],
+            required: false
           }
         ],
-        group: ['JobPosting.id'],
+        group: ['JobPosting.id', 'recruiter.id'],
         order: [['created_at', 'DESC']]
       });
 
@@ -369,6 +375,43 @@ class JobPostingController {
         message: 'Error fetching active job postings',
         error: error.message
       });
+    }
+  }
+  // Assign or unassign a recruiter to a job posting
+  static async assignRecruiter(req, res) {
+    try {
+      const { id } = req.params;
+      const { recruiter_id, recruiter_fee_amount, recruiter_fee_currency } = req.body;
+
+      const job = await JobPosting.findByPk(id);
+      if (!job) {
+        return res.status(404).json({ success: false, message: 'Job posting not found' });
+      }
+
+      if (recruiter_id) {
+        const { Recruiter } = require('../models');
+        const recruiter = await Recruiter.findByPk(recruiter_id);
+        if (!recruiter || recruiter.status !== 'active') {
+          return res.status(404).json({ success: false, message: 'Recruiter not found or inactive' });
+        }
+        await job.update({
+          recruiter_id,
+          recruiter_fee_amount: recruiter_fee_amount || null,
+          recruiter_fee_currency: recruiter_fee_currency || 'USD'
+        });
+      } else {
+        // Unassign
+        await job.update({ recruiter_id: null, recruiter_fee_amount: null, recruiter_fee_currency: 'USD' });
+      }
+
+      const updated = await JobPosting.findByPk(id, {
+        include: [{ model: require('../models').Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name', 'email'] }]
+      });
+
+      res.status(200).json({ success: true, data: updated });
+    } catch (error) {
+      console.error('Error assigning recruiter:', error);
+      res.status(500).json({ success: false, message: 'Error assigning recruiter', error: error.message });
     }
   }
 }
