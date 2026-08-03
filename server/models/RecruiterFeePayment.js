@@ -23,6 +23,12 @@ module.exports = (sequelize, DataTypes) => {
       references: { model: 'employer', key: 'id' },
       onDelete: 'CASCADE'
     },
+    deployed_contract_id: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      references: { model: 'deployed_contracts', key: 'id' },
+      onDelete: 'SET NULL'
+    },
     fee_amount: {
       type: DataTypes.DECIMAL(15, 2),
       allowNull: false
@@ -72,6 +78,10 @@ module.exports = (sequelize, DataTypes) => {
     RecruiterFeePayment.belongsTo(models.Employer, {
       foreignKey: 'employer_id',
       as: 'employer'
+    });
+    RecruiterFeePayment.belongsTo(models.DeployedContract, {
+      foreignKey: 'deployed_contract_id',
+      as: 'deployedContract'
     });
   };
 

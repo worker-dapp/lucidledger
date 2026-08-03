@@ -586,6 +586,34 @@ const WorkforceDashboard = () => {
                     <p>{formatCurrency(selectedContract.payment_amount, selectedContract.payment_currency)}</p>
                     <p className="text-xs text-gray-500">{selectedContract.payment_frequency || "--"}</p>
                   </div>
+                  {selectedContract.recruiterFeePayments?.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase text-gray-400">Recruiter Fee</p>
+                      {selectedContract.recruiterFeePayments.map((fee) => (
+                        <div key={fee.id} className="mt-1">
+                          <p>
+                            {formatCurrency(fee.fee_amount, fee.fee_currency)} to{" "}
+                            {fee.recruiter?.agency_name || `${fee.recruiter?.first_name || ""} ${fee.recruiter?.last_name || ""}`.trim() || "recruiter"}
+                            {" "}
+                            <span className={fee.payment_status === "paid" ? "text-green-600" : "text-amber-600"}>
+                              ({fee.payment_status})
+                            </span>
+                          </p>
+                          {fee.tx_hash && (
+                            <a
+                              href={`${BASESCAN_URL}/tx/${fee.tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline text-xs flex items-center gap-1"
+                            >
+                              View fee payment on Basescan
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Blockchain State */}
