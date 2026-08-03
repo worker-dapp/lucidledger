@@ -1,4 +1,28 @@
 const { Employee } = require('../models');
+const { Op } = require('sequelize');
+
+// Get employee by wallet address (case-insensitive — addresses may differ in checksum casing)
+const getEmployeeForUser = async (walletAddress) => {
+  if (!walletAddress) return null;
+  return Employee.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
+};
+
+const pickAllowedFields = (payload, allowedFields) => {
+  return Object.keys(payload).reduce((acc, key) => {
+    if (allowedFields.includes(key)) {
+      acc[key] = payload[key];
+    }
+    return acc;
+  }, {});
+};
+
+// Every field a worker may set on their own profile. Excludes id/created_at/updated_at.
+const ALLOWED_UPDATE_FIELDS = [
+  'first_name', 'last_name', 'phone_number', 'email', 'wallet_address',
+  'street_address', 'street_address2', 'country', 'state', 'zip_code', 'city',
+  'country_code', 'skills', 'work_experience', 'primary_language', 'availability',
+  'bio', 'willing_to_travel'
+];
 
 class EmployeeController {
   // Create a new employee
@@ -159,7 +183,19 @@ class EmployeeController {
   static async updateEmployee(req, res) {
     try {
       const { id } = req.params;
-      const [updatedRowsCount, updatedEmployee] = await Employee.update(req.body, {
+
+      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
+      const callingEmployee = await getEmployeeForUser(walletAddress);
+      if (!callingEmployee || String(callingEmployee.id) !== String(id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to update this employee profile'
+        });
+      }
+
+      const updates = pickAllowedFields(req.body, ALLOWED_UPDATE_FIELDS);
+
+      const [updatedRowsCount, updatedEmployee] = await Employee.update(updates, {
         where: { id },
         returning: true
       });
