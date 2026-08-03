@@ -1,4 +1,30 @@
 const { Employer } = require('../models');
+const { Op } = require('sequelize');
+
+// Get employer by wallet address (case-insensitive — addresses may differ in checksum casing)
+const getEmployerForUser = async (walletAddress) => {
+  if (!walletAddress) return null;
+  return Employer.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
+};
+
+const pickAllowedFields = (payload, allowedFields) => {
+  return Object.keys(payload).reduce((acc, key) => {
+    if (allowedFields.includes(key)) {
+      acc[key] = payload[key];
+    }
+    return acc;
+  }, {});
+};
+
+// Fields an employer may set on their own profile. Deliberately excludes
+// approval_status/approved_at/approved_by/rejection_reason — those are admin-controlled
+// via /api/admin/employers/:id/approve|reject, never settable by a self-update.
+const ALLOWED_UPDATE_FIELDS = [
+  'first_name', 'last_name', 'phone_number', 'email', 'wallet_address',
+  'street_address', 'street_address2', 'country', 'state', 'zip_code', 'city',
+  'country_code', 'company_name', 'company_description', 'industry',
+  'company_size', 'website', 'linkedin'
+];
 
 class EmployerController {
   // Create a new employer
@@ -169,8 +195,17 @@ class EmployerController {
         });
       }
 
-      // Prepare update data
-      let updateData = { ...req.body };
+      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
+      const callingEmployer = await getEmployerForUser(walletAddress);
+      if (!callingEmployer || String(callingEmployer.id) !== String(id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to update this employer profile'
+        });
+      }
+
+      // Prepare update data — allowlisted fields only, approval fields are never client-settable
+      let updateData = pickAllowedFields(req.body, ALLOWED_UPDATE_FIELDS);
 
       // If employer was rejected and is updating their profile, reset to pending for re-review
       if (currentEmployer.approval_status === 'rejected') {

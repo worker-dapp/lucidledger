@@ -1,5 +1,11 @@
-const { Recruiter, JobPosting, RecruiterFeePayment, Employer } = require('../models');
+const { Recruiter, JobPosting, RecruiterFeePayment, Employer, DeployedContract } = require('../models');
 const { Op } = require('sequelize');
+
+// Get employer by wallet address (case-insensitive — addresses may differ in checksum casing)
+const getEmployerForUser = async (walletAddress) => {
+  if (!walletAddress) return null;
+  return Employer.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
+};
 
 const ALLOWED_PROFILE_FIELDS = [
   'first_name', 'last_name', 'phone_number', 'wallet_address', 'agency_name'
@@ -162,10 +168,28 @@ class RecruiterController {
         return res.status(400).json({ success: false, message: 'job_posting_id, recruiter_id, employer_id, and fee_amount are required' });
       }
 
+      // Validate the caller is the employer they claim to be paying as — the fee must be
+      // employer-funded, so the payer identity is checked the same way deployedContractController does.
+      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
+      const employer = await getEmployerForUser(walletAddress);
+      if (!employer || String(employer.id) !== String(employer_id)) {
+        return res.status(403).json({ success: false, message: 'You do not have permission to record a fee payment for this employer' });
+      }
+
+      // Best-effort link to the specific deployed contract this fee was for. Only auto-link
+      // when the job posting has exactly one deployed contract — with multiple positions filled,
+      // a single flat fee can't be unambiguously attributed to one contract.
+      const contractsForJob = await DeployedContract.findAll({
+        where: { job_posting_id },
+        attributes: ['id']
+      });
+      const deployed_contract_id = contractsForJob.length === 1 ? contractsForJob[0].id : null;
+
       const payment = await RecruiterFeePayment.create({
         job_posting_id,
         recruiter_id,
         employer_id,
+        deployed_contract_id,
         fee_amount,
         fee_currency: fee_currency || 'USD',
         payment_status: (tx_hash || payment_reference_id) ? 'paid' : 'pending',
@@ -195,7 +219,8 @@ class RecruiterController {
         where,
         include: [
           { model: Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name', 'email'] },
-          { model: JobPosting, as: 'jobPosting', attributes: ['id', 'title'] }
+          { model: JobPosting, as: 'jobPosting', attributes: ['id', 'title'] },
+          { model: DeployedContract, as: 'deployedContract', attributes: ['id', 'contract_address', 'status'] }
         ],
         order: [['created_at', 'DESC']]
       });

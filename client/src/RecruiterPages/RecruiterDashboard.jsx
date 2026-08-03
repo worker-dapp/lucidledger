@@ -131,6 +131,11 @@ const RecruiterDashboard = () => {
                             Pending payment
                           </span>
                         )}
+                        {feePayments[job.id]?.deployedContract && (
+                          <span className="text-xs text-gray-500">
+                            Linked to contract {feePayments[job.id].deployedContract.contract_address.slice(0, 6)}...{feePayments[job.id].deployedContract.contract_address.slice(-4)}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

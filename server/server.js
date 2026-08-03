@@ -230,7 +230,8 @@ async function runMigrationsOnStartup() {
       '027-drop-duplicate-email-constraints.sql',
       '028-create-recruiters.sql',
       '029-add-recruiter-to-job-postings.sql',
-      '030-create-recruiter-fee-payments.sql'
+      '030-create-recruiter-fee-payments.sql',
+      '031-link-recruiter-fee-to-deployed-contract.sql'
     ];
 
     for (const file of migrationFiles) {

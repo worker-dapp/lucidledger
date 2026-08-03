@@ -28,6 +28,7 @@ const EmployeeJobsPageInner = () => {
   const [signing, setSigning] = useState(false);
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [declining, setDeclining] = useState(false);
+  const [feeDisclosureAck, setFeeDisclosureAck] = useState(false);
 
   // Demo mode detection
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
@@ -197,6 +198,7 @@ const EmployeeJobsPageInner = () => {
 
   const handleJobClick = (job) => {
     setSelectedJob(job);
+    setFeeDisclosureAck(false);
     // On mobile screens, show modal instead of side panel
     if (window.innerWidth < 1024) {
       setShowJobModal(true);
@@ -330,6 +332,11 @@ const EmployeeJobsPageInner = () => {
 
     if (!primaryWallet) {
       alert('Wallet not connected. Please wait for your wallet to load.');
+      return;
+    }
+
+    if (selectedJob.recruiter_id && !feeDisclosureAck) {
+      alert('Please confirm you understand you owe no recruiter fees before signing.');
       return;
     }
 
@@ -916,20 +923,36 @@ const EmployeeJobsPageInner = () => {
                       </div>
                     ) : (
                       // Offers tab: action buttons
-                      <div className="flex gap-3 w-full">
-                        <button
-                          onClick={handleSignContract}
-                          disabled={signing}
-                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {signing ? 'Signing...' : 'Sign & Accept'}
-                        </button>
-                        <button
-                          onClick={handleDeclineOffer}
-                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base border-2 border-red-300 text-red-600 hover:bg-red-50"
-                        >
-                          Decline Offer
-                        </button>
+                      <div className="w-full space-y-3">
+                        {selectedJob.recruiter_id && (
+                          <label className="flex items-start gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={feeDisclosureAck}
+                              onChange={(e) => setFeeDisclosureAck(e.target.checked)}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              This job was sourced through a recruiter. Any recruiter fee is paid entirely by the employer —
+                              <strong> I understand I owe no recruiter fees.</strong>
+                            </span>
+                          </label>
+                        )}
+                        <div className="flex gap-3 w-full">
+                          <button
+                            onClick={handleSignContract}
+                            disabled={signing || (selectedJob.recruiter_id && !feeDisclosureAck)}
+                            className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {signing ? 'Signing...' : 'Sign & Accept'}
+                          </button>
+                          <button
+                            onClick={handleDeclineOffer}
+                            className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base border-2 border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            Decline Offer
+                          </button>
+                        </div>
                       </div>
                     )
                   ) : selectedJob.application_status === 'signed' ? (
@@ -1158,20 +1181,36 @@ const EmployeeJobsPageInner = () => {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-3 w-full">
-                        <button
-                          onClick={handleSignContract}
-                          disabled={signing}
-                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {signing ? 'Signing...' : 'Sign & Accept'}
-                        </button>
-                        <button
-                          onClick={handleDeclineOffer}
-                          className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base border-2 border-red-300 text-red-600 hover:bg-red-50"
-                        >
-                          Decline Offer
-                        </button>
+                      <div className="w-full space-y-3">
+                        {selectedJob.recruiter_id && (
+                          <label className="flex items-start gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={feeDisclosureAck}
+                              onChange={(e) => setFeeDisclosureAck(e.target.checked)}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              This job was sourced through a recruiter. Any recruiter fee is paid entirely by the employer —
+                              <strong> I understand I owe no recruiter fees.</strong>
+                            </span>
+                          </label>
+                        )}
+                        <div className="flex gap-3 w-full">
+                          <button
+                            onClick={handleSignContract}
+                            disabled={signing || (selectedJob.recruiter_id && !feeDisclosureAck)}
+                            className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {signing ? 'Signing...' : 'Sign & Accept'}
+                          </button>
+                          <button
+                            onClick={handleDeclineOffer}
+                            className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base border-2 border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            Decline Offer
+                          </button>
+                        </div>
                       </div>
                     )
                   ) : selectedJob.application_status === 'signed' ? (
