@@ -156,6 +156,10 @@ DeployedContract.associate = function(models) {
     foreignKey: 'deployed_contract_id',
     as: 'paymentTransactions'
   });
+  DeployedContract.hasMany(models.RecruiterFeePayment, {
+    foreignKey: 'deployed_contract_id',
+    as: 'recruiterFeePayments'
+  });
 };
 
 return DeployedContract;

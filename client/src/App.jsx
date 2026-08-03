@@ -17,6 +17,11 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import UserProfile from "./pages/UserProfile";
 import EmployerSupportCenter from "./EmployerPages/EmployerSupportCenter";
 import MediatorResolution from "./pages/MediatorResolution";
+import RecruiterLandingPage from "./pages/RecruiterLandingPage";
+import RecruiterLayout from "./RecruiterPages/RecruiterLayout";
+import RecruiterDashboard from "./RecruiterPages/RecruiterDashboard";
+import CandidatePipelineTab from "./RecruiterPages/CandidatePipelineTab";
+import RecruiterProfile from "./RecruiterPages/RecruiterProfile";
 import KioskPage from "./pages/KioskPage";
 import KioskManagement from "./EmployerPages/KioskManagement";
 import AdminMediators from "./pages/AdminMediators";
@@ -199,11 +204,17 @@ const AppContent = () => {
           const hasPendingRole = !!localStorage.getItem('pendingRole') && !!localStorage.getItem('loginIntent');
 
           const statusResponse = await apiService.getProfileStatus(walletAddress);
-          const { employee, employer, mediator } = statusResponse?.data ?? {};
+          const { employee, employer, mediator, recruiter } = statusResponse?.data ?? {};
 
           // MEDIATOR SHORT-CIRCUIT: redirect before role logic runs
           if (mediator) {
             navigate('/resolve-disputes', { replace: true });
+            return;
+          }
+
+          // RECRUITER SHORT-CIRCUIT: redirect before role logic runs
+          if (recruiter) {
+            navigate('/recruiter-dashboard', { replace: true });
             return;
           }
 
@@ -479,6 +490,14 @@ const App = () => {
 
             {/* Mediator Route - Self-validates via DB-backed mediator list */}
             <Route path="/resolve-disputes" element={<MediatorResolution />} />
+
+            {/* Recruiter Routes - Self-signup, DB-backed */}
+            <Route path="/recruiter" element={<RecruiterLandingPage />} />
+            <Route element={<RecruiterLayout />}>
+              <Route path="/recruiter-dashboard" element={<RecruiterDashboard />} />
+              <Route path="/recruiter-candidates" element={<CandidatePipelineTab />} />
+              <Route path="/recruiter-profile" element={<RecruiterProfile />} />
+            </Route>
 
             {/* Admin Routes - Self-validate via ADMIN_EMAILS */}
             <Route path="/admin" element={<AdminDashboard />} />

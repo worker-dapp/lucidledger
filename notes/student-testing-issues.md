@@ -114,3 +114,97 @@ The "No account found" modal (screenshot confirmed) is shown when `loginIntent =
 - Profile the backend under load before the next class session.
 - Combine the 2–3 role-check API calls into a single endpoint that returns both role statuses at once.
 - Consider whether RDS instance size needs to be upgraded for class-size usage.
+
+---
+
+## Post-Session Fix Attempt (2026-03-18) — What Was Done and What Still Fails
+
+### Fixes shipped (commit `d53306e`)
+
+The following issues were addressed and deployed:
+
+**Issue #2 (dominant failure — accounts not recognized)**
+- Replaced hardcoded 300ms delay with a `!!smartWalletAddress` gate on `shouldCheck` in `App.jsx`. The profile check now waits until Privy's smart wallet is initialized before firing. This eliminates the false "no account found" error caused by the wallet not being ready under load.
+- Fixed the catch block to reset redirect flags instead of routing to `/user-profile` on transient API errors, stopping the cascade into repeated onboarding.
+
+**Issue #7 (performance under load)**
+- Replaced 3 sequential profile-check API calls (one per role + hasOtherRole) with a single `/api/profile-status` endpoint that queries both `employee` and `employer` tables in parallel (`Promise.all`). Cuts login DB load by ~60%.
+- Increased Sequelize connection pool from `max: 5` to `max: 10` (safe ceiling for db.t3.micro/t3.small).
+- RDS instance manually upgraded from db.t3.micro to db.t3.small via AWS console (2x RAM, better burst headroom).
+
+**Issue #1 (worker names showing "Unknown")**
+- Removed race-condition `useEffect` in `EmployeeProfile.jsx` that was overwriting `firstName`/`lastName` with empty strings from the Privy user object (which has no name fields).
+- Added first/last name validation to `handleSaveContact` — save is blocked if either field is empty.
+
+**Issue #4 (Sign & Accept broken on All Jobs tab)**
+- Replaced broken button with a redirect prompt directing workers to the Offers tab when `application_id` is not available in the All Jobs data shape.
+
+**Issue #6 (false "Profile Required" banner)**
+- Added `isLoading` state to `EmployerLayout` and `EmployeeLayout` contexts.
+- `ContractLibrary` now shows a spinner while employer data is loading instead of immediately rendering the "Profile Required" banner. Eliminates the false positive caused by async employer fetch completing after initial render.
+
+### Issues NOT yet fixed
+
+- **Issue #3** (Privy OTP lockout): Fixing issue #2 removes the main cause of the retry loop, but no UI improvement for the lockout message yet.
+- **Issue #5** (idle timeout too short): Still 13 minutes. Not extended yet.
+- **Issue #1** (server-side validation): Frontend validation added, but `employeeController` still has no server-side name validation and DB `allowNull` is still `true`.
+
+### Partial success (2026-03-19 follow-up session)
+
+The redirect loop (issue #2) is **confirmed fixed** — students are no longer being sent to the onboarding wizard on re-login. However, a new symptom appeared: **students returning to their accounts found their profiles empty**.
+
+Two possible causes (not yet diagnosed — DB check needed):
+
+**Cause A — Data was corrupted during the March 17 broken session**: The issue #1 race condition in `EmployeeProfile.jsx` (now fixed) may have overwritten student names with empty strings during the first session. If a student clicked Save on their profile page before the DB data loaded, their name was wiped. The profiles exist in the DB but have null/empty fields. To confirm: query the `employee` table for affected students and check `first_name`/`last_name`.
+
+**Cause B — Profile data not loading on the profile page**: The profile exists and has data in the DB, but the profile page is rendering blank. This would be a fetch or display bug introduced by or revealed by the recent changes.
+
+Action: check DB records for affected students to distinguish A from B.
+
+---
+
+### Still failing under load (2026-03-19)
+
+Despite the fixes above, the platform still breaks under class-size load (~5+ concurrent users). The smartWalletAddress gate was the most important fix but has not fully resolved the problem. Possible remaining causes:
+
+1. **Privy smart wallet initialization is still too slow under load.** Even with the gate, if Privy's infrastructure is under heavy concurrent load (many students initializing smart wallets at once), `smartWalletAddress` may still take many seconds to resolve. The current code re-fires the profile check when `smartWalletAddress` becomes available — but if it takes too long, users may navigate away or trigger other issues first. A visible "waiting for wallet..." loading state would help.
+
+2. **Privy RPC proxy returning 400 errors.** The browser console shows `base-sepolia.rpc.privy.systems` returning HTTP 400 on smart wallet RPC calls. This affects the employer-side contract deployment flow (gas simulation errors in Coinbase modal) and may be contributing to smart wallet initialization failures under load. See `notes/privy-rpc-400-error-2026-03-18.md` for full diagnosis. Next step: check Privy dashboard for chain/network configuration issues.
+
+3. **Remaining DB/API pressure.** Even with the consolidated endpoint, each user still makes multiple API calls after login (employer profile, job postings, applications, contract templates). Under 20 concurrent users this adds up. The db.t3.small upgrade helps but may not be sufficient if students are all hitting authenticated pages simultaneously.
+
+---
+
+## 8. HTTP 429 rate limit errors during class (confirmed)
+
+**Symptom**: Student received "HTTP error! status: 429" in the Clock In/Out modal on `/job-tracker` (screenshot confirmed, Mar 17 11:03 AM).
+
+**Root cause (confirmed)**: Production rate limiting in `server.js` is set to **100 requests per 15 minutes per IP address** (`express-rate-limit`). On a university network, all students share the same public IP (NAT/proxy). With 15–20 students each making multiple API calls simultaneously (login, profile fetch, job data, clock in/out), the collective request count from that single IP easily exceeds 100 within the window, and all subsequent requests from any student are rejected with 429 until the window resets.
+
+**Secondary symptom (confirmed)**: Under the same load, the employer was repeatedly being dumped back to the employee landing page (`/`) instead of routing to `/contract-factory`. Root cause: the `/api/profile-status` call inside `checkProfileAndRedirect` was itself getting 429'd. The catch block resets redirect flags and leaves the user on whichever landing page they started from. Since login typically starts at `/`, employers were stuck there with no profile check completing. Once concurrent load dropped, requests spread out, the profile check succeeded, and routing worked correctly.
+
+**Fix applied (2026-03-19, commit `b5e35ee`)**:
+- General rate limit: 100 → **5,000 req/15 min per IP**
+- Admin rate limit: 20 → **200 req/15 min per IP**
+
+Rationale: 50–100 students on a shared university NAT IP, each generating 10–15 API calls on login (many doubled due to React re-renders), can easily produce 3,000+ requests at class start. 5,000 gives headroom for realistic classroom and institutional deployment scenarios. Authenticated endpoints are still protected by Privy JWT verification, limiting the actual abuse surface even with a high IP ceiling.
+
+**Additional fixes applied (2026-03-19):**
+
+**Duplicate API calls eliminated (commit `4e7c1f8`)**: Both `EmployerLayout` and `EmployeeLayout` had `useEffect` hooks with multiple dependencies (`smartWalletAddress`, `user`, `primaryWallet`) that all resolved near-simultaneously after login, causing the employer/employee fetch to fire 2–3 times in rapid succession. Each duplicate fetch updated context state with a new object reference, which cascaded into all child tabs (PostedJobsTab, ApplicationReviewTab, AwaitingDeploymentTab, etc.) re-firing their own data fetches — roughly doubling total API requests per page load. Fixed by adding an `isFetchingRef` guard to prevent concurrent duplicate fetches in both layout components.
+
+**Switched to per-user rate limiting (commit `e26c663`)**: Replaced IP-based limiting with per-wallet limiting using the `x-wallet-address` header sent by the frontend on all authenticated requests. Falls back to IP for unauthenticated requests. Each student is now completely independent — a full classroom on university WiFi won't affect anyone else's limit.
+
+Final limits:
+- General: **300 req / 15 min per wallet** — covers active job-seeker browsing (10 jobs viewed, 5 saved, 3 applied + page loads ≈ 80–100 requests; 300 gives comfortable headroom)
+- Admin endpoints: **50 req / 15 min per wallet**
+- Unauthenticated (no wallet header): falls back to IP at same caps
+
+---
+
+### Recommended next steps for colleague review
+
+- **Is there a way to pre-warm or eagerly initialize Privy smart wallets** to reduce the initialization lag under load? Privy's `SmartWalletsProvider` may have options for this.
+- **Is the `smartWalletAddress` gate sufficient or do we need a timeout + retry UI?** Currently users see a blank/loading state with no feedback while waiting. A visible progress indicator and a "this is taking longer than expected — try refreshing" message after 10s would reduce panic re-logins.
+- **Should we move away from Privy's RPC proxy for smart wallet calls?** The 400 errors from `base-sepolia.rpc.privy.systems` suggest Privy's RPC routing has an issue for this app. If Privy support can't resolve it, we may need to configure `SmartWalletsProvider` with a direct RPC endpoint.
+- **Load testing**: Before the next class session, simulate 20 concurrent logins against the staging environment to confirm fixes hold and identify remaining bottlenecks.

@@ -1,4 +1,4 @@
-const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, JobApplication, sequelize } = require('../models');
+const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, JobApplication, RecruiterFeePayment, Recruiter, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logAction } = require('./auditLogController');
 
@@ -34,8 +34,8 @@ const updateJobStatusIfAllContractsComplete = async (jobPostingId) => {
     });
     if (!job) return;
 
-    // Don't reopen explicitly closed jobs
-    if (job.status === 'closed') return;
+    // Don't reopen explicitly closed or deleted jobs
+    if (['closed', 'deleted'].includes(job.status)) return;
 
     const positionsAvailable = job.positions_available || 1;
 
@@ -266,7 +266,12 @@ class DeployedContractController {
         where: whereClause,
         include: [
           { model: JobPosting, as: 'jobPosting' },
-          { model: Employee, as: 'employee' }
+          { model: Employee, as: 'employee' },
+          {
+            model: RecruiterFeePayment,
+            as: 'recruiterFeePayments',
+            include: [{ model: Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name'] }]
+          }
         ],
         order: [['created_at', 'DESC']]
       });
@@ -359,7 +364,12 @@ class DeployedContractController {
         include: [
           { model: JobPosting, as: 'jobPosting' },
           { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' }
+          { model: Employer, as: 'employer' },
+          {
+            model: RecruiterFeePayment,
+            as: 'recruiterFeePayments',
+            include: [{ model: Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name'] }]
+          }
         ]
       });
 
