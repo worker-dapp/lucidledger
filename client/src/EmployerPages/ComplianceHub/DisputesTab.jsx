@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Shield, Clock, UserCheck, CheckCircle, ExternalLink } from "lucide-react";
-import { useEmployer } from "../../components/EmployerLayout";
+import { useEmployer } from "../../components/EmployerContext";
 import apiService from "../../services/api";
 
 const BASESCAN_URL = import.meta.env.VITE_BASESCAN_URL || "https://base-sepolia.blockscout.com";

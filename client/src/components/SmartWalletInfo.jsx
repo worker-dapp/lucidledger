@@ -69,7 +69,7 @@ const SmartWalletInfo = ({ compact = false }) => {
       try {
         const balance = await getUSDCBalance(smartWalletAddress);
         setUsdcBalance(balance.formatted);
-      } catch (err) {
+      } catch {
         // Silent fail for refresh
       }
     };

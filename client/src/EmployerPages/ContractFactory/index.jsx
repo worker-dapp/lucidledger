@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useEmployer } from "../../components/EmployerLayout";
+import { useEmployer } from "../../components/EmployerContext";
 import ContractLibrary from "./ContractLibrary";
 import PostedJobsTab from "./PostedJobsTab";
 import ApplicationReviewTab from "./ApplicationReviewTab";
@@ -59,7 +59,7 @@ const ContractFactory = () => {
           {/* Desktop: tab buttons */}
           <div className="hidden sm:block border-b border-gray-200">
             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-              {tabs.map(({ id, label, icon: Icon, description }) => (
+              {tabs.map(({ id, label, description }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}

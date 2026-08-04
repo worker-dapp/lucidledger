@@ -21,6 +21,7 @@ const PostJobModal = ({ employerId, preselectedTemplate = null, onClose, onSucce
     } else {
       setTemplates([preselectedTemplate]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on preselectedTemplate change by design; fetchTemplates identity is stable
   }, [preselectedTemplate]);
 
   const fetchTemplates = async () => {
