@@ -41,6 +41,12 @@ Do a recruiter-fee payment end-to-end (as employer, pay the fee for a job with a
 
 Optional: watch verification live with `docker compose logs -f backend` during the payment.
 
+**RESULT (2026-08-04): PASS ✅** — Full flow run (post job → assign recruiter → hire →
+deploy contract → pay recruiter). Fee payment `recruiter_fee_payments` id 5:
+`payment_status: paid`, empty notes (clean verified path). Replayed the on-chain check for
+tx `0xd2ce1e2…6fe6f`: `verified` — 1 USDC moved employer `0xBa23…c85e` → recruiter
+`0xB83d…5f9F`. #132 confirmed working in the real app.
+
 ## Troubleshooting log
 
 ### 2026-08-04 — Blank white page on employer login (FIXED)
