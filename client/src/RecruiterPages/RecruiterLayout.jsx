@@ -17,7 +17,7 @@ const navItems = [
 
 const RecruiterLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, smartWalletAddress } = useAuth();
   const [recruiterData, setRecruiterData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -39,6 +39,20 @@ const RecruiterLayout = () => {
     if (user?.email?.address) fetchRecruiter();
     else setIsLoading(false);
   }, [user?.email?.address]);
+
+  // Keep the recruiter's on-chain wallet on file in sync with their smart wallet. Signup may have
+  // saved no wallet (embedded wallet not ready yet), which leaves the employer's "Pay Fee" flow with
+  // nothing to send USDC to. Backfill/update it once the record and wallet are both available; no-op
+  // when already in sync. Authorized because updateRecruiter checks the caller's own email.
+  useEffect(() => {
+    if (!recruiterData?.id || !smartWalletAddress) return;
+    const stored = recruiterData.wallet_address || "";
+    if (stored.toLowerCase() === smartWalletAddress.toLowerCase()) return;
+    apiService
+      .updateRecruiter(recruiterData.id, { wallet_address: smartWalletAddress })
+      .then((res) => { if (res?.data) setRecruiterData(res.data); })
+      .catch((err) => console.error("Error syncing recruiter wallet:", err));
+  }, [recruiterData?.id, recruiterData?.wallet_address, smartWalletAddress]);
 
   return (
     <div className="min-h-screen bg-gray-50">

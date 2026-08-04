@@ -16,7 +16,7 @@ class RecruiterController {
   // Self-signup: create a recruiter profile
   static async createRecruiter(req, res) {
     try {
-      const { email, first_name, last_name, phone_number, agency_name } = req.body;
+      const { email, first_name, last_name, phone_number, agency_name, wallet_address } = req.body;
 
       if (!email) {
         return res.status(400).json({ success: false, message: 'Email is required' });
@@ -33,6 +33,10 @@ class RecruiterController {
         last_name,
         phone_number,
         agency_name,
+        // Persist the wallet the signup flow sends. Normalize empty to null: the column is UNIQUE,
+        // so multiple '' would collide, whereas multiple NULLs are allowed. A missing wallet at
+        // signup is backfilled later by the recruiter-side login sync.
+        wallet_address: wallet_address || null,
         status: 'active'
       });
 
