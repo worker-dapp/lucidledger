@@ -19,6 +19,7 @@ const ContractLibrary = ({ employerId, isLoading }) => {
     if (employerId) {
       fetchContracts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on employer change by design; fetch fn identity is stable
   }, [employerId]);
 
   const fetchContracts = async () => {

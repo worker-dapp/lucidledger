@@ -56,7 +56,6 @@ function KioskTab() {
   const [registerError, setRegisterError] = useState("");
 
   const [revealedToken, setRevealedToken] = useState(null);
-  const [tokenCopied, setTokenCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
   const [actionLoading, setActionLoading] = useState({});
@@ -125,14 +124,6 @@ function KioskTab() {
       if (revealedToken?.kioskId === kioskId) setRevealedToken(null);
     } catch { /* silently fail */ }
     setActionLoading(prev => ({ ...prev, [kioskId]: false }));
-  };
-
-  const handleCopyToken = () => {
-    if (!revealedToken?.token) return;
-    navigator.clipboard.writeText(revealedToken.token).then(() => {
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
-    });
   };
 
   const kioskSetupUrl = revealedToken?.token

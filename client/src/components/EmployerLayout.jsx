@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, Link, Outlet } from "react-router-dom";
 import { LayoutGrid, Users, AlertTriangle, User, Menu, X, Monitor } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -8,9 +8,7 @@ import BetaBanner from "./BetaBanner";
 import SmartWalletInfo from "./SmartWalletInfo";
 import EmployerApprovalBanner from "./EmployerApprovalBanner";
 import apiService from "../services/api";
-
-export const EmployerContext = createContext(null);
-export const useEmployer = () => useContext(EmployerContext);
+import { EmployerContext } from "./EmployerContext";
 
 const navItems = [
   { to: "/contract-factory", label: "Recruitment Hub", icon: LayoutGrid },

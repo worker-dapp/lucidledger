@@ -3,7 +3,7 @@ import {
   CheckCircle, AlertTriangle, Users, DollarSign,
   Shield, Clock, Loader2, LayoutDashboard
 } from "lucide-react";
-import { useEmployer } from "../../components/EmployerLayout";
+import { useEmployer } from "../../components/EmployerContext";
 import apiService from "../../services/api";
 
 const StatCard = ({ label, value, sub, icon: Icon, color = "text-[#0D3B66]" }) => (

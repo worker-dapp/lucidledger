@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { NavLink, Link, useNavigate } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import logo from "../assets/Android.png";
 import SmartWalletInfo from "./SmartWalletInfo";
@@ -14,7 +14,6 @@ const EmployerNavbar = () => {
 
   const { user, smartWalletAddress } = useAuth();
   const mobileMenuRef = useRef(null);
-  const navigate = useNavigate();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -51,11 +50,6 @@ const EmployerNavbar = () => {
       fetchApprovalStatus();
     }
   }, [smartWalletAddress, user?.email?.address]);
-
-  const handleHomeClick = () => {
-    navigate('/employerDashboard');
-    setIsMobileMenuOpen(false);
-  };
 
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);

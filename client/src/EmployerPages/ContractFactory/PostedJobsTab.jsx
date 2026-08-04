@@ -8,7 +8,7 @@ import { sendSponsoredTransaction, encodeTransferData, TxSteps, parseAAError, ge
 
 const USDC_ADDRESS = import.meta.env.VITE_USDC_ADDRESS;
 
-const AssignRecruiterModal = ({ job, employerId, onClose, onSuccess }) => {
+const AssignRecruiterModal = ({ job, onClose, onSuccess }) => {
   const [search, setSearch] = useState("");
   const [recruiters, setRecruiters] = useState([]);
   const [loadingRecruiters, setLoadingRecruiters] = useState(false);
@@ -148,10 +148,12 @@ const PostedJobsTab = ({ employerId }) => {
       fetchJobPostings();
       fetchFeePayments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on employer change by design; fetch fn identities are stable
   }, [employerId]);
 
   useEffect(() => {
     filterPostings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-filters on postings/search change; filterPostings identity is stable
   }, [jobPostings, searchTerm]);
 
   const fetchJobPostings = async () => {
