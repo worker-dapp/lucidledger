@@ -53,15 +53,17 @@ Exploitable today, independent of everything else.
 - [x] **#131** — profile `PUT` mass-assignment / self-approval bypass (privilege escalation).
       Fixed and merged via PR #133 (2026-08-03): ownership check + field allowlist on both
       `PUT /api/employees/:id` and `PUT /api/employers/:id`.
-- [ ] **#132** — recruiter fee recorded from client-submitted `tx_hash`. Wallet-ownership check
-      already added; **on-chain verification implemented** on `wave-0-security-fixes` (new
-      `server/services/txVerificationService.js` re-derives the ERC-20 Transfer from the receipt;
-      `paid` only on match, `400` on definitive mismatch, `pending` on RPC/unmined). Do NOT skip the
-      lesson for Track B — see triage above. This service is the **first unit-test target for #136**.
+- [x] **#132** — recruiter fee recorded from client-submitted `tx_hash`. **Done — PR #137 open (not
+      yet merged).** Wallet-ownership check was already added; on-chain verification now implemented in
+      `server/services/txVerificationService.js` (re-derives the ERC-20 Transfer from the receipt;
+      `paid` only on match, `400` on definitive mismatch, `pending` on RPC/unmined). Shipped with the
+      repo's first unit tests (15 cases, `node:test`) — the **first brick for #136**. Do NOT skip the
+      lesson for Track B — see triage above.
 
 ### Wave 0.5 — Warm-up cleanup (parallel, not a blocker)
-- [ ] **#130** — ESLint cleanup. One-time noise reduction that makes every later diff easier to
-      review. Land as an early standalone commit; do not let it gate anything.
+- [x] **#130** — ESLint cleanup. **Done — PR #137 open (not yet merged).** `npm run lint` 55 problems →
+      0: dead-code removal, Fast-Refresh context extraction (3 new context files), Web NFC global, and
+      documented/genuine hook-dep fixes. Landed as its own commit; gated nothing.
 
 ### Wave 1 — Identity foundation  ← **start substantive work here**
 The spine the whole auth milestone leans on. **The one true hard dependency: #66 → #71.**

@@ -111,7 +111,7 @@ const EmployerLayout = ({ children }) => {
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">
               Navigation
             </div>
-            {navItems.map(({ to, label }) => (
+            {navItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
