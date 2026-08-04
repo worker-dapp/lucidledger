@@ -14,7 +14,7 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 const EmployeeProfile = () => {
   const [linkMessage, setLinkMessage] = useState('');
   const accountCallbacks = {
-    onSuccess: ({ user: updatedUser, linkMethod, updateMethod }) => {
+    onSuccess: ({ linkMethod, updateMethod }) => {
       const method = (linkMethod || updateMethod) === 'email' ? 'Email' : 'Phone number';
       setLinkMessage(`${method} updated successfully!`);
       setTimeout(() => setLinkMessage(''), 3000);
@@ -59,19 +59,6 @@ const EmployeeProfile = () => {
   const initialLoadDone = useRef(false);
 
   // Constants for dropdowns
-  const countryCodes = [
-    { code: '+1', country: 'US/Canada' },
-    { code: '+44', country: 'UK' },
-    { code: '+91', country: 'India' },
-    { code: '+61', country: 'Australia' },
-    { code: '+86', country: 'China' },
-    { code: '+81', country: 'Japan' },
-    { code: '+49', country: 'Germany' },
-    { code: '+33', country: 'France' },
-    { code: '+39', country: 'Italy' },
-    { code: '+34', country: 'Spain' }
-  ];
-
   const countries = [
     'United States', 'Canada', 'United Kingdom', 'India', 'Australia',
     'China', 'Japan', 'Germany', 'France', 'Italy', 'Spain', 'Brazil',
@@ -154,7 +141,7 @@ const EmployeeProfile = () => {
           try {
             const parsed = typeof data.skills === 'string' ? JSON.parse(data.skills) : data.skills;
             if (Array.isArray(parsed)) setSkills(parsed);
-          } catch (e) { /* ignore parse errors */ }
+          } catch { /* ignore parse errors */ }
         }
 
         // Load work experience from DB
@@ -174,6 +161,7 @@ const EmployeeProfile = () => {
 
   useEffect(() => {
     fetchUserDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on user/wallet change by design; fetchUserDetails identity is stable
   }, [user, primaryWallet]);
 
   // Sync newly linked Privy credentials to the database
@@ -195,6 +183,7 @@ const EmployeeProfile = () => {
     if (Object.keys(updates).length > 0) {
       saveToAPI(updates, 'Linked account synced');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- syncs only when Privy creds change; userDetails/saveToAPI intentionally omitted to avoid re-syncing on every fetch
   }, [privyEmail, privyPhone]);
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';
@@ -302,13 +291,14 @@ const EmployeeProfile = () => {
     if (userDetails.skills) {
       try {
         dbSkills = typeof userDetails.skills === 'string' ? JSON.parse(userDetails.skills) : userDetails.skills;
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     }
     if (JSON.stringify(skills) === JSON.stringify(dbSkills)) return;
     const t = setTimeout(() => {
       saveToAPI({ skills: JSON.stringify(skills) }, 'Skills saved');
     }, 800);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounced save fires on skills change; saveToAPI identity intentionally omitted
   }, [skills, userDetails]);
 
   // Month/year helpers

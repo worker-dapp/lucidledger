@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, Link, Outlet } from "react-router-dom";
 import { LayoutGrid, Users, User, Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -7,9 +7,7 @@ import LogoutButton from "../components/LogoutButton";
 import BetaBanner from "../components/BetaBanner";
 import SmartWalletInfo from "../components/SmartWalletInfo";
 import apiService from "../services/api";
-
-export const RecruiterContext = createContext(null);
-export const useRecruiter = () => useContext(RecruiterContext);
+import { RecruiterContext } from "./RecruiterContext";
 
 const navItems = [
   { to: "/recruiter-dashboard", label: "My Jobs", icon: LayoutGrid },

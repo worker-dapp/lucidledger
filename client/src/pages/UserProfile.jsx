@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 const UserProfile = () => {
   const [linkMessage, setLinkMessage] = useState('');
   const { user, smartWalletAddress, logout, linkEmail, linkPhone } = useAuth({
-    onSuccess: ({ user: updatedUser, linkMethod }) => {
+    onSuccess: ({ linkMethod }) => {
       const method = linkMethod === 'email' ? 'Email' : 'Phone number';
       setLinkMessage(`${method} linked successfully!`);
       setTimeout(() => setLinkMessage(''), 3000);
@@ -60,19 +60,6 @@ const UserProfile = () => {
     'Mexico', 'South Korea', 'Netherlands', 'Switzerland', 'Sweden',
     'Norway', 'Denmark', 'Finland', 'Poland', 'Russia', 'Turkey',
     'Saudi Arabia', 'South Africa', 'Egypt', 'Nigeria', 'Kenya'
-  ];
-
-  const usStates = [
-    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
-    'Colorado', 'Connecticut','District of Columbia', 'Delaware', 'Florida', 'Georgia',
-    'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
-    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
-    'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
-    'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
-    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
-    'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
-    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
   ];
 
   const industrySuggestions = [

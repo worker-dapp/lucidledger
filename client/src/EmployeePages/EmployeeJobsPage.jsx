@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
 import { useAuth } from "../hooks/useAuth";
-import EmployeeLayout, { useEmployee } from "../components/EmployeeLayout";
+import EmployeeLayout from "../components/EmployeeLayout";
+import { useEmployee } from "../components/EmployeeContext";
 
 const EmployeeJobsPageInner = () => {
   const { user, primaryWallet, smartWalletAddress, login } = useAuth();
-  const { employeeData, employeeId, isLoading: profileLoading } = useEmployee();
+  const { employeeData, isLoading: profileLoading } = useEmployee();
   const navigate = useNavigate();
-  const location = useLocation();
   const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +51,7 @@ const EmployeeJobsPageInner = () => {
       // Load jobs without employee context if not logged in
       fetchJobs(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchJobs runs on filter/employee change by design; its identity is stable and adding it wouldn't change behavior
   }, [employeeData, activeFilter, employeeLoaded, user]);
 
   useEffect(() => {
@@ -114,6 +115,7 @@ const EmployeeJobsPageInner = () => {
       localStorage.removeItem('pendingAction');
       navigate('/job-search', { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot pending-action handler; the apply/save handlers are intentionally omitted so it runs only on the listed deps
   }, [employeeData, jobs, searchParams, navigate]);
 
   const fetchJobs = async (employeeId = null) => {
@@ -180,11 +182,6 @@ const EmployeeJobsPageInner = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatSalary = (salary, currency) => {
-    if (!salary) return 'Not specified';
-    return `${currency || '$'}${salary.toLocaleString()}`;
   };
 
   const formatDate = (dateString) => {

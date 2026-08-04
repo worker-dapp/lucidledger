@@ -1,5 +1,6 @@
 const { Recruiter, JobPosting, RecruiterFeePayment, Employer, DeployedContract } = require('../models');
 const { Op } = require('sequelize');
+const { verifyUsdcPayment } = require('../services/txVerificationService');
 
 // Get employer by wallet address (case-insensitive — addresses may differ in checksum casing)
 const getEmployerForUser = async (walletAddress) => {
@@ -185,6 +186,45 @@ class RecruiterController {
       });
       const deployed_contract_id = contractsForJob.length === 1 ? contractsForJob[0].id : null;
 
+      // Never trust the client's word that the fee was paid. A record is only marked 'paid' after
+      // the on-chain transaction is re-derived server-side and confirmed to have moved the claimed
+      // USDC from the employer's wallet to the recruiter's. Both wallet addresses come from our own
+      // records (never the request body), so the client can't spoof either side of the transfer.
+      let payment_status = 'pending';
+      let paid_at = null;
+      let verification_note = null;
+
+      if (tx_hash) {
+        const recruiter = await Recruiter.findByPk(recruiter_id, { attributes: ['id', 'wallet_address'] });
+        const result = await verifyUsdcPayment({
+          txHash: tx_hash,
+          fromAddress: employer.wallet_address,
+          toAddress: recruiter?.wallet_address,
+          amount: fee_amount
+        });
+
+        if (result.status === 'verified') {
+          payment_status = 'paid';
+          paid_at = new Date();
+        } else if (result.status === 'mismatch') {
+          // Definitive proof the claim is wrong (wrong token/parties/amount, reverted, malformed).
+          // Reject outright rather than persist a misleading record.
+          return res.status(400).json({
+            success: false,
+            message: `On-chain verification failed: ${result.reason}`
+          });
+        } else {
+          // Transient (RPC down, tx not mined yet) — keep the record but leave it 'pending' so a
+          // legitimate payment isn't lost. It can be re-verified later; it never shows "Paid" unverified.
+          verification_note = `Awaiting on-chain confirmation: ${result.reason}`;
+        }
+      } else if (payment_reference_id) {
+        // Off-chain rail (e.g. a future Wise integration). There is no verification path for a bare
+        // client-supplied reference yet, so it must NOT be auto-marked 'paid' — same lesson as the
+        // tx_hash bug. When that rail lands, verify the reference against the provider's API here.
+        verification_note = 'Off-chain reference recorded; awaiting server-side confirmation.';
+      }
+
       const payment = await RecruiterFeePayment.create({
         job_posting_id,
         recruiter_id,
@@ -192,11 +232,11 @@ class RecruiterController {
         deployed_contract_id,
         fee_amount,
         fee_currency: fee_currency || 'USD',
-        payment_status: (tx_hash || payment_reference_id) ? 'paid' : 'pending',
+        payment_status,
         tx_hash: tx_hash || null,
         payment_reference_id: payment_reference_id || null,
-        paid_at: (tx_hash || payment_reference_id) ? new Date() : null,
-        notes: notes || null
+        paid_at,
+        notes: [notes, verification_note].filter(Boolean).join(' — ') || null
       });
 
       res.status(201).json({ success: true, data: payment });

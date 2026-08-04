@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Building2, Search, Users } from "lucide-react";
 import apiService from "../services/api";
-import { useRecruiter } from "./RecruiterLayout";
+import { useRecruiter } from "./RecruiterContext";
 
 const statusBadgeStyles = {
   pending: "bg-blue-100 text-blue-800",

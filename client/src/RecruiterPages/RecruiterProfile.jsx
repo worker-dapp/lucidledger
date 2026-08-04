@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Save, AlertCircle, CheckCircle } from "lucide-react";
 import apiService from "../services/api";
-import { useRecruiter } from "./RecruiterLayout";
+import { useRecruiter } from "./RecruiterContext";
 
 const RecruiterProfile = () => {
   const { recruiterId, recruiterData, isLoading } = useRecruiter();

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useEmployer } from "../../components/EmployerLayout";
+import { useEmployer } from "../../components/EmployerContext";
 import ContractLibrary from "./ContractLibrary";
 import PostedJobsTab from "./PostedJobsTab";
 import ApplicationReviewTab from "./ApplicationReviewTab";

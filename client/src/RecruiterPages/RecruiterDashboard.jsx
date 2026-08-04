@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Briefcase, Building2, Users, DollarSign, AlertCircle, ExternalLink } from "lucide-react";
 import apiService from "../services/api";
-import { useRecruiter } from "./RecruiterLayout";
+import { useRecruiter } from "./RecruiterContext";
 import { getBasescanUrl } from "../contracts/aaClient";
 
 const statusColors = {

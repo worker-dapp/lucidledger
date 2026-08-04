@@ -159,9 +159,7 @@ const AppContent = () => {
       // Do NOT write to localStorage here — an inferred role is not an explicit
       // user choice, so hasPendingRole must stay false to allow the
       // "found you on the other side" redirect to work correctly.
-      let urlInferredRole = false;
       if (!intendedRole) {
-        urlInferredRole = true;
         intendedRole = location.pathname === '/employers' ? 'employer' : 'employee';
       }
 

@@ -33,6 +33,7 @@ export default function QrClockModal({ contract, onClose }) {
     fetchToken();
     return () => {
       clearInterval(timerRef.current);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- ref holds the latest refresh timer; clearing its current value on unmount/re-run is the intended behavior
       clearTimeout(refreshTimerRef.current);
     };
   }, [fetchToken]);
