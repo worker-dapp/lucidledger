@@ -70,7 +70,7 @@ const RecruiterLayout = () => {
         <aside className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-gray-200 shadow-sm transform transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:static lg:translate-x-0`}>
           <div className="px-4 py-6 space-y-2">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 mb-2">Navigation</div>
-            {navItems.map(({ to, label }) => (
+            {navItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}

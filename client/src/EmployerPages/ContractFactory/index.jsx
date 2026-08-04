@@ -59,7 +59,7 @@ const ContractFactory = () => {
           {/* Desktop: tab buttons */}
           <div className="hidden sm:block border-b border-gray-200">
             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-              {tabs.map(({ id, label, description }) => (
+              {tabs.map(({ id, label, icon: Icon, description }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}

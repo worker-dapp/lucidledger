@@ -40,7 +40,7 @@ const ComplianceHub = () => {
 
       {/* Desktop: tab buttons */}
       <div className="hidden sm:flex gap-1 border-b border-gray-200 mb-6">
-        {tabs.map(({ id, label }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
