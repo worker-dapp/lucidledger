@@ -97,6 +97,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
 
   useEffect(() => {
     fetchSignedApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on employer change by design; fetch fn identity is stable
   }, [employerId]);
 
   const toggleSelect = (id) => {

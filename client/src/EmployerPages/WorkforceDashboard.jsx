@@ -11,7 +11,7 @@ import {
   Zap,
   PlusCircle,
 } from "lucide-react";
-import { useEmployer } from "../components/EmployerLayout";
+import { useEmployer } from "../components/EmployerContext";
 import apiService from "../services/api";
 import {
   getContractState,
@@ -113,6 +113,7 @@ const WorkforceDashboard = () => {
 
   useEffect(() => {
     fetchContracts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches on employer/status change by design; fetchContracts identity is stable
   }, [employerId, statusFilter]);
 
   useEffect(() => {
@@ -189,7 +190,7 @@ const WorkforceDashboard = () => {
       .then(res => setPresenceEvents(res?.data || []))
       .catch(() => setPresenceEvents([]))
       .finally(() => setPresenceEventsLoading(false));
-  }, [selectedContract?.id]);
+  }, [selectedContract?.id, selectedContract?.jobPosting?.selected_oracles, selectedContract?.selected_oracles]);
 
 
   const handleApproveAndPay = async () => {

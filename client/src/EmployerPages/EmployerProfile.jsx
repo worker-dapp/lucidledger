@@ -13,7 +13,7 @@ const PencilIcon = ({ className = "w-5 h-5" }) => (
 const EmployerProfile = () => {
   const [linkMessage, setLinkMessage] = useState('');
   const accountCallbacks = {
-    onSuccess: ({ user: updatedUser, linkMethod, updateMethod }) => {
+    onSuccess: ({ linkMethod, updateMethod }) => {
       const method = (linkMethod || updateMethod) === 'email' ? 'Email' : 'Phone number';
       setLinkMessage(`${method} updated successfully!`);
       setTimeout(() => setLinkMessage(''), 3000);
@@ -60,18 +60,6 @@ const EmployerProfile = () => {
   const [isEditingCompany, setIsEditingCompany] = useState(false);
 
   // Constants for dropdowns
-  const countryCodes = [
-    { code: '+1', country: 'US/Canada' },
-    { code: '+44', country: 'UK' },
-    { code: '+91', country: 'India' },
-    { code: '+61', country: 'Australia' },
-    { code: '+86', country: 'China' },
-    { code: '+81', country: 'Japan' },
-    { code: '+49', country: 'Germany' },
-    { code: '+33', country: 'France' },
-    { code: '+39', country: 'Italy' },
-    { code: '+34', country: 'Spain' }
-  ];
 
   const countries = [
     'United States', 'Canada', 'United Kingdom', 'India', 'Australia',
@@ -150,6 +138,7 @@ const EmployerProfile = () => {
 
   useEffect(() => {
     fetchUserDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on user/wallet change by design; fetchUserDetails identity is stable
   }, [user, primaryWallet]);
 
   // DO NOT use auth user data as fallback - it may contain data from employee account
@@ -174,6 +163,7 @@ const EmployerProfile = () => {
     if (Object.keys(updates).length > 0) {
       saveToAPI(updates, 'Linked account synced');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- syncs only when Privy creds change; userDetails/saveToAPI intentionally omitted to avoid re-syncing on every fetch
   }, [privyEmail, privyPhone]);
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Your Name';

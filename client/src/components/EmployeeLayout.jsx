@@ -1,10 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import apiService from "../services/api";
-
-export const EmployeeContext = createContext(null);
-export const useEmployee = () => useContext(EmployeeContext);
+import { EmployeeContext } from "./EmployeeContext";
 
 // Provides employee data to child pages via context — does NOT render a navbar.
 // Used as a layout route in App.jsx; each page manages its own navbar.

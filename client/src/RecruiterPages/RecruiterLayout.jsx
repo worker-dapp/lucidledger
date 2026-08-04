@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, Link, Outlet } from "react-router-dom";
 import { LayoutGrid, Users, User, Menu, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -7,9 +7,7 @@ import LogoutButton from "../components/LogoutButton";
 import BetaBanner from "../components/BetaBanner";
 import SmartWalletInfo from "../components/SmartWalletInfo";
 import apiService from "../services/api";
-
-export const RecruiterContext = createContext(null);
-export const useRecruiter = () => useContext(RecruiterContext);
+import { RecruiterContext } from "./RecruiterContext";
 
 const navItems = [
   { to: "/recruiter-dashboard", label: "My Jobs", icon: LayoutGrid },
@@ -72,7 +70,7 @@ const RecruiterLayout = () => {
         <aside className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-gray-200 shadow-sm transform transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:static lg:translate-x-0`}>
           <div className="px-4 py-6 space-y-2">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 mb-2">Navigation</div>
-            {navItems.map(({ to, label, icon: Icon }) => (
+            {navItems.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}

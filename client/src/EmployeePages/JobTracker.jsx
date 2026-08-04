@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { AlertTriangle, Loader2, XCircle, Zap, ExternalLink, HandCoins } from "lucide-react";
-import EmployeeLayout, { useEmployee } from "../components/EmployeeLayout";
+import EmployeeLayout from "../components/EmployeeLayout";
+import { useEmployee } from "../components/EmployeeContext";
 import EmployeeNavbar from "../components/EmployeeNavbar";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
@@ -58,7 +59,7 @@ const TxRow = ({ tx, formatDate, basescanUrl }) => (
 
 const JobTrackerInner = () => {
   const navigate = useNavigate();
-  const { user, primaryWallet, smartWalletAddress, smartWalletClient } = useAuth();
+  const { user, smartWalletAddress, smartWalletClient } = useAuth();
   const { employeeData } = useEmployee();
   const [openContracts, setOpenContracts] = useState([]);
   const [completedContracts, setCompletedContracts] = useState([]);
@@ -236,6 +237,7 @@ const JobTrackerInner = () => {
   useEffect(() => {
     fetchContracts();
     fetchEarnings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on employee change by design; fetch fn identities are stable
   }, [employeeData]);
 
   // Handle raising a dispute
@@ -251,7 +253,7 @@ const JobTrackerInner = () => {
 
     try {
       // File dispute on-chain
-      const result = await raiseDispute({
+      await raiseDispute({
         user,
         smartWalletClient,
         contractAddress: selectedContract.contract_address,

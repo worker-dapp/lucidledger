@@ -106,7 +106,7 @@ export default function KioskPage() {
     return () => {
       controlsRef.current?.stop();
     };
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setupMode, kioskToken]);
 
   // -------------------------------------------------------------------------
   // NFC path A — NDEFReader in standalone PWA mode.
@@ -167,7 +167,7 @@ export default function KioskPage() {
       abortController.abort();
       nfcReaderRef.current = null;
     };
-  }, [setupMode, kioskToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setupMode, kioskToken]);
 
   // -------------------------------------------------------------------------
   // NFC path B — Android URL dispatch (regular Chrome fallback).
@@ -201,7 +201,7 @@ export default function KioskPage() {
     }
 
     return () => { channel?.close(); };
-  }, [setupMode, kioskToken, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setupMode, kioskToken, searchParams]);
 
   // -------------------------------------------------------------------------
   // Submit scan to backend

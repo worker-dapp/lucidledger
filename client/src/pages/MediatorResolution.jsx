@@ -116,7 +116,7 @@ const MediatorResolution = () => {
       .then(res => setPresenceEvents(res?.data || []))
       .catch(() => setPresenceEvents([]))
       .finally(() => setPresenceEventsLoading(false));
-  }, [selectedContract?.id]);
+  }, [selectedContract?.id, selectedContract?.jobPosting?.selected_oracles, selectedContract?.selected_oracles]);
 
   // Fetch blockchain state for selected contract
   useEffect(() => {

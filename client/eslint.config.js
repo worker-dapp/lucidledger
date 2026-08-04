@@ -9,7 +9,8 @@ export default [
     files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      // NDEFReader is the experimental Web NFC API (used by the kiosk NFC flow); not yet in globals.browser.
+      globals: { ...globals.browser, NDEFReader: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

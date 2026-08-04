@@ -68,6 +68,7 @@ const ApplicationReviewTab = ({ employerId }) => {
 
   useEffect(() => {
     fetchApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches on filter change by design; fetchApplications identity is stable
   }, [employerId, statusFilter, jobFilter]);
 
   useEffect(() => {
@@ -143,17 +144,6 @@ const ApplicationReviewTab = ({ employerId }) => {
       return;
     }
     setSelectedIds(new Set(selectableIds));
-  };
-
-  const handleUpdateStatus = async (applicationId, status) => {
-    setMessage("");
-    try {
-      await apiService.updateApplicationStatus(applicationId, status);
-      await fetchApplications();
-      setSelectedIds(new Set());
-    } catch (error) {
-      setMessage(error.message || "Unable to update application.");
-    }
   };
 
   const handleBulkUpdate = async (status) => {
