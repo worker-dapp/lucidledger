@@ -31,7 +31,7 @@ jobs:
         run: npm install
 
       - name: Lint
-        run: npm run lint || echo "Lint warnings"
+        run: npm run lint
 
       - name: Build
         env:
@@ -39,7 +39,7 @@ jobs:
         run: npm run build
 
   server:
-    name: Server - Build
+    name: Server - Build & Test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -51,7 +51,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          # Match the production runtime (server/Dockerfile: node:20.18-alpine)
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
@@ -60,6 +61,9 @@ jobs:
 
       - name: Build (validate start script)
         run: node -e "require('fs').accessSync('server.js')"
+
+      - name: Unit tests
+        run: npm test
 
   security:
     name: Security - Dependency Audit
