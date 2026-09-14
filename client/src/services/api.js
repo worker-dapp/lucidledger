@@ -107,8 +107,12 @@ class ApiService {
     return this.request(`/employees/${id}`);
   }
 
-  async getProfileStatus(walletAddress) {
-    return this.request(`/profile-status?wallet=${encodeURIComponent(walletAddress)}`);
+  async getProfileStatus() {
+    // Takes no argument: the server resolves identity from the verified auth subject
+    // (JWT sub) in the Authorization header. Passing a wallet would be meaningless —
+    // the server does not read one — and accepting it would invite the impression that
+    // the caller can influence who it is resolved as.
+    return this.request('/profile-status');
   }
 
   async getEmployeeByEmail(email) {

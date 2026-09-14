@@ -124,6 +124,10 @@ const verifyToken = async (req, res, next) => {
     // 5. Attach user info to request
     req.user = verified;
 
+    // Expose the verified auth subject (JWT `sub`) as the canonical identity for
+    // authorization. Controllers resolve the DB record from this via identityService.
+    req.authSubject = verified.sub || null;
+
     // 6. Look up user's email from Privy (since JWT only has DID)
     if (privyClient && verified.sub) {
       try {
@@ -264,17 +268,12 @@ const verifyAdmin = async (req, res, next) => {
 };
 
 const requireApprovedEmployer = async (req, res, next) => {
-  const walletAddress = req.headers['x-wallet-address'];
-  if (!walletAddress) {
-    return res.status(403).json({ success: false, message: 'Wallet address required for employer verification' });
-  }
-
   try {
-    const { Employer } = require('../models');
-    const { Op } = require('sequelize');
-    const employer = await Employer.findOne({
-      where: { wallet_address: { [Op.iLike]: walletAddress } }
-    });
+    // Resolve the employer from the verified auth subject. resolveEmployer keys off the
+    // authenticated identity, using the wallet header only as a legacy hint for records
+    // that predate the auth_subject column.
+    const { resolveEmployer } = require('../services/identityService');
+    const employer = await resolveEmployer(req);
 
     if (!employer) {
       return res.status(403).json({ success: false, message: 'Employer profile not found' });

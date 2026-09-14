@@ -128,14 +128,18 @@ app.get('/api/health', (req, res) => {
 // Combined profile-status endpoint — replaces 3 sequential login lookups with 1 parallel call
 const { verifyToken } = require('./middleware/authMiddleware');
 app.get('/api/profile-status', verifyToken, async (req, res) => {
-  const { wallet } = req.query;
-  if (!wallet) return res.status(400).json({ success: false, message: 'wallet query param required' });
+  // Resolve the login identity from the verified auth subject — the same primitive
+  // authorization uses, so login and authorization can never disagree about who the
+  // caller is. Email keys the mediator/recruiter lookups, whose tables have no
+  // auth_subject: those rows are created by an admin before the person has ever logged
+  // in, so there is no subject to bind at creation time (tracked as a follow-up).
   const email = req.user?.email || null;
   try {
     const { Op } = require('sequelize');
+    const { resolveRecord } = require('./services/identityService');
     const [employee, employer, mediator, recruiter] = await Promise.all([
-      Employee.findOne({ where: { wallet_address: wallet } }).catch(() => null),
-      Employer.findOne({ where: { wallet_address: wallet } }).catch(() => null),
+      resolveRecord(Employee, { authSubject: req.authSubject }).catch(() => null),
+      resolveRecord(Employer, { authSubject: req.authSubject }).catch(() => null),
       email
         ? Mediator.findOne({ where: { email: { [Op.iLike]: email } } }).catch(() => null)
         : Promise.resolve(null),
@@ -231,7 +235,9 @@ async function runMigrationsOnStartup() {
       '028-create-recruiters.sql',
       '029-add-recruiter-to-job-postings.sql',
       '030-create-recruiter-fee-payments.sql',
-      '031-link-recruiter-fee-to-deployed-contract.sql'
+      '031-link-recruiter-fee-to-deployed-contract.sql',
+      '032-add-auth-subject.sql',
+      '033-auth-subject-not-null.sql'
     ];
 
     for (const file of migrationFiles) {
