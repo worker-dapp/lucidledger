@@ -1,11 +1,5 @@
 const { Employee } = require('../models');
-const { Op } = require('sequelize');
-
-// Get employee by wallet address (case-insensitive — addresses may differ in checksum casing)
-const getEmployeeForUser = async (walletAddress) => {
-  if (!walletAddress) return null;
-  return Employee.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
-};
+const { resolveEmployee } = require('../services/identityService');
 
 const pickAllowedFields = (payload, allowedFields) => {
   return Object.keys(payload).reduce((acc, key) => {
@@ -28,7 +22,12 @@ class EmployeeController {
   // Create a new employee
   static async createEmployee(req, res) {
     try {
-      const employee = await Employee.create(req.body);
+      // Bind the new record to the verified identity. auth_subject is listed after the
+      // body spread deliberately: a client cannot override it by sending its own
+      // auth_subject field. verifyToken rejects a token with no `sub`, so this is always
+      // set here — and auth_subject is NOT NULL, so a record that somehow reached this
+      // point unbound would be refused rather than stored unauthorizable.
+      const employee = await Employee.create({ ...req.body, auth_subject: req.authSubject });
       res.status(201).json({
         success: true,
         data: employee,
@@ -184,8 +183,8 @@ class EmployeeController {
     try {
       const { id } = req.params;
 
-      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
-      const callingEmployee = await getEmployeeForUser(walletAddress);
+      // Authorize off the verified identity.
+      const callingEmployee = await resolveEmployee(req);
       if (!callingEmployee || String(callingEmployee.id) !== String(id)) {
         return res.status(403).json({
           success: false,

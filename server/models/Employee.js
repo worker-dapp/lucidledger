@@ -26,6 +26,19 @@ const Employee = sequelize.define('Employee', {
     allowNull: true,
     unique: true
   },
+  // Auth provider's stable subject identifier (verified JWT `sub`). Canonical identity
+  // link — authorization resolves the record by this, and by nothing else.
+  // Provider-neutral name so it applies regardless of the auth backend.
+  //
+  // NOT NULL (migration 033): a record with no bound identity could not be authorized,
+  // and the mechanism that previously filled it in after the fact matched on a
+  // client-supplied wallet address, which let any caller claim an unbound row. Writing
+  // it at creation from the verified token keeps that state from ever existing.
+  auth_subject: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    unique: true
+  },
   street_address: {
     type: DataTypes.STRING(255),
     allowNull: true
