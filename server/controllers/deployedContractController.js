@@ -9,7 +9,15 @@ const { resolveEmployee, resolveEmployer, isAdminRequest } = require('../service
 const resolveMediator = async (req) => {
   const email = req.user?.email;
   if (!email) return null;
-  return Mediator.findOne({ where: { email: { [Op.iLike]: email }, status: 'active' } });
+  // Case-insensitive EQUALITY, not iLike. Under iLike the caller's own email becomes a
+  // LIKE *pattern*, and `_` — a legal, common local-part character — matches any single
+  // character. A verified `j_ne.doe@x.com` would resolve as the mediator `jane.doe@x.com`.
+  return Mediator.findOne({
+    where: sequelize.and(
+      sequelize.where(sequelize.fn('lower', sequelize.col('email')), email.toLowerCase()),
+      { status: 'active' }
+    )
+  });
 };
 
 // Terminal contract statuses (contract lifecycle is complete)
@@ -866,9 +874,12 @@ class DeployedContractController {
         });
       }
 
-      // Authorize off the verified identity.
+      // Authorize off the verified identity. Pass the open transaction: without it this
+      // lookup takes a SECOND pool connection while the transaction holds the first, so
+      // N concurrent completions need 2N connections against a pool of 10 — they deadlock
+      // and stall until the 30s acquire timeout.
       const isAdmin = isAdminRequest(req);
-      const callerEmployer = await resolveEmployer(req);
+      const callerEmployer = await resolveEmployer(req, { transaction });
       const isEmployer = callerEmployer && String(deployedContract.employer_id) === String(callerEmployer.id);
 
       if (!isAdmin && !isEmployer) {

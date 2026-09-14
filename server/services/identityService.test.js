@@ -145,3 +145,26 @@ test('isAdminRequest ignores a client-supplied wallet header', () => {
     process.env.ADMIN_EMAILS = prev;
   }
 });
+
+// --- Regression: email matching must be equality, not a LIKE pattern ----------------
+//
+// Roles without an auth_subject column (mediator, recruiter) are still resolved by the
+// Privy-verified email. Matching those with Op.iLike makes the *caller's own email* a
+// LIKE pattern, and `_` — a legal and common local-part character — matches any single
+// character, so a verified `j_ne.doe@x.com` resolves as the mediator `jane.doe@x.com`.
+// Confirmed exploitable against the previous form before this was changed.
+
+test('mediator email matching must not treat the caller email as a pattern', () => {
+  const src = require('node:fs')
+    .readFileSync(__dirname + '/../controllers/deployedContractController.js', 'utf8');
+
+  // Strip comments first: the function documents the iLike hazard in prose, and
+  // describing it must not count as doing it.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const start = code.indexOf('const resolveMediator');
+  assert.ok(start !== -1, 'resolveMediator should exist');
+  const resolver = code.slice(start, start + 400);
+
+  assert.ok(!/iLike/.test(resolver), 'resolveMediator must not match email with iLike');
+  assert.ok(/lower/.test(resolver), 'resolveMediator should compare lower(email) for equality');
+});

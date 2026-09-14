@@ -269,9 +269,8 @@ const verifyAdmin = async (req, res, next) => {
 
 const requireApprovedEmployer = async (req, res, next) => {
   try {
-    // Resolve the employer from the verified auth subject. resolveEmployer keys off the
-    // authenticated identity, using the wallet header only as a legacy hint for records
-    // that predate the auth_subject column.
+    // Resolve the employer from the verified auth subject alone. No wallet, no header,
+    // no fallback — resolveEmployer does a single lookup keyed on the JWT `sub`.
     const { resolveEmployer } = require('../services/identityService');
     const employer = await resolveEmployer(req);
 
