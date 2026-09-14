@@ -95,6 +95,37 @@ This is a job marketplace platform with **two user roles**:
    - New users → `/user-profile` for profile creation
    - Existing users → role-specific dashboard
 
+### Identity & Authorization (read this before touching any controller)
+
+**`auth_subject` is the only identity.** It stores the verified JWT `sub` (the Privy DID),
+is `NOT NULL` on `employee` and `employer`, and is written at record creation from the
+verified token. Authorization resolves the caller's record from it and from nothing else.
+
+```js
+const { resolveEmployee, resolveEmployer, isAdminRequest } = require('../services/identityService');
+const caller = await resolveEmployer(req);   // keyed on req.authSubject, set by verifyToken
+```
+
+**Never authorize on anything the client supplies.** In particular:
+- `x-wallet-address` is a client-set header. It once drove authorization in 13 places; any
+  authenticated user could send someone else's address and be treated as them. Removed in #71.
+- Do not compare a record's owner against an id taken from `req.body` / `req.query` / `req.params`.
+  That pattern reads like a check but consults nothing the caller cannot control.
+- For list endpoints, **derive** the filter from the caller; never accept `?employer_id=`.
+
+**Startup invariant:** `verifyCriticalInvariants()` in `server.js` asserts `auth_subject` is
+`NOT NULL` after migrations and refuses to start otherwise. The migration runner catches and
+logs per-file errors and continues, so a failed migration alone does not stop the server —
+that assertion is what makes the guarantee real. Do not remove it.
+
+Roles without an `auth_subject` column (`mediators`, `recruiters`) are still resolved by the
+Privy-verified email, because an admin creates those rows before the person first logs in.
+Match email with **case-insensitive equality, never `Op.iLike`** — `_` is a LIKE wildcard and
+a legal email character.
+
+**Unfixed security issues are private.** They live as GitHub Security Advisories (Security
+tab), not as public issues; the public issues are redacted stubs. Add new ones the same way.
+
 ### Database Architecture (PostgreSQL + Sequelize)
 
 **Connection**: AWS RDS with SSL (`server/config/database.js`)
@@ -113,7 +144,7 @@ This is a job marketplace platform with **two user roles**:
 - `DisputeHistory` - Dispute resolution records
 
 **Migration System**:
-- SQL files in `server/migrations/` (001 through 026)
+- SQL files in `server/migrations/` (001 through 033)
 - Auto-run on server startup (`server.js` `runMigrationsOnStartup()`)
 - Idempotent — tables created with `IF NOT EXISTS`
 - **CRITICAL**: Every new `.sql` migration file MUST also be added to the `migrationFiles` array in `server/server.js` `runMigrationsOnStartup()` or it will never run and the table won't exist in production.
@@ -166,7 +197,8 @@ This is a job marketplace platform with **two user roles**:
 **API Client Pattern** (`src/services/api.js`):
 - Singleton class export: `import apiService from '../services/api'`
 - Automatically includes Privy access token in Authorization header
-- Sends `x-wallet-address` header for identity verification
+- Sends `x-wallet-address` header as **display metadata only — never identity**. Authorization
+  resolves server-side from the verified JWT subject (see Identity & Authorization below).
 - Base URL from `VITE_API_BASE_URL` env var
 
 ### Backend Architecture (Express + MVC)
@@ -198,7 +230,9 @@ This is a job marketplace platform with **two user roles**:
 - Body size limit: 10mb
 - Privy JWT verification via JWKS
 - Admin email verification via Privy server SDK
-- Self-dealing prevention: wallet address comparison blocks applying to own jobs
+- Self-dealing prevention: blocks applying to your own jobs. NOTE: currently compares
+  `wallet_address`, which a user can rewrite via `PUT /api/employees/:id` — tracked as a
+  known gap; comparing `auth_subject` is the durable fix.
 
 ### Blockchain Integration
 
@@ -398,7 +432,18 @@ const result = await sendSponsoredTransaction({
 
 ## Important Notes
 
-- **No tests yet**: `npm test` returns error in both client and server
+- **`notes/` is a symlink** to the private repo `eteitelbaum/project-notes` (`lucidledger/`).
+  It is gitignored here as `/notes` (no trailing slash — a trailing slash matches only real
+  directories and would let the symlink leak). Editing a note writes into that private repo's
+  working tree but does **not** commit it; commit and push there separately. Never move notes
+  back into this public repo — it previously held partnership discussions and contact details.
+- **Architecture direction**: this codebase is planned to serve two products (open blockchain
+  platform + a commercial fiat configuration) from one tree via a pluggable settlement provider
+  and module gating — not a fork. See `notes/open-core-strategy-2026-09.md` and milestone
+  v0.4.2. Authorization consolidation (#153) comes first.
+
+- **Tests**: `cd server && npm test` runs the `node:test` suite (security/money-critical paths:
+  identity resolution, payment verification). Client lint is blocking in CI. No client tests yet.
 - **Migrations auto-run**: Server runs all migrations on startup (idempotent)
 - **Phone normalization**: Multiple formats tried for user lookup (with/without country code)
 - **Role persistence**: User role stored in localStorage, not in database
