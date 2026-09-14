@@ -128,14 +128,18 @@ app.get('/api/health', (req, res) => {
 // Combined profile-status endpoint — replaces 3 sequential login lookups with 1 parallel call
 const { verifyToken } = require('./middleware/authMiddleware');
 app.get('/api/profile-status', verifyToken, async (req, res) => {
-  const { wallet } = req.query;
-  if (!wallet) return res.status(400).json({ success: false, message: 'wallet query param required' });
+  // Resolve the login identity from the verified auth subject — the same primitive
+  // authorization uses, so login and authorization can never disagree about who the
+  // caller is. Email keys the mediator/recruiter lookups, whose tables have no
+  // auth_subject: those rows are created by an admin before the person has ever logged
+  // in, so there is no subject to bind at creation time (tracked as a follow-up).
   const email = req.user?.email || null;
   try {
     const { Op } = require('sequelize');
+    const { resolveRecord } = require('./services/identityService');
     const [employee, employer, mediator, recruiter] = await Promise.all([
-      Employee.findOne({ where: { wallet_address: wallet } }).catch(() => null),
-      Employer.findOne({ where: { wallet_address: wallet } }).catch(() => null),
+      resolveRecord(Employee, { authSubject: req.authSubject }).catch(() => null),
+      resolveRecord(Employer, { authSubject: req.authSubject }).catch(() => null),
       email
         ? Mediator.findOne({ where: { email: { [Op.iLike]: email } } }).catch(() => null)
         : Promise.resolve(null),
@@ -231,7 +235,9 @@ async function runMigrationsOnStartup() {
       '028-create-recruiters.sql',
       '029-add-recruiter-to-job-postings.sql',
       '030-create-recruiter-fee-payments.sql',
-      '031-link-recruiter-fee-to-deployed-contract.sql'
+      '031-link-recruiter-fee-to-deployed-contract.sql',
+      '032-add-auth-subject.sql',
+      '033-auth-subject-not-null.sql'
     ];
 
     for (const file of migrationFiles) {
@@ -259,11 +265,49 @@ async function runMigrationsOnStartup() {
   }
 }
 
+// Verify invariants that authorization depends on.
+//
+// runMigrationsOnStartup deliberately swallows per-file errors, because most migrations
+// are idempotent and re-running them is expected to fail harmlessly. That tolerance is
+// wrong for a migration whose whole purpose is to make an unsafe state impossible: if
+// 033 fails, the server would otherwise start with auth_subject still nullable, and
+// rows could be written that no authorization path can ever resolve.
+//
+// So assert the outcome rather than trusting the migration ran. This also catches the
+// case where the migration "succeeded" but the column was later altered back.
+async function verifyCriticalInvariants() {
+  const [rows] = await sequelize.query(`
+    SELECT table_name, is_nullable
+    FROM information_schema.columns
+    WHERE column_name = 'auth_subject' AND table_name IN ('employee', 'employer')
+  `);
+
+  const byTable = Object.fromEntries(rows.map((r) => [r.table_name, r.is_nullable]));
+  const broken = ['employee', 'employer'].filter((t) => byTable[t] !== 'NO');
+
+  if (broken.length) {
+    throw new Error(
+      `auth_subject must be NOT NULL on ${broken.join(' and ')} (found: ` +
+      broken.map((t) => `${t}=${byTable[t] ?? 'column missing'}`).join(', ') + '). ' +
+      'Migration 033-auth-subject-not-null.sql did not take effect — most likely because ' +
+      'rows with a NULL auth_subject exist, which ALTER ... SET NOT NULL refuses. ' +
+      'Those rows cannot be authorized by any code path. Clear them (or assign subjects) ' +
+      'and restart. Refusing to start rather than serve unauthorizable records.'
+    );
+  }
+
+  console.log('✅ Invariant verified: auth_subject is NOT NULL on employee and employer');
+}
+
 // Start server with automatic migrations
 async function startServer() {
   try {
     // Run migrations first
     await runMigrationsOnStartup();
+
+    // Then confirm the migrations that matter actually took effect. Throwing here exits
+    // the process via the catch below — deliberate, and the reason the guarantee holds.
+    await verifyCriticalInvariants();
     
     // Then start the server
     app.listen(PORT, () => {

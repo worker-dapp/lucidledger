@@ -1,11 +1,5 @@
 const { Employee } = require('../models');
-const { Op } = require('sequelize');
-
-// Get employee by wallet address (case-insensitive — addresses may differ in checksum casing)
-const getEmployeeForUser = async (walletAddress) => {
-  if (!walletAddress) return null;
-  return Employee.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
-};
+const { resolveEmployee } = require('../services/identityService');
 
 const pickAllowedFields = (payload, allowedFields) => {
   return Object.keys(payload).reduce((acc, key) => {
@@ -28,7 +22,15 @@ class EmployeeController {
   // Create a new employee
   static async createEmployee(req, res) {
     try {
-      const employee = await Employee.create(req.body);
+      // Bind the new record to the verified identity.
+      // Allowlist the body. Spreading req.body directly let a client set ANY column:
+      // id and any future privileged column were settable here via the body spread.
+      // auth_subject is applied after the allowlist and is not in it, so it can only ever
+      // come from the verified token.
+      const employee = await Employee.create({
+        ...pickAllowedFields(req.body, ALLOWED_UPDATE_FIELDS),
+        auth_subject: req.authSubject
+      });
       res.status(201).json({
         success: true,
         data: employee,
@@ -184,8 +186,8 @@ class EmployeeController {
     try {
       const { id } = req.params;
 
-      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
-      const callingEmployee = await getEmployeeForUser(walletAddress);
+      // Authorize off the verified identity.
+      const callingEmployee = await resolveEmployee(req);
       if (!callingEmployee || String(callingEmployee.id) !== String(id)) {
         return res.status(403).json({
           success: false,

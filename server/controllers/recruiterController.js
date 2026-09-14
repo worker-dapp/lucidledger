@@ -1,12 +1,7 @@
 const { Recruiter, JobPosting, RecruiterFeePayment, Employer, DeployedContract } = require('../models');
 const { Op } = require('sequelize');
 const { verifyUsdcPayment } = require('../services/txVerificationService');
-
-// Get employer by wallet address (case-insensitive — addresses may differ in checksum casing)
-const getEmployerForUser = async (walletAddress) => {
-  if (!walletAddress) return null;
-  return Employer.findOne({ where: { wallet_address: { [Op.iLike]: walletAddress } } });
-};
+const { resolveEmployer } = require('../services/identityService');
 
 const ALLOWED_PROFILE_FIELDS = [
   'first_name', 'last_name', 'phone_number', 'wallet_address', 'agency_name'
@@ -173,10 +168,10 @@ class RecruiterController {
         return res.status(400).json({ success: false, message: 'job_posting_id, recruiter_id, employer_id, and fee_amount are required' });
       }
 
-      // Validate the caller is the employer they claim to be paying as — the fee must be
-      // employer-funded, so the payer identity is checked the same way deployedContractController does.
-      const walletAddress = req.headers['x-wallet-address'] || req.body.wallet_address;
-      const employer = await getEmployerForUser(walletAddress);
+      // Validate the caller is the employer they claim to be paying as — the fee must
+      // be employer-funded. Authorize off the verified identity, the same way
+      // deployedContractController does.
+      const employer = await resolveEmployer(req);
       if (!employer || String(employer.id) !== String(employer_id)) {
         return res.status(403).json({ success: false, message: 'You do not have permission to record a fee payment for this employer' });
       }

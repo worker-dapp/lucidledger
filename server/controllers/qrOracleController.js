@@ -5,6 +5,7 @@ const { QrToken, PresenceEvent, KioskDevice, OracleVerification, DeployedContrac
 const { Op } = require('sequelize');
 const { logAction } = require('./auditLogController');
 const { recordScanOnChain } = require('../services/qrOracleService');
+const { resolveEmployee } = require('../services/identityService');
 
 // Per-kiosk cooldown: track last accepted scan timestamp in memory.
 // Prevents duplicate scans from the camera decode loop (jsQR fires on every frame).
@@ -22,16 +23,13 @@ class QrOracleController {
   static async generateToken(req, res) {
     try {
       const { contract_id } = req.body;
-      const walletAddress = req.headers['x-wallet-address'];
 
       if (!contract_id) {
         return res.status(400).json({ success: false, message: 'contract_id is required' });
       }
 
-      // Resolve worker from wallet address
-      const employee = await Employee.findOne({
-        where: { wallet_address: { [Op.iLike]: walletAddress } }
-      });
+      // Resolve worker from the verified identity.
+      const employee = await resolveEmployee(req);
       if (!employee) {
         return res.status(404).json({ success: false, message: 'Employee profile not found' });
       }

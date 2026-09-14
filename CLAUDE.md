@@ -294,9 +294,10 @@ PRIVY_APP_SECRET=your_privy_app_secret
 PRIVY_JWKS_URL=https://auth.privy.io/api/v1/apps/YOUR_APP_ID/.well-known/jwks.json
 PRIVY_ISSUER=privy.io
 
-# Admin
+# Admin — email-based only. Admin status is checked against the Privy-verified email
+# (server-side lookup keyed by the JWT sub), so it cannot be granted via a request header
+# or by writing to the database.
 ADMIN_EMAILS=admin@example.com
-ADMIN_WALLETS=0x...
 
 # Demo Mode
 DEMO_MODE=true
