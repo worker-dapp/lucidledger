@@ -24,12 +24,17 @@ class EmployerController {
   // Create a new employer
   static async createEmployer(req, res) {
     try {
-      // Bind the new record to the verified identity. auth_subject is listed after the
-      // body spread deliberately: a client cannot override it by sending its own
-      // auth_subject field. verifyToken rejects a token with no `sub`, so this is always
-      // set here — and auth_subject is NOT NULL, so a record that somehow reached this
-      // point unbound would be refused rather than stored unauthorizable.
-      const employer = await Employer.create({ ...req.body, auth_subject: req.authSubject });
+      // Bind the new record to the verified identity.
+      // Allowlist the body. Spreading req.body directly let a client set ANY column:
+      // approval_status, which is deliberately excluded from the update allowlist, was
+      // settable here via the body spread — minting a pre-approved employer and bypassing
+      // the admin gate that requireApprovedEmployer protects.
+      // auth_subject is applied after the allowlist and is not in it, so it can only ever
+      // come from the verified token.
+      const employer = await Employer.create({
+        ...pickAllowedFields(req.body, ALLOWED_UPDATE_FIELDS),
+        auth_subject: req.authSubject
+      });
       res.status(201).json({
         success: true,
         data: employer,

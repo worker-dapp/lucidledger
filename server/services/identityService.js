@@ -18,21 +18,26 @@
 // any JWT-based auth provider.
 // -----------------------------------------------------------------------------
 
-const resolveRecord = async (Model, { authSubject }) => {
+const resolveRecord = async (Model, { authSubject }, options = {}) => {
   if (!authSubject) return null;
-  return Model.findOne({ where: { auth_subject: authSubject } });
+  // `options` carries an open transaction when the caller has one. Without it the lookup
+  // takes a separate pool connection while the transaction holds another, which deadlocks
+  // under concurrency against a small pool.
+  return Model.findOne({ where: { auth_subject: authSubject }, ...options });
 };
 
 // Resolve the calling user's Employee record from the verified subject.
-const resolveEmployee = (req) => {
+// Pass { transaction } when called inside an open transaction.
+const resolveEmployee = (req, options = {}) => {
   const { Employee } = require('../models');
-  return resolveRecord(Employee, { authSubject: req.authSubject });
+  return resolveRecord(Employee, { authSubject: req.authSubject }, options);
 };
 
 // Resolve the calling user's Employer record from the verified subject.
-const resolveEmployer = (req) => {
+// Pass { transaction } when called inside an open transaction.
+const resolveEmployer = (req, options = {}) => {
   const { Employer } = require('../models');
-  return resolveRecord(Employer, { authSubject: req.authSubject });
+  return resolveRecord(Employer, { authSubject: req.authSubject }, options);
 };
 
 // Admin check keyed off the verified identity, using the email-based admin model

@@ -8,7 +8,9 @@
 -- Named `auth_subject` (provider-neutral) rather than a vendor-specific name so it
 -- applies regardless of the auth backend — every mainstream provider issues a JWT `sub`.
 --
--- Nullable: existing records coexist with NULL until they are backfilled on login.
+-- Added nullable here; migration 033 makes it NOT NULL. (An earlier design filled
+-- this in on login by matching a client-supplied wallet address; that was exploitable and
+-- was removed — see 033 and notes/66-71-qa-checklist.md.)
 -- UNIQUE: one subject maps to at most one record per table (Postgres allows multiple
 -- NULLs, so unfilled rows don't collide). UNIQUE also creates the lookup index.
 
