@@ -399,9 +399,15 @@ linkPhone();  // Opens Privy OTP modal
 **Making authenticated API calls**:
 ```javascript
 import apiService from '../services/api';
-// Token + wallet address automatically included in headers
-const response = await apiService.getEmployeeByEmail(email);
+// Token automatically included in headers; the wallet header is display metadata only
+const response = await apiService.getMyEmployeeProfile();   // or getMyEmployerProfile()
 ```
+
+There is no by-email, by-wallet, by-id or list lookup for profiles, and no new one should
+be added. Those ten endpoints were gated by `verifyToken` alone, so any authenticated user
+could read any other user's profile (#151). Both methods above take **no argument** and are
+thin wrappers over `GET /api/profile-status`, which resolves the caller from `req.authSubject`.
+Admin listing of employers goes through `/api/admin/employers`, behind `verifyAdmin`.
 
 ### Working with Smart Contracts
 
@@ -438,9 +444,11 @@ const result = await sendSponsoredTransaction({
   working tree but does **not** commit it; commit and push there separately. Never move notes
   back into this public repo — it previously held partnership discussions and contact details.
 - **Architecture direction**: this codebase is planned to serve two products (open blockchain
-  platform + a commercial fiat configuration) from one tree via a pluggable settlement provider
-  and module gating — not a fork. See `notes/open-core-strategy-2026-09.md` and milestone
-  v0.4.2. Authorization consolidation (#153) comes first.
+  platform + a commercial fiat product) from one tree via a pluggable settlement provider and
+  a shared spine — not a fork, and no longer open-core with an `ee/` directory. Verify is a
+  *sibling application* over the spine, not an edition of Ledger (D7). Phase 3 targets spine
+  extraction rather than module gating. See `notes/product-development-strategy.md` and
+  milestone v0.4.2. Authorization consolidation (#153) comes first.
 
 - **Tests**: `cd server && npm test` runs the `node:test` suite (security/money-critical paths:
   identity resolution, payment verification). Client lint is blocking in CI. No client tests yet.
