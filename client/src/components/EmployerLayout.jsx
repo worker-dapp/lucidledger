@@ -19,7 +19,7 @@ const navItems = [
 
 const EmployerLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, smartWalletAddress } = useAuth();
+  const { user } = useAuth();
   const [employerData, setEmployerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const isFetchingRef = React.useRef(false);
@@ -30,22 +30,16 @@ const EmployerLayout = ({ children }) => {
   const closeSidebar = () => setSidebarOpen(false);
 
   // Fetch employer data once — shared with all child pages via EmployerContext.
-  // isFetchingRef prevents duplicate fetches when both smartWalletAddress and
-  // user?.email?.address resolve near-simultaneously, which would otherwise fire
-  // this effect twice and cause all child tabs to double-fetch their own data.
+  // The server resolves which profile from the verified token, so the wallet-then-email
+  // lookup chain is gone; isFetchingRef still guards against overlapping runs, which
+  // would otherwise cause all child tabs to double-fetch their own data.
   useEffect(() => {
     const fetchEmployer = async () => {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
       setIsLoading(true);
       try {
-        let response = null;
-        if (smartWalletAddress) {
-          response = await apiService.getEmployerByWallet(smartWalletAddress);
-        }
-        if ((!response?.data) && user?.email?.address) {
-          response = await apiService.getEmployerByEmail(user.email.address);
-        }
+        const response = await apiService.getMyEmployerProfile();
         if (response?.data) {
           setEmployerData(response.data);
         }
@@ -57,12 +51,12 @@ const EmployerLayout = ({ children }) => {
       }
     };
 
-    if (smartWalletAddress || user?.email?.address) {
+    if (user) {
       fetchEmployer();
     } else {
       setIsLoading(false);
     }
-  }, [smartWalletAddress, user?.email?.address]);
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50">

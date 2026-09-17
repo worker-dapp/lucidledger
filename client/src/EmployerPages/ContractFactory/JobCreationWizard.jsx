@@ -10,7 +10,7 @@ import { Save, X } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
 const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
-  const { user, smartWalletAddress } = useAuth();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -163,15 +163,7 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       if (hasPrefilledData) return;
 
       try {
-        let employerResponse = null;
-
-        if (smartWalletAddress) {
-          employerResponse = await apiService.getEmployerByWallet(smartWalletAddress);
-        }
-
-        if ((!employerResponse || !employerResponse.data) && user?.email?.address) {
-          employerResponse = await apiService.getEmployerByEmail(user.email.address);
-        }
+        const employerResponse = await apiService.getMyEmployerProfile();
 
         if (employerResponse?.data) {
           const employer = employerResponse.data;
@@ -193,10 +185,10 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       }
     };
 
-    if (smartWalletAddress || user?.email?.address) {
+    if (user) {
       fetchEmployerData();
     }
-  }, [smartWalletAddress, user?.email?.address, hasPrefilledData, user]);
+  }, [hasPrefilledData, user]);
 
   const handleSubmit = async () => {
     if (!employerId) {

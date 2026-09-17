@@ -99,14 +99,6 @@ class ApiService {
     });
   }
 
-  async getAllEmployees() {
-    return this.request('/employees');
-  }
-
-  async getEmployeeById(id) {
-    return this.request(`/employees/${id}`);
-  }
-
   async getProfileStatus() {
     // Takes no argument: the server resolves identity from the verified auth subject
     // (JWT sub) in the Authorization header. Passing a wallet would be meaningless —
@@ -115,16 +107,14 @@ class ApiService {
     return this.request('/profile-status');
   }
 
-  async getEmployeeByEmail(email) {
-    return this.request(`/employees/email/${email}`);
-  }
-
-  async getEmployeeByWallet(walletAddress) {
-    return this.request(`/employees/wallet/${walletAddress}`);
-  }
-
-  async getEmployeeByPhone(phoneNumber) {
-    return this.request(`/employees/phone/${phoneNumber}`);
+  // Self-lookup, in the { success, data } shape the old by-wallet / by-email lookups
+  // returned, so call sites differ only in the method name. Those lookups took an
+  // address or address-shaped argument and are gone (#151): the server would answer
+  // them for anyone's profile, not just the caller's. There is no argument here
+  // because there is no other profile to ask for.
+  async getMyEmployeeProfile() {
+    const response = await this.getProfileStatus();
+    return { ...response, data: response?.data?.employee ?? null };
   }
 
   async updateEmployee(id, employeeData) {
@@ -142,24 +132,11 @@ class ApiService {
     });
   }
 
-  async getAllEmployers() {
-    return this.request('/employers');
-  }
-
-  async getEmployerById(id) {
-    return this.request(`/employers/${id}`);
-  }
-
-  async getEmployerByEmail(email) {
-    return this.request(`/employers/email/${email}`);
-  }
-
-  async getEmployerByWallet(walletAddress) {
-    return this.request(`/employers/wallet/${walletAddress}`);
-  }
-
-  async getEmployerByPhone(phoneNumber) {
-    return this.request(`/employers/phone/${phoneNumber}`);
+  // See getMyEmployeeProfile. Admin listing of employers is getAllEmployersForAdmin,
+  // which hits the verifyAdmin-gated /admin/employers route.
+  async getMyEmployerProfile() {
+    const response = await this.getProfileStatus();
+    return { ...response, data: response?.data?.employer ?? null };
   }
 
   async updateEmployer(id, employerData) {

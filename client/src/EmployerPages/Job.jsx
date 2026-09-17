@@ -14,7 +14,7 @@ import apiService from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Job() {
-  const { user, smartWalletAddress } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [employerId, setEmployerId] = useState(null);
   const [approvalStatus, setApprovalStatus] = useState(null);
@@ -103,15 +103,7 @@ export default function Job() {
       if (hasPrefilledData) return;
 
       try {
-        let employerResponse = null;
-
-        if (smartWalletAddress) {
-          employerResponse = await apiService.getEmployerByWallet(smartWalletAddress);
-        }
-
-        if ((!employerResponse || !employerResponse.data) && user?.email?.address) {
-          employerResponse = await apiService.getEmployerByEmail(user.email.address);
-        }
+        const employerResponse = await apiService.getMyEmployerProfile();
 
         if (employerResponse?.data) {
           const employer = employerResponse.data;
@@ -141,10 +133,10 @@ export default function Job() {
       }
     };
 
-    if (smartWalletAddress || user?.email?.address) {
+    if (user) {
       fetchEmployerData();
     }
-  }, [smartWalletAddress, user?.email?.address, hasPrefilledData]);
+  }, [hasPrefilledData, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
