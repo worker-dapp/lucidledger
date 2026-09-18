@@ -12,7 +12,7 @@ const EmployerNavbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState(null);
 
-  const { user, smartWalletAddress } = useAuth();
+  const { user } = useAuth();
   const mobileMenuRef = useRef(null);
 
   // Close dropdowns when clicking outside
@@ -31,13 +31,7 @@ const EmployerNavbar = () => {
   useEffect(() => {
     const fetchApprovalStatus = async () => {
       try {
-        let response = null;
-        if (smartWalletAddress) {
-          response = await apiService.getEmployerByWallet(smartWalletAddress);
-        }
-        if ((!response || !response.data) && user?.email?.address) {
-          response = await apiService.getEmployerByEmail(user.email.address);
-        }
+        const response = await apiService.getMyEmployerProfile();
         if (response?.data) {
           setApprovalStatus(response.data.approval_status);
         }
@@ -46,10 +40,10 @@ const EmployerNavbar = () => {
       }
     };
 
-    if (smartWalletAddress || user?.email?.address) {
+    if (user) {
       fetchApprovalStatus();
     }
-  }, [smartWalletAddress, user?.email?.address]);
+  }, [user]);
 
   const handleNavClick = () => {
     setIsMobileMenuOpen(false);

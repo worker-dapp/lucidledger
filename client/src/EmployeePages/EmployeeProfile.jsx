@@ -104,15 +104,15 @@ const EmployeeProfile = () => {
 
   // Fetch user details from localStorage
   const fetchUserDetails = async () => {
-    const walletAddress = smartWalletAddress || primaryWallet?.address;
-    if (!user || !walletAddress) {
+    if (!user) {
       setLoading(false);
       return;
     }
 
     try {
-      // Get employee profile from API
-      const response = await apiService.getEmployeeByWallet(walletAddress);
+      // Get the caller's own employee profile — resolved server-side from the
+      // verified token, not from a wallet address supplied here.
+      const response = await apiService.getMyEmployeeProfile();
       const data = response.data;
 
       if (data) {

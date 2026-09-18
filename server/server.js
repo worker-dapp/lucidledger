@@ -28,7 +28,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const qrOracleRoutes = require('./routes/qrOracleRoutes');
 const nfcOracleRoutes = require('./routes/nfcOracleRoutes');
 const recruiterRoutes = require('./routes/recruiterRoutes');
-const { validateWalletAddress } = require('./middleware/authMiddleware');
+const { validateWalletAddress, rateLimitKey } = require('./middleware/authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,30 +38,34 @@ app.use(helmet());
 
 // Rate limiting (disabled in development)
 if (process.env.NODE_ENV === 'production') {
-  // Key by wallet address for authenticated requests, fall back to IP for
-  // unauthenticated requests (health checks, bots). This eliminates the
-  // shared-IP problem for classrooms and workplaces where many users share
-  // a single NAT address.
-  const perUserKeyGenerator = (req) => {
-    const wallet = req.headers['x-wallet-address'];
-    return wallet ? `wallet:${wallet}` : req.ip;
-  };
+  // nginx terminates TLS and proxies every request, so without this req.ip is the
+  // nginx container's address for all traffic and the IP fallback below collapses
+  // into one global bucket. Exactly 1 — the single nginx hop. Never `true`: that
+  // would trust a client-supplied X-Forwarded-For and hand the caller its own key
+  // back, which is the defect this block exists to fix (#142).
+  app.set('trust proxy', 1);
 
+  // Key on the verified JWT subject, falling back to IP for anything unverified.
+  // This previously read the x-wallet-address request header: a client-set value, so
+  // rotating it per request bought unlimited fresh buckets, and setting it to another
+  // user's (publicly visible, on-chain) wallet drained that user's quota. See
+  // rateLimitKey in authMiddleware for why the fallback is what makes the key
+  // unforgeable, and why per-user buckets still survive a shared NAT.
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 300, // 300 req/15 min per user (wallet) or per IP for unauthenticated
-    keyGenerator: perUserKeyGenerator,
+    max: 300, // 300 req/15 min per authenticated user, or per IP for unauthenticated
+    keyGenerator: rateLimitKey,
     message: 'Too many requests, please try again later.'
   });
   const adminLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 50, // stricter limit for sensitive admin endpoints
-    keyGenerator: perUserKeyGenerator,
+    keyGenerator: rateLimitKey,
     message: 'Too many requests to admin endpoints, please try again later.'
   });
   app.use(limiter);
   app.use('/api/admin', adminLimiter);
-  console.log('🛡️  Rate limiting enabled (production mode, per-user)');
+  console.log('🛡️  Rate limiting enabled (production mode, keyed on verified JWT subject)');
 } else {
   console.log('⚠️  Rate limiting disabled (development mode)');
 }

@@ -7,14 +7,15 @@ import { EmployeeContext } from "./EmployeeContext";
 // Provides employee data to child pages via context — does NOT render a navbar.
 // Used as a layout route in App.jsx; each page manages its own navbar.
 const EmployeeLayout = ({ children }) => {
-  const { user, smartWalletAddress, primaryWallet } = useAuth();
+  const { user } = useAuth();
   const [employeeData, setEmployeeData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const isFetchingRef = React.useRef(false);
 
   // Fetch employee profile once — shared with all child pages via EmployeeContext.
-  // isFetchingRef prevents duplicate fetches when user, smartWalletAddress, and
-  // primaryWallet all resolve near-simultaneously, firing this effect multiple times.
+  // The server resolves which profile from the verified token, so this no longer waits
+  // on a wallet or an email to try as a lookup key; isFetchingRef still guards against
+  // a second run overlapping the first.
   useEffect(() => {
     const fetchEmployee = async () => {
       if (!user) return;
@@ -22,16 +23,8 @@ const EmployeeLayout = ({ children }) => {
       isFetchingRef.current = true;
       setIsLoading(true);
       try {
-        const userEmail = user?.email?.address || user?.email;
-        if (userEmail) {
-          const response = await apiService.getEmployeeByEmail(userEmail);
-          if (response?.data) { setEmployeeData(response.data); return; }
-        }
-        const wallet = smartWalletAddress || primaryWallet?.address;
-        if (wallet) {
-          const response = await apiService.getEmployeeByWallet(wallet);
-          if (response?.data) setEmployeeData(response.data);
-        }
+        const response = await apiService.getMyEmployeeProfile();
+        if (response?.data) setEmployeeData(response.data);
       } catch (err) {
         console.error("Error fetching employee data:", err);
       } finally {
@@ -41,7 +34,7 @@ const EmployeeLayout = ({ children }) => {
     };
 
     fetchEmployee();
-  }, [user, smartWalletAddress, primaryWallet]);
+  }, [user]);
 
   return (
     <EmployeeContext.Provider value={{ employeeData, employeeId: employeeData?.id ?? null, isLoading }}>

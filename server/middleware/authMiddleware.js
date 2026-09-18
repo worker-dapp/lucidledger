@@ -76,6 +76,41 @@ const verifyJWTWithJWKS = async (token) => {
   return verified;
 };
 
+/**
+ * Builds a rate-limit key the client cannot choose.
+ *
+ * The limiter mounts before any route, so req.authSubject does not exist yet — it is
+ * set by verifyToken further down the stack. This verifies the bearer token itself
+ * (JWKS keys are cached for 24h, so after the first request it is a local signature
+ * check) and keys on the verified `sub`.
+ *
+ * Anything unverified falls back to the IP: no token, a malformed token, a bad
+ * signature, an unknown kid, Privy unconfigured. That is what makes the key
+ * unforgeable — an attacker rotating junk tokens cannot mint fresh buckets, because
+ * every junk token lands on their own IP's bucket.
+ *
+ * Keying on the verified sub also preserves the property the old header-based key was
+ * reaching for: users behind one NAT (a classroom, a workplace) hold separate buckets,
+ * since each presents a different valid token.
+ *
+ * @param {object} req - Express request
+ * @returns {Promise<string>} - Rate limit bucket key
+ */
+const rateLimitKey = async (req) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return `ip:${req.ip}`;
+
+  try {
+    const verified = await verifyJWTWithJWKS(token);
+    return verified?.sub ? `sub:${verified.sub}` : `ip:${req.ip}`;
+  } catch {
+    // Unverifiable token — do not let it name a bucket.
+    return `ip:${req.ip}`;
+  }
+};
+
 const verifyToken = async (req, res, next) => {
   // 1. Get token from header
   const authHeader = req.headers['authorization'];
@@ -339,4 +374,4 @@ const kioskAuth = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken, optionalAuth, verifyAdmin, requireApprovedEmployer, validateWalletAddress, kioskAuth };
+module.exports = { verifyToken, optionalAuth, verifyAdmin, requireApprovedEmployer, validateWalletAddress, kioskAuth, rateLimitKey };

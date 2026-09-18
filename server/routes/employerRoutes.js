@@ -5,12 +5,12 @@ const { verifyToken } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // Employer routes
+//
+// As with employeeRoutes: the read routes are gone. See the note there — the same
+// verifyToken-only list and lookup endpoints exposed every employer profile to any
+// authenticated caller. Self-lookup is GET /api/profile-status; admin listing is
+// GET /api/admin/employers, which is gated by verifyAdmin.
 router.post('/', verifyToken, EmployerController.createEmployer);
-router.get('/', verifyToken, EmployerController.getAllEmployers);
-router.get('/:id', verifyToken, EmployerController.getEmployerById);
-router.get('/email/:email', verifyToken, EmployerController.getEmployerByEmail);
-router.get('/wallet/:wallet_address', verifyToken, EmployerController.getEmployerByWallet);
-router.get('/phone/:phone_number', verifyToken, EmployerController.getEmployerByPhone);
 router.put('/:id', verifyToken, EmployerController.updateEmployer);
 
 module.exports = router;
