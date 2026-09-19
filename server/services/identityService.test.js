@@ -155,8 +155,7 @@ test('isAdminRequest ignores a client-supplied wallet header', () => {
 // Confirmed exploitable against the previous form before this was changed.
 
 test('mediator email matching must not treat the caller email as a pattern', () => {
-  const src = require('node:fs')
-    .readFileSync(__dirname + '/../controllers/deployedContractController.js', 'utf8');
+  const src = require('node:fs').readFileSync(__dirname + '/identityService.js', 'utf8');
 
   // Strip comments first: the function documents the iLike hazard in prose, and
   // describing it must not count as doing it.
@@ -167,4 +166,25 @@ test('mediator email matching must not treat the caller email as a pattern', () 
 
   assert.ok(!/iLike/.test(resolver), 'resolveMediator must not match email with iLike');
   assert.ok(/lower/.test(resolver), 'resolveMediator should compare lower(email) for equality');
+});
+
+// --- An unauthenticated request must not touch the model layer ----------------------
+//
+// resolveEmployee/resolveEmployer check req.authSubject before requiring ../models, so
+// a request with no verified subject resolves to null without loading Sequelize or
+// opening a connection. Beyond the wasted work, this is what lets the authorization
+// layer's tests exercise the no-role path offline.
+
+const { resolveEmployee, resolveEmployer } = require('./identityService');
+
+test('resolveEmployee/resolveEmployer return null for a subjectless request, without loading models', async () => {
+  assert.strictEqual(await resolveEmployee({}), null);
+  assert.strictEqual(await resolveEmployer({}), null);
+  assert.strictEqual(await resolveEmployee({ authSubject: null }), null);
+  assert.strictEqual(await resolveEmployer({ authSubject: undefined }), null);
+
+  // Proof no connection was opened: requiring ../models instantiates Sequelize, so if
+  // either resolver had loaded it, it would be in the require cache by now.
+  const loaded = Object.keys(require.cache).some((k) => k.endsWith('/models/index.js'));
+  assert.strictEqual(loaded, false, 'the model layer must not be required to answer "no subject"');
 });

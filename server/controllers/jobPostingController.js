@@ -184,25 +184,18 @@ class JobPostingController {
   // Update a job posting
   static async updateJobPosting(req, res) {
     try {
-      const { id } = req.params;
-      const jobPosting = await JobPosting.findByPk(id);
+      // authorize('ownedByEmployer', { model: JobPosting }) on the route loaded this
+      // posting, returned 404 if it does not exist, and proved the verified caller owns
+      // it. Nothing is left to check here.
+      const jobPosting = req.resource;
 
-      if (!jobPosting) {
-        return res.status(404).json({
-          success: false,
-          message: 'Job posting not found'
-        });
-      }
+      // employer_id is not updatable — ownership is fixed at creation. The check this
+      // replaced blocked reassignment only as a side effect of comparing the field, so
+      // dropping the field from the payload keeps that protection without consulting
+      // client input at all.
+      const { employer_id, ...updates } = req.body;
 
-      // Verify employer owns this posting
-      if (req.body.employer_id && jobPosting.employer_id !== req.body.employer_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized to update this job posting'
-        });
-      }
-
-      await jobPosting.update(req.body);
+      await jobPosting.update(updates);
 
       res.status(200).json({
         success: true,

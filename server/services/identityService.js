@@ -29,6 +29,9 @@ const resolveRecord = async (Model, { authSubject }, options = {}) => {
 // Resolve the calling user's Employee record from the verified subject.
 // Pass { transaction } when called inside an open transaction.
 const resolveEmployee = (req, options = {}) => {
+  // Checked before requiring the model layer: an unauthenticated request should cost
+  // neither a query nor a connection.
+  if (!req.authSubject) return Promise.resolve(null);
   const { Employee } = require('../models');
   return resolveRecord(Employee, { authSubject: req.authSubject }, options);
 };
@@ -36,8 +39,32 @@ const resolveEmployee = (req, options = {}) => {
 // Resolve the calling user's Employer record from the verified subject.
 // Pass { transaction } when called inside an open transaction.
 const resolveEmployer = (req, options = {}) => {
+  if (!req.authSubject) return Promise.resolve(null);
   const { Employer } = require('../models');
   return resolveRecord(Employer, { authSubject: req.authSubject }, options);
+};
+
+// Resolve the calling Mediator record from the verified identity.
+//
+// Mediators have no auth_subject column: an admin creates the row before the person
+// first logs in, so there is no verified subject to bind at creation time. They are
+// therefore matched on the Privy-verified email (req.user.email, set by verifyToken
+// from a server-side lookup keyed by the JWT sub) — still server-derived, never
+// client-supplied. #143 tracks binding these to auth_subject on first login.
+//
+// Case-insensitive EQUALITY, not iLike. Under iLike the caller's own email becomes a
+// LIKE *pattern*, and `_` — a legal, common local-part character — matches any single
+// character. A verified `j_ne.doe@x.com` would resolve as the mediator `jane.doe@x.com`.
+const resolveMediator = async (req) => {
+  const email = req.user?.email;
+  if (!email) return null;
+  const { Mediator, sequelize } = require('../models');
+  return Mediator.findOne({
+    where: sequelize.and(
+      sequelize.where(sequelize.fn('lower', sequelize.col('email')), email.toLowerCase()),
+      { status: 'active' }
+    )
+  });
 };
 
 // Admin check keyed off the verified identity, using the email-based admin model
@@ -54,4 +81,4 @@ const isAdminRequest = (req) => {
   return !!email && adminEmails.includes(email);
 };
 
-module.exports = { resolveEmployee, resolveEmployer, isAdminRequest, resolveRecord };
+module.exports = { resolveEmployee, resolveEmployer, resolveMediator, isAdminRequest, resolveRecord };
