@@ -32,6 +32,7 @@ const {
   resolveEmployee,
   resolveEmployer,
   resolveMediator,
+  resolveRecruiter,
   isAdminRequest
 } = require('../services/identityService');
 
@@ -55,7 +56,8 @@ const callerRoles = (req) => {
     employer: () => (cache.employer ??= (req.employer
       ? Promise.resolve(req.employer)
       : resolveEmployer(req))),
-    mediator: () => (cache.mediator ??= resolveMediator(req))
+    mediator: () => (cache.mediator ??= resolveMediator(req)),
+    recruiter: () => (cache.recruiter ??= resolveRecruiter(req))
   };
 };
 
@@ -106,6 +108,29 @@ const POLICIES = {
     }
   },
 
+  // A party to a job application: the worker who applied, or the employer whose posting it
+  // is. The employer side is one hop away — JobApplication carries employee_id and
+  // job_posting_id but no employer_id — so this policy reads the owner off `parent`, the
+  // record named by the route's `via` option.
+  //
+  // The sixth shape. The survey found five and the count held against every recount, but
+  // every endpoint it examined owned its records directly. Applications are the first
+  // record type whose owner is reached through another record, and both sides of the
+  // relationship act on it: the employer accepts or rejects, the worker signs or declines.
+  applicationParty: {
+    requiresRecord: true,
+    async check({ record, parent, roles }) {
+      const [employee, employer] = await Promise.all([roles.employee(), roles.employer()]);
+      if (employee && String(record.employee_id) === String(employee.id)) return true;
+
+      // parent is the JobPosting. Absent it there is no employer to compare against, and
+      // guessing is not an option — refuse rather than fall through to the worker check.
+      const owner = parent?.employer_id;
+      if (employer && owner != null && String(owner) === String(employer.id)) return true;
+      return false;
+    }
+  },
+
   // Verified email in ADMIN_EMAILS. Server config, so admin cannot be granted through
   // the application or by writing to the database.
   admin: {
@@ -147,8 +172,12 @@ const POLICY_NAMES = Object.keys(POLICIES);
  * @param {string} [opts.paramName]    Path param holding the id. Default 'id'.
  * @param {boolean} [opts.allowAdmin]  Admins bypass the policy. Default true.
  * @param {string} [opts.as]           For 'self': 'employee' (default) or 'employer'.
+ * @param {object} [opts.via]          `{ model, key }` — load a related record and hand it
+ *                                     to the policy as `parent`. For record types whose
+ *                                     owner lives one hop away: a job application's
+ *                                     employer is on its job posting, not on itself.
  */
-const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, as = 'employee' } = {}) => {
+const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, as = 'employee', via = null } = {}) => {
   const entry = POLICIES[policy];
   if (!entry) {
     throw new Error(
@@ -159,6 +188,9 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
     throw new Error(
       `authorize('${policy}') needs a { model } to load the record it checks ownership of.`
     );
+  }
+  if (via && (!via.model || !via.key)) {
+    throw new Error(`authorize('${policy}'): via needs both { model, key }.`);
   }
 
   const guard = async (req, res, next) => {
@@ -176,9 +208,24 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
         req.resource = record;
       }
 
+      // The related record carrying the owner, when ownership is one hop away. Loaded
+      // before the admin bypass for the same reason the record is: a handler that reads
+      // req.resourceParent must find it there for every caller who gets through.
+      let parent = null;
+      if (via && record) {
+        parent = await via.model.findByPk(record[via.key]);
+        if (!parent) {
+          // A dangling foreign key. Not the caller's doing, but ownership cannot be
+          // established, so the request cannot be allowed.
+          console.error(`authorize('${policy}'): ${via.key}=${record[via.key]} matched no ${via.model.name}`);
+          return res.status(404).json({ success: false, message: 'Not found' });
+        }
+        req.resourceParent = parent;
+      }
+
       if (allowAdmin && isAdminRequest(req)) return next();
 
-      const ok = await entry.check({ req, record, roles: callerRoles(req), paramName, as });
+      const ok = await entry.check({ req, record, parent, roles: callerRoles(req), paramName, as });
       if (!ok) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -198,7 +245,11 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
   Object.defineProperty(guard, 'name', { value: `authorize(${policy})`, configurable: true });
   guard.policy = policy;
   guard.enforced = true;
-  guard.policyOptions = { paramName, allowAdmin, as, model: model?.name ?? null };
+  guard.policyOptions = {
+    paramName, allowAdmin, as,
+    model: model?.name ?? null,
+    via: via ? { model: via.model?.name ?? null, key: via.key } : null
+  };
 
   return guard;
 };
@@ -218,6 +269,17 @@ const DECLARATIONS = {
   // guarded: there is no record to load, and the scoping has to happen where the query is
   // built. So the route line declares it and the handler performs it.
   scopedList: { needsReason: false },
+
+  // A create route. The record does not exist yet, so there is nothing to load and check;
+  // what matters is the inverse — the handler derives the owning id from the verified
+  // caller and ignores any owner field in the body. Same derivation as scopeToCaller, used
+  // as an assignment rather than a filter.
+  //
+  // Its own declaration rather than a handlerEnforced reason written out seven times: it is
+  // a recurring, checkable pattern, and a reviewer seeing it knows exactly what to look for
+  // in the handler — an owner id that comes from the caller and a body that cannot override
+  // it.
+  ownerFromCaller: { needsReason: false },
 
   // Deliberately open. GET /api/job-postings/active is the real case: the job market is
   // public by design.
@@ -289,16 +351,31 @@ const declarePolicy = (declaration, { reason = null } = {}) => {
  * Whatever filter the client sent is not consulted. req.query.employer_id is not an
  * input to this function and must not be merged into the where clause afterwards.
  *
+ * `allowAdmin: false` scopes an admin to their own row like anyone else. Use it where the
+ * handler needs a concrete owner id rather than a filter — a raw SQL query with a bound
+ * `:employer_id`, or anything that destructures the fragment. Those cannot express "all
+ * rows", and an admin would otherwise reach them with the id undefined: `{}` is a valid
+ * *filter* meaning unscoped, and not a valid *value*.
+ *
  * @param {object} req
  * @param {object} [opts]
- * @param {string} [opts.column]  Column naming the owner. Default 'employer_id'.
- * @param {string} [opts.as]      Role to resolve: 'employer' (default) or 'employee'.
+ * @param {string} [opts.column]       Column naming the owner. Default 'employer_id'.
+ * @param {string} [opts.as]           Role to resolve: 'employer' (default) or 'employee'.
+ * @param {boolean} [opts.allowAdmin]  Admin gets the unscoped `{}`. Default true.
  * @returns {Promise<object|null>}
  */
-const scopeToCaller = async (req, { column = 'employer_id', as = 'employer' } = {}) => {
-  if (isAdminRequest(req)) return {};
+const scopeToCaller = async (req, { column = 'employer_id', as = 'employer', allowAdmin = true } = {}) => {
+  if (allowAdmin && isAdminRequest(req)) return {};
+
   const roles = callerRoles(req);
-  const caller = as === 'employer' ? await roles.employer() : await roles.employee();
+  const resolve = roles[as];
+  if (!resolve) {
+    // A typo'd role would otherwise fall through to a default and scope the query to the
+    // wrong person's id — silently, and in the direction that shows data.
+    throw new Error(`scopeToCaller(): unknown role '${as}'. Known roles: ${Object.keys(roles).join(', ')}.`);
+  }
+
+  const caller = await resolve();
   if (!caller) return null;
   return { [column]: caller.id };
 };

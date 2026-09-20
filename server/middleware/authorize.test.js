@@ -85,14 +85,15 @@ test('the five shapes are the whole vocabulary', () => {
   // PR C annotates all 90 routes against exactly this list. A sixth shape appearing here
   // means the endpoint survey missed something and the inventory needs redoing, not that
   // the list should quietly grow.
-  assert.deepStrictEqual(POLICY_NAMES, ['self', 'ownedByEmployer', 'contractParty', 'admin', 'kiosk']);
+  assert.deepStrictEqual(POLICY_NAMES,
+    ['self', 'ownedByEmployer', 'contractParty', 'applicationParty', 'admin', 'kiosk']);
 });
 
 // --- misconfiguration fails at load, not at request time ----------------------------
 
 test('an unknown policy name throws when the route file loads', () => {
   assert.throws(() => authorize('ownedByEmployeer'), /unknown policy/);
-  assert.throws(() => authorize('ownedByEmployeer'), /self, ownedByEmployer, contractParty, admin, kiosk/);
+  assert.throws(() => authorize('ownedByEmployeer'), /self, ownedByEmployer, contractParty, applicationParty, admin, kiosk/);
 });
 
 test('a record policy with no model throws when the route file loads', () => {
@@ -487,7 +488,7 @@ test('an authorize() guard is marked enforced, a declaration is not', () => {
 
 test('an unknown declaration throws when the route file loads', () => {
   assert.throws(() => declarePolicy('scoped'), /unknown declaration/);
-  assert.throws(() => declarePolicy('scoped'), /scopedList, public, handlerEnforced/);
+  assert.throws(() => declarePolicy('scoped'), /scopedList, ownerFromCaller, public, handlerEnforced/);
   assert.throws(() => declarePolicy('scoped'), /use authorize\(\) instead/);
 });
 
@@ -498,7 +499,8 @@ test('the enforcement and declaration vocabularies stay separate', () => {
     assert.throws(() => declarePolicy(name), /unknown declaration/,
       `${name} is enforceable and must not be declarable`);
   }
-  assert.deepStrictEqual(DECLARATION_NAMES, ['scopedList', 'public', 'handlerEnforced']);
+  assert.deepStrictEqual(DECLARATION_NAMES,
+    ['scopedList', 'ownerFromCaller', 'public', 'handlerEnforced']);
 });
 
 test('an unguarded route has to say why', () => {
@@ -539,4 +541,174 @@ test('metadata survives being mounted on a real Express route', async () => {
     { policy: 'ownedByEmployer', enforced: true },
     { policy: 'scopedList', enforced: false }
   ]);
+});
+
+// --- scopeToCaller: allowAdmin ------------------------------------------------------
+//
+// Surfaced by PR B. Some list handlers need a concrete owner id rather than a filter — a
+// raw SQL query binding :employer_id, or anything that destructures the fragment. `{}` is
+// a valid filter meaning "unscoped" but not a valid value, so an admin would arrive at
+// those with the id undefined: a query with no scope at all, or a crash.
+
+test('scopeToCaller with allowAdmin false scopes an admin to their own row', async () => {
+  await withAdminEmails('boss@example.com', async () => {
+    const req = makeReq({ email: 'boss@example.com', employer: { id: 42 } });
+
+    assert.deepStrictEqual(await scopeToCaller(req), {}, 'unscoped by default');
+    assert.deepStrictEqual(await scopeToCaller(req, { allowAdmin: false }), { employer_id: 42 });
+  });
+});
+
+test('scopeToCaller with allowAdmin false refuses an admin holding no employer row', async () => {
+  // An admin with no employer profile has no report to show. Refusing is correct; the
+  // alternative is a query scoped to undefined, which returns either everything or an error
+  // depending on the call site.
+  await withAdminEmails('boss@example.com', async () => {
+    const req = makeReq({ email: 'boss@example.com' });
+    req.authSubject = null;
+
+    assert.strictEqual(await scopeToCaller(req, { allowAdmin: false }), null);
+  });
+});
+
+test('a scope fragment is never destructured into an undefined id', () => {
+  // The failure this option exists to prevent, stated as the invariant it protects:
+  // if a handler reads scope.employer_id, it must have passed allowAdmin: false.
+  const fragment = {};                       // what an admin gets by default
+  assert.strictEqual(fragment.employer_id, undefined);
+  assert.strictEqual('employer_id' in fragment, false);
+});
+
+test('ownerFromCaller declares a create route and needs no reason', () => {
+  // Creates cannot be guarded — there is no record yet. The declaration marks the inverse
+  // obligation: the handler derives the owner from the caller, and the body cannot set it.
+  const marker = declarePolicy('ownerFromCaller');
+
+  assert.strictEqual(marker.policy, 'ownerFromCaller');
+  assert.strictEqual(marker.enforced, false, 'a promise about the handler, not a check');
+  assert.doesNotThrow(() => declarePolicy('ownerFromCaller'));
+});
+
+// --- scopeToCaller: roles other than employer ---------------------------------------
+
+test('scopeToCaller scopes to the employee when asked', async () => {
+  const req = makeReq();
+  req.authSubject = null;   // employee resolution returns null without a DB
+
+  assert.strictEqual(await scopeToCaller(req, { column: 'employee_id', as: 'employee' }), null);
+});
+
+test('scopeToCaller rejects an unknown role instead of guessing', async () => {
+  // Previously `as` was a two-way ternary, so anything that was not the literal 'employer'
+  // silently scoped to the employee. A typo would have filtered by the wrong person's id
+  // — and in the direction that returns data rather than the one that returns none.
+  await assert.rejects(
+    () => scopeToCaller(makeReq({ employer: { id: 42 } }), { as: 'employeer' }),
+    /unknown role 'employeer'/
+  );
+});
+
+test('the known roles are exactly the four identity kinds', async () => {
+  // employer, employee, mediator, recruiter. A fifth appearing means a new identity kind
+  // exists and every list endpoint scoped by role needs revisiting.
+  await assert.rejects(
+    () => scopeToCaller(makeReq(), { as: 'nope' }),
+    /Known roles: employee, employer, mediator, recruiter/
+  );
+});
+
+// --- applicationParty and via: ownership one hop away -------------------------------
+//
+// JobApplication carries employee_id and job_posting_id but no employer_id, so the
+// employer who may act on it is named by the job posting. `via` loads that record and
+// hands it to the policy as `parent`.
+
+const APPLICATION = { id: 5, employee_id: 9, job_posting_id: 77 };
+const POSTING = { id: 77, employer_id: 42 };
+
+test('applicationParty admits the applicant and the posting owner', async () => {
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: POSTING, roles: makeRoles({ employee: { id: 9 } }) }),
+    true, 'the worker who applied');
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: POSTING, roles: makeRoles({ employer: { id: 42 } }) }),
+    true, 'the employer whose posting it is');
+});
+
+test('applicationParty refuses another worker and another employer', async () => {
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: POSTING, roles: makeRoles({ employee: { id: 10 } }) }), false);
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: POSTING, roles: makeRoles({ employer: { id: 43 } }) }), false);
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: POSTING, roles: makeRoles({}) }), false);
+});
+
+test('applicationParty refuses the employer side when the parent is missing', async () => {
+  // Without the posting there is nothing to compare an employer against. It must refuse,
+  // not fall through — the worker check passing for an employer would be worse than a 403.
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: null, roles: makeRoles({ employer: { id: 42 } }) }), false);
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: undefined, roles: makeRoles({ employer: { id: 42 } }) }), false);
+});
+
+test('applicationParty does not match a posting with no owner', async () => {
+  const orphan = { id: 77, employer_id: null };
+  assert.strictEqual(
+    await check('applicationParty', { record: APPLICATION, parent: orphan, roles: makeRoles({ employer: { id: undefined } }) }), false);
+});
+
+test('via loads the parent and attaches it as req.resourceParent', async () => {
+  const Applications = makeModel({ '5': { ...APPLICATION } });
+  const Postings = makeModel({ '77': { ...POSTING } });
+  Postings.name = 'JobPosting';
+
+  const guard = authorize('applicationParty', {
+    model: Applications, via: { model: Postings, key: 'job_posting_id' }
+  });
+
+  // No subject: the employee role resolves to null offline, and the employer comes from
+  // req.employer as requireApprovedEmployer would have left it.
+  const req0 = makeReq({ params: { id: '5' }, employer: { id: 42 } });
+  req0.authSubject = null;
+  const { outcome, req } = await run(guard, req0);
+
+  assert.strictEqual(outcome, 'next');
+  assert.strictEqual(req.resource.id, 5);
+  assert.strictEqual(req.resourceParent.id, 77, 'the handler gets the posting too');
+  assert.deepStrictEqual(Postings.lookups, [77], 'looked up by the foreign key');
+});
+
+test('a dangling foreign key is 404, never a pass', async () => {
+  const Applications = makeModel({ '5': { ...APPLICATION, job_posting_id: 999 } });
+  const Postings = makeModel({});
+  Postings.name = 'JobPosting';
+
+  const guard = authorize('applicationParty', {
+    model: Applications, via: { model: Postings, key: 'job_posting_id' }
+  });
+
+  const req = makeReq({ params: { id: '5' }, employer: { id: 42 } });
+  req.authSubject = null;
+  assert.strictEqual((await run(guard, req)).outcome, 404);
+});
+
+test('via is reported in the metadata for PR C', () => {
+  const Applications = makeModel({});
+  Applications.name = 'JobApplication';
+  const Postings = makeModel({});
+  Postings.name = 'JobPosting';
+
+  const guard = authorize('applicationParty', {
+    model: Applications, via: { model: Postings, key: 'job_posting_id' }
+  });
+
+  assert.deepStrictEqual(guard.policyOptions.via, { model: 'JobPosting', key: 'job_posting_id' });
+});
+
+test('an incomplete via throws when the route file loads', () => {
+  const M = makeModel({});
+  assert.throws(() => authorize('applicationParty', { model: M, via: { key: 'x' } }), /via needs both/);
+  assert.throws(() => authorize('applicationParty', { model: M, via: { model: M } }), /via needs both/);
 });

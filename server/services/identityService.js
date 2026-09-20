@@ -67,6 +67,29 @@ const resolveMediator = async (req) => {
   });
 };
 
+// Resolve the calling Recruiter record from the verified identity.
+//
+// Like mediators, recruiters have no auth_subject column — an employer or admin creates
+// the row before the person first logs in — so they are matched on the Privy-verified
+// email. #143 tracks binding both to auth_subject on first login.
+//
+// Same rule as resolveMediator: case-insensitive EQUALITY via lower(), never iLike. Under
+// iLike the caller's own email becomes a LIKE pattern and `_` matches any character.
+// Note this also fixes an assumption in the previous inline lookup, which compared against
+// a lowercased input but an un-lowercased column, so a recruiter row stored with any
+// capitalisation would silently fail to resolve.
+const resolveRecruiter = async (req) => {
+  const email = req.user?.email;
+  if (!email) return null;
+  const { Recruiter, sequelize } = require('../models');
+  return Recruiter.findOne({
+    where: sequelize.and(
+      sequelize.where(sequelize.fn('lower', sequelize.col('email')), email.toLowerCase()),
+      { status: 'active' }
+    )
+  });
+};
+
 // Admin check keyed off the verified identity, using the email-based admin model
 // (ADMIN_EMAILS). req.user.email is populated by verifyToken from a server-side Privy
 // lookup keyed by the verified DID, so it reflects the authenticated user and is not
@@ -81,4 +104,7 @@ const isAdminRequest = (req) => {
   return !!email && adminEmails.includes(email);
 };
 
-module.exports = { resolveEmployee, resolveEmployer, resolveMediator, isAdminRequest, resolveRecord };
+module.exports = {
+  resolveEmployee, resolveEmployer, resolveMediator, resolveRecruiter,
+  isAdminRequest, resolveRecord
+};
