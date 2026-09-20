@@ -29,7 +29,7 @@ const ContractLibrary = ({ employerId, isLoading }) => {
     setError(null);
 
     try {
-      const response = await apiService.getContractTemplates(employerId);
+      const response = await apiService.getContractTemplates();
       if (response?.success) {
         setContracts(response.data || []);
       }

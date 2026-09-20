@@ -1,5 +1,5 @@
 const { ContractTemplate } = require('../models');
-const { Op } = require('sequelize');
+const { scopeToCaller } = require('../middleware/authorize');
 
 class ContractTemplateController {
   // Create a new contract template
@@ -21,20 +21,25 @@ class ContractTemplateController {
     }
   }
 
-  // Get all templates for an employer
+  // Get all templates belonging to the calling employer.
+  //
+  // Exemplar conversion (#153 PR A) for the list mechanism. This used to read
+  // req.query.employer_id and use it directly as the where clause, so any authenticated
+  // caller could list any employer's templates by changing one number in the URL. The
+  // filter is now derived from the verified caller and req.query is not consulted.
   static async getTemplatesByEmployer(req, res) {
     try {
-      const { employer_id } = req.query;
-
-      if (!employer_id) {
-        return res.status(400).json({
+      const scope = await scopeToCaller(req);
+      if (!scope) {
+        // Not an employer (and not an admin). There is no set of templates to return.
+        return res.status(403).json({
           success: false,
-          message: 'employer_id is required'
+          message: 'Employer profile not found'
         });
       }
 
       const templates = await ContractTemplate.findAll({
-        where: { employer_id },
+        where: { ...scope },
         order: [['created_at', 'DESC']]
       });
 

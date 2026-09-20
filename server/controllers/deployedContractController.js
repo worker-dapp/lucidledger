@@ -1,24 +1,7 @@
 const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTransaction, JobApplication, RecruiterFeePayment, Recruiter, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { logAction } = require('./auditLogController');
-const { resolveEmployee, resolveEmployer, isAdminRequest } = require('../services/identityService');
-
-// Resolve the calling mediator from the verified identity. Mediators have no
-// auth_subject column, so they're matched by the verified email (req.user.email,
-// set by verifyToken from the authenticated token).
-const resolveMediator = async (req) => {
-  const email = req.user?.email;
-  if (!email) return null;
-  // Case-insensitive EQUALITY, not iLike. Under iLike the caller's own email becomes a
-  // LIKE *pattern*, and `_` — a legal, common local-part character — matches any single
-  // character. A verified `j_ne.doe@x.com` would resolve as the mediator `jane.doe@x.com`.
-  return Mediator.findOne({
-    where: sequelize.and(
-      sequelize.where(sequelize.fn('lower', sequelize.col('email')), email.toLowerCase()),
-      { status: 'active' }
-    )
-  });
-};
+const { resolveEmployee, resolveEmployer, resolveMediator, isAdminRequest } = require('../services/identityService');
 
 // Terminal contract statuses (contract lifecycle is complete)
 const TERMINAL_CONTRACT_STATUSES = ['completed', 'refunded', 'terminated'];

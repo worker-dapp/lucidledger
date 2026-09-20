@@ -154,8 +154,10 @@ class ApiService {
     });
   }
 
-  async getContractTemplates(employerId) {
-    return this.request(`/contract-templates?employer_id=${employerId}`);
+  // No argument: the server derives the employer from the verified caller and ignores
+  // any employer_id in the query string (#153).
+  async getContractTemplates() {
+    return this.request('/contract-templates');
   }
 
   async getContractTemplateById(id) {
