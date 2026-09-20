@@ -201,8 +201,9 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
     try {
       if (saveAsTemplate) {
         // Create template first
+        // employer_id is not sent: the server assigns ownership from the verified
+        // caller at creation (#152).
         const templateResponse = await apiService.createContractTemplate({
-          employer_id: employerId,
           name: templateName,
           description: formData.summary,
           job_type: formData.JobType,

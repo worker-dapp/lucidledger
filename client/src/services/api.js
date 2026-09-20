@@ -333,33 +333,38 @@ class ApiService {
   // Kept temporarily for Phase 3 pages that need updating
 
   // Job Application API methods
-  async saveJob(employeeId, jobPostingId) {
+  //
+  // None of these name the worker any more. The server derives the applicant from the
+  // verified caller — previously employee_id came from the body and the owner of a list
+  // from the path, so a caller could act as, and read, any other worker (#149).
+
+  async saveJob(jobPostingId) {
     return this.request('/job-applications/save', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, job_posting_id: jobPostingId }),
+      body: JSON.stringify({ job_posting_id: jobPostingId }),
     });
   }
 
-  async unsaveJob(employeeId, jobPostingId) {
+  async unsaveJob(jobPostingId) {
     return this.request('/job-applications/unsave', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, job_posting_id: jobPostingId }),
+      body: JSON.stringify({ job_posting_id: jobPostingId }),
     });
   }
 
-  async applyToJob(employeeId, jobPostingId) {
+  async applyToJob(jobPostingId) {
     return this.request('/job-applications/apply', {
       method: 'POST',
-      body: JSON.stringify({ employee_id: employeeId, job_posting_id: jobPostingId }),
+      body: JSON.stringify({ job_posting_id: jobPostingId }),
     });
   }
 
-  async getSavedJobs(employeeId) {
-    return this.request(`/job-applications/saved/${employeeId}`);
+  async getSavedJobs() {
+    return this.request('/job-applications/saved');
   }
 
-  async getAppliedJobs(employeeId) {
-    return this.request(`/job-applications/applied/${employeeId}`);
+  async getAppliedJobs() {
+    return this.request('/job-applications/applied');
   }
 
   async updateApplicationStatus(applicationId, status, extraData = {}) {
@@ -369,12 +374,12 @@ class ApiService {
     });
   }
 
-  async getApplicationsByEmployer(employerId, status = null, jobPostingId = null) {
+  async getApplicationsByEmployer(status = null, jobPostingId = null) {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (jobPostingId) params.set('job_posting_id', jobPostingId);
     const query = params.toString();
-    return this.request(`/job-applications/employer/${employerId}${query ? `?${query}` : ''}`);
+    return this.request(`/job-applications/employer${query ? `?${query}` : ''}`);
   }
 
   async bulkUpdateApplicationStatus(applicationIds, status) {
@@ -384,23 +389,20 @@ class ApiService {
     });
   }
 
-  async getApplicationsByRecruiter(recruiterId, status = null, jobPostingId = null) {
+  async getApplicationsByRecruiter(status = null, jobPostingId = null) {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (jobPostingId) params.set('job_posting_id', jobPostingId);
     const query = params.toString();
-    return this.request(`/job-applications/recruiter/${recruiterId}${query ? `?${query}` : ''}`);
+    return this.request(`/job-applications/recruiter${query ? `?${query}` : ''}`);
   }
 
-  async bulkUpdateApplicationStatusAsRecruiter(applicationIds, status, recruiterId) {
+  // The actor is no longer sent: audit attribution is derived server-side from the
+  // verified caller, so a log entry cannot be attributed to someone else (#149).
+  async bulkUpdateApplicationStatusAsRecruiter(applicationIds, status) {
     return this.request('/job-applications/recruiter/bulk-status', {
       method: 'POST',
-      body: JSON.stringify({
-        application_ids: applicationIds,
-        status,
-        actor_type: 'recruiter',
-        actor_id: recruiterId,
-      }),
+      body: JSON.stringify({ application_ids: applicationIds, status }),
     });
   }
 

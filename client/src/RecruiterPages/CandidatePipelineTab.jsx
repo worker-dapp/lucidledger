@@ -50,7 +50,7 @@ const CandidatePipelineTab = () => {
     try {
       const statusParam = statusFilter === "all" ? null : statusFilter;
       const jobParam = jobFilter || null;
-      const response = await apiService.getApplicationsByRecruiter(recruiterId, statusParam, jobParam);
+      const response = await apiService.getApplicationsByRecruiter(statusParam, jobParam);
       const data = response?.data || [];
       setApplications(data);
       if (data.length === 0) {
@@ -155,7 +155,7 @@ const CandidatePipelineTab = () => {
     }
     setMessage("");
     try {
-      await apiService.bulkUpdateApplicationStatusAsRecruiter(Array.from(selectedIds), status, recruiterId);
+      await apiService.bulkUpdateApplicationStatusAsRecruiter(Array.from(selectedIds), status);
       await fetchApplications();
       setSelectedIds(new Set());
     } catch (error) {

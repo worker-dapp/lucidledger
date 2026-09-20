@@ -86,7 +86,7 @@ const AwaitingDeploymentTab = ({ employerId }) => {
     setLoading(true);
     setMessage("");
     try {
-      const response = await apiService.getApplicationsByEmployer(employerId, "signed");
+      const response = await apiService.getApplicationsByEmployer("signed");
       setApplications(response?.data || []);
     } catch (error) {
       setMessage(error.message || "Failed to load signed applications.");

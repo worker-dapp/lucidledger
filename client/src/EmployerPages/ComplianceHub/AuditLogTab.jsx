@@ -50,7 +50,8 @@ const AuditLogTab = () => {
       }
       setLoading(true);
       try {
-        const params = { employer_id: employerId };
+        // employer_id is not sent: the server derives it from the verified caller (#152).
+        const params = {};
         if (actionFilter !== "all") params.action_type = actionFilter;
         if (startDate) params.start_date = startDate;
         if (endDate) params.end_date = endDate;

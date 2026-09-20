@@ -1,5 +1,6 @@
 const { AuditLog, OracleVerification } = require('../models');
 const { Op } = require('sequelize');
+const { scopeToCaller } = require('../middleware/authorize');
 
 // ---------------------------------------------------------------------------
 // logAction — internal helper called by other controllers after key actions.
@@ -44,7 +45,6 @@ const logAction = async ({
 const getAuditLog = async (req, res) => {
   try {
     const {
-      employer_id,
       action_type,
       entity_type,
       start_date,
@@ -52,14 +52,27 @@ const getAuditLog = async (req, res) => {
       limit = 200,
     } = req.query;
 
+    // The employer is derived from the verified caller; req.query.employer_id is no longer
+    // read. Two separate defects lived in the old form (#152): the id was taken from the
+    // query, so any authenticated caller could read another employer's audit trail by
+    // changing it — and the filter was *conditional* on the parameter being present, so
+    // omitting it returned the audit log of every employer on the platform.
+    const scope = await scopeToCaller(req);
+    if (!scope) {
+      return res.status(403).json({ error: 'Employer profile not found' });
+    }
+
     const where = {};
 
-    if (employer_id) {
+    // An admin gets the unscoped {} and sees the whole log, which is the point of an audit
+    // log. For everyone else scope carries their own id, and the filter is now
+    // unconditional: there is no code path that reaches the query with no employer filter.
+    if (scope.employer_id !== undefined) {
       // Match entries directly tagged with this employer OR legacy entries
       // where the employer was the actor (before employer_id column was added)
       where[Op.or] = [
-        { employer_id: employer_id },
-        { actor_type: 'employer', actor_id: employer_id },
+        { employer_id: scope.employer_id },
+        { actor_type: 'employer', actor_id: scope.employer_id },
       ];
     }
     if (action_type) where.action_type = action_type;

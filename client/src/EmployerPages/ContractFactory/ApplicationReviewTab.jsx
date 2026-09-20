@@ -48,7 +48,7 @@ const ApplicationReviewTab = ({ employerId }) => {
     try {
       const statusParam = statusFilter === "all" ? null : statusFilter;
       const jobParam = jobFilter || null;
-      const response = await apiService.getApplicationsByEmployer(employerId, statusParam, jobParam);
+      const response = await apiService.getApplicationsByEmployer(statusParam, jobParam);
       const data = response?.data || [];
       setApplications(data);
       if (data.length === 0) {

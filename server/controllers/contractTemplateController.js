@@ -1,11 +1,34 @@
 const { ContractTemplate } = require('../models');
 const { scopeToCaller } = require('../middleware/authorize');
+const { pickAllowedFields } = require('../utils/fields');
+
+// Exactly the fields a client may write. employer_id is absent by design: ownership is
+// assigned from the verified caller at creation and never changes. id, usage_count and
+// last_used_at are server-managed — usage_count is incremented by its own endpoint, and
+// letting a client set it would make the "most used template" ordering a client opinion.
+const ALLOWED_TEMPLATE_FIELDS = [
+  'name', 'description', 'job_type', 'location_type', 'base_salary', 'currency',
+  'pay_frequency', 'additional_compensation', 'employee_benefits', 'selected_oracles',
+  'responsibilities', 'skills'
+];
 
 class ContractTemplateController {
   // Create a new contract template
+  // Create a template owned by the calling employer.
+  //
+  // employer_id comes from the verified caller, not from the body: previously the client
+  // chose it, so a caller could create templates into another employer's library (#152).
   static async createTemplate(req, res) {
     try {
-      const template = await ContractTemplate.create(req.body);
+      const scope = await scopeToCaller(req, { allowAdmin: false });
+      if (!scope) {
+        return res.status(403).json({ success: false, message: 'Employer profile not found' });
+      }
+
+      const template = await ContractTemplate.create({
+        ...pickAllowedFields(req.body, ALLOWED_TEMPLATE_FIELDS),
+        employer_id: scope.employer_id
+      });
       res.status(201).json({
         success: true,
         data: template,
@@ -58,18 +81,11 @@ class ContractTemplateController {
     }
   }
 
-  // Get a single template by ID
+  // Get a single template by ID.
+  // authorize('ownedByEmployer') loaded it and proved the caller owns it.
   static async getTemplateById(req, res) {
     try {
-      const { id } = req.params;
-      const template = await ContractTemplate.findByPk(id);
-
-      if (!template) {
-        return res.status(404).json({
-          success: false,
-          message: 'Template not found'
-        });
-      }
+      const template = req.resource;
 
       res.status(200).json({
         success: true,
@@ -85,28 +101,17 @@ class ContractTemplateController {
     }
   }
 
-  // Update a template
+  // Update a template.
+  //
+  // The check this replaced compared template.employer_id against req.body.employer_id —
+  // a value the caller supplies, so sending the true owner id passed it and omitting the
+  // field skipped the check entirely. Ownership is now established by the route guard, and
+  // the payload is allowlisted so employer_id cannot be written at all.
   static async updateTemplate(req, res) {
     try {
-      const { id } = req.params;
-      const template = await ContractTemplate.findByPk(id);
+      const template = req.resource;
 
-      if (!template) {
-        return res.status(404).json({
-          success: false,
-          message: 'Template not found'
-        });
-      }
-
-      // Verify employer owns this template
-      if (req.body.employer_id && template.employer_id !== req.body.employer_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized to update this template'
-        });
-      }
-
-      await template.update(req.body);
+      await template.update(pickAllowedFields(req.body, ALLOWED_TEMPLATE_FIELDS));
 
       res.status(200).json({
         success: true,
@@ -123,20 +128,13 @@ class ContractTemplateController {
     }
   }
 
-  // Delete a template
+  // Delete a template. Ownership proved by the route guard.
+  //
+  // This had no ownership check of any kind: any authenticated caller could delete any
+  // employer's template by id (#152).
   static async deleteTemplate(req, res) {
     try {
-      const { id } = req.params;
-      const template = await ContractTemplate.findByPk(id);
-
-      if (!template) {
-        return res.status(404).json({
-          success: false,
-          message: 'Template not found'
-        });
-      }
-
-      await template.destroy();
+      await req.resource.destroy();
 
       res.status(200).json({
         success: true,
@@ -152,18 +150,10 @@ class ContractTemplateController {
     }
   }
 
-  // Increment usage count when template is used
+  // Increment usage count when template is used. Ownership proved by the route guard.
   static async incrementUsage(req, res) {
     try {
-      const { id } = req.params;
-      const template = await ContractTemplate.findByPk(id);
-
-      if (!template) {
-        return res.status(404).json({
-          success: false,
-          message: 'Template not found'
-        });
-      }
+      const template = req.resource;
 
       await template.update({
         usage_count: template.usage_count + 1,

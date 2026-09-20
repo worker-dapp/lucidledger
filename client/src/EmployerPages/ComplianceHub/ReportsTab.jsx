@@ -50,7 +50,8 @@ const ReportsTab = () => {
     setDownloading(report.id);
     setError("");
     try {
-      const params = { employer_id: employerId };
+      // employer_id is not sent: the server derives it from the verified caller (#152).
+      const params = {};
       if (startDate) params.start_date = startDate;
       if (endDate)   params.end_date   = endDate;
 
