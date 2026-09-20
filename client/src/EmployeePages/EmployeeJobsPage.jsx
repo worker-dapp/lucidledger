@@ -4,6 +4,7 @@ import EmployeeNavbar from "../components/EmployeeNavbar";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import apiService from '../services/api';
+import { sameId } from '../utils/ids';
 import { useAuth } from "../hooks/useAuth";
 import EmployeeLayout from "../components/EmployeeLayout";
 import { useEmployee } from "../components/EmployeeContext";
@@ -101,7 +102,8 @@ const EmployeeJobsPageInner = () => {
     const jobId = searchParams.get('jobId');
 
     if (action && jobId && employeeData && jobs.length > 0) {
-      const job = jobs.find(j => j.id === parseInt(jobId));
+      // jobId comes from the URL (string); job.id comes from the API (BIGINT string).
+      const job = jobs.find(j => sameId(j.id, jobId));
 
       if (job) {
         if (action === 'save') {
