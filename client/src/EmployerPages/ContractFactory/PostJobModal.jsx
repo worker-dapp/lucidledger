@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Send, AlertCircle } from "lucide-react";
 import apiService from "../../services/api";
+import { sameId } from "../../utils/ids";
 
 const PostJobModal = ({ employerId, preselectedTemplate = null, onClose, onSuccess }) => {
   const [templates, setTemplates] = useState([]);
@@ -41,8 +42,9 @@ const PostJobModal = ({ employerId, preselectedTemplate = null, onClose, onSucce
   };
 
   const handleTemplateSelect = (e) => {
-    const templateId = parseInt(e.target.value);
-    const template = templates.find((t) => t.id === templateId);
+    // template.id arrives from the API as a string (BIGINT); e.target.value is always
+    // a string. Compare them as ids rather than coercing either side — see utils/ids.
+    const template = templates.find((t) => sameId(t.id, e.target.value));
     setSelectedTemplate(template);
   };
 
