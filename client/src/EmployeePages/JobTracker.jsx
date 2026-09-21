@@ -113,7 +113,7 @@ const JobTrackerInner = () => {
     setError("");
     try {
       // Fetch job applications (for signed contracts pending deployment)
-      const applicationsResponse = await apiService.getAppliedJobs(employeeData.id);
+      const applicationsResponse = await apiService.getAppliedJobs();
       const applicationsData = applicationsResponse.data || [];
 
       // Signed contracts waiting for deployment

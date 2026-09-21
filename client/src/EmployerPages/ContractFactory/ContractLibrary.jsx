@@ -191,7 +191,6 @@ const ContractLibrary = ({ employerId, isLoading }) => {
       {editingContract && (
         <EditTemplateModal
           template={editingContract}
-          employerId={employerId}
           onClose={() => setEditingContract(null)}
           onSuccess={() => {
             setEditingContract(null);

@@ -13,7 +13,7 @@ const LOCATION_TYPES = ["On-site", "Remote", "Hybrid"];
 const PAY_FREQUENCIES = ["hourly", "daily", "weekly", "bi-weekly", "monthly"];
 const CURRENCIES     = ["USD", "USDC"];
 
-const EditTemplateModal = ({ template, employerId, onClose, onSuccess }) => {
+const EditTemplateModal = ({ template, onClose, onSuccess }) => {
   const [form, setForm] = useState({
     name:                   template.name                   || "",
     description:            template.description            || "",
@@ -58,10 +58,10 @@ const EditTemplateModal = ({ template, employerId, onClose, onSuccess }) => {
     setSaving(true);
     setError(null);
     try {
-      await apiService.updateContractTemplate(template.id, {
-        ...form,
-        employer_id: employerId,
-      });
+      // employer_id is not sent. It used to be what satisfied the server's ownership
+      // check — which is why that check was no check at all. Ownership is now proved
+      // server-side from the verified caller (#152).
+      await apiService.updateContractTemplate(template.id, { ...form });
       onSuccess();
     } catch (err) {
       setError(err.message || "Failed to save changes.");

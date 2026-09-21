@@ -63,7 +63,7 @@ const EmployeeJobsPageInner = () => {
       }
 
       try {
-        const response = await apiService.getAppliedJobs(employeeData.id);
+        const response = await apiService.getAppliedJobs();
         const data = response.data || [];
         const count = data.filter(app =>
           app.application_status === 'accepted'
@@ -134,7 +134,7 @@ const EmployeeJobsPageInner = () => {
         data = response.data || [];
       } else if (activeFilter === 'saved' && employeeId) {
         // Get only saved jobs for this employee
-        const response = await apiService.getSavedJobs(employeeId);
+        const response = await apiService.getSavedJobs();
         data = response.data || [];
         // Extract job data from application records
         data = data.map(app => ({
@@ -145,7 +145,7 @@ const EmployeeJobsPageInner = () => {
         }));
       } else if (activeFilter === 'applied' && employeeId) {
         // Get only applied jobs for this employee
-        const response = await apiService.getAppliedJobs(employeeId);
+        const response = await apiService.getAppliedJobs();
         data = response.data || [];
         // Extract job data from application records
         data = data.map(app => ({
@@ -156,7 +156,7 @@ const EmployeeJobsPageInner = () => {
         }));
       } else if (activeFilter === 'offers' && employeeId) {
         // Get accepted offers for this employee
-        const response = await apiService.getAppliedJobs(employeeId);
+        const response = await apiService.getAppliedJobs();
         data = response.data || [];
         // Filter for accepted status
         data = data
@@ -230,7 +230,7 @@ const EmployeeJobsPageInner = () => {
     try {
       if (job.is_saved) {
         // Unsave the job
-        await apiService.unsaveJob(employeeId, job.id);
+        await apiService.unsaveJob(job.id);
         
         // If on saved filter, refetch to update the list
         if (activeFilter === 'saved') {
@@ -246,7 +246,7 @@ const EmployeeJobsPageInner = () => {
         }
       } else {
         // Save the job
-        await apiService.saveJob(employeeId, job.id);
+        await apiService.saveJob(job.id);
         // Update local state
         setJobs(jobs.map(j => 
           j.id === job.id ? { ...j, is_saved: true } : j
@@ -295,7 +295,7 @@ const EmployeeJobsPageInner = () => {
 
     setProcessingJobId(job.id);
     try {
-      await apiService.applyToJob(employeeId, job.id);
+      await apiService.applyToJob(job.id);
       
       // If on saved filter, refetch to remove the job from saved list
       if (activeFilter === 'saved') {

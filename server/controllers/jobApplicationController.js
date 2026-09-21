@@ -2,32 +2,45 @@ const { JobApplication, SavedJob, JobPosting, Employee, Employer } = require('..
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 const { logAction } = require('./auditLogController');
+const { scopeToCaller } = require('../middleware/authorize');
+const { resolveEmployee } = require('../services/identityService');
+
+// Self-dealing: the same person acting as both sides of a contract.
+//
+// This compared wallet_address, which a user can rewrite through their own profile — so
+// the check could be stepped around by changing one editable field. It now compares
+// auth_subject, the verified JWT subject, which is written at record creation and is not
+// user-editable. Flagged as a known gap in CLAUDE.md; closed here because resolving the
+// caller from auth_subject made the durable form free.
+const isSelfDealing = (employee, employer) =>
+  !!employee?.auth_subject && employee.auth_subject === employer?.auth_subject;
 
 // Save a job
+// POST /api/job-applications/save — save a job for the calling worker.
+//
+// employee_id used to come from the body, so any authenticated caller could save jobs into
+// another worker's account (#149). It is now the verified caller, and the body cannot name
+// anyone.
 exports.saveJob = async (req, res) => {
   try {
-    const { employee_id, job_posting_id } = req.body;
-    
-    console.log('📥 saveJob request received:', { employee_id, job_posting_id });
-    console.log('🔑 Auth header present:', !!req.headers.authorization);
-    console.log('👤 Decoded user:', req.user ? { sub: req.user.sub, email: req.user.email } : 'none');
+    const { job_posting_id } = req.body;
 
-    if (!employee_id || !job_posting_id) {
-      console.log('❌ Missing required fields');
+    const employee = await resolveEmployee(req);
+    if (!employee) {
+      return res.status(403).json({ success: false, message: 'Employee profile not found' });
+    }
+    const employee_id = employee.id;
+
+    if (!job_posting_id) {
       return res.status(400).json({
         success: false,
-        message: 'Employee ID and Job Posting ID are required'
+        message: 'Job Posting ID is required'
       });
     }
 
-    const employee = await Employee.findByPk(employee_id);
     const jobRecord = await JobPosting.findByPk(job_posting_id);
-    
-    console.log('📋 Employee found:', !!employee);
-    console.log('📋 Job posting found:', !!jobRecord);
 
     if (!jobRecord) {
-      console.log('❌ Job posting not found:', job_posting_id);
       return res.status(404).json({
         success: false,
         message: 'Job posting not found'
@@ -36,11 +49,8 @@ exports.saveJob = async (req, res) => {
 
     const employerRecord = await Employer.findByPk(jobRecord.employer_id);
 
-    // SECURITY CHECK: Prevent saving your own jobs
-    // This check is always enforced (no demo mode bypass) to align with smart contract behavior
-    if (employee && employerRecord && employee.wallet_address && employerRecord.wallet_address &&
-        employee.wallet_address.toLowerCase() === employerRecord.wallet_address.toLowerCase()) {
-      console.log('🚫 Self-dealing blocked: Cannot save your own jobs');
+    // Always enforced, no demo-mode bypass, to align with smart contract behaviour.
+    if (isSelfDealing(employee, employerRecord)) {
       return res.status(403).json({
         success: false,
         message: 'You cannot save your own jobs'
@@ -71,7 +81,6 @@ exports.saveJob = async (req, res) => {
     });
 
     if (savedJob) {
-      console.log('ℹ️ Job already saved');
       return res.status(200).json({
         success: true,
         message: 'Job already saved',
@@ -79,15 +88,11 @@ exports.saveJob = async (req, res) => {
       });
     }
 
-    // Create new saved job record
-    console.log('💾 Creating new saved job record...');
     savedJob = await SavedJob.create({
       employee_id,
       job_posting_id,
       saved_at: new Date()
     });
-    console.log('✅ Saved job created successfully:', savedJob.id);
-
     res.status(200).json({
       success: true,
       message: 'Job saved successfully',
@@ -110,20 +115,29 @@ exports.saveJob = async (req, res) => {
 };
 
 // Unsave a job
+// POST /api/job-applications/unsave — unsave one of the caller's own saved jobs.
+//
+// employee_id came from the body, so any caller could delete another worker's saved jobs
+// by naming them (#149).
 exports.unsaveJob = async (req, res) => {
   try {
-    const { employee_id, job_posting_id } = req.body;
+    const { job_posting_id } = req.body;
 
-    if (!employee_id || !job_posting_id) {
+    const scope = await scopeToCaller(req, { column: 'employee_id', as: 'employee', allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: 'Employee profile not found' });
+    }
+
+    if (!job_posting_id) {
       return res.status(400).json({
         success: false,
-        message: 'Employee ID and Job Posting ID are required'
+        message: 'Job Posting ID is required'
       });
     }
 
     const deleted = await SavedJob.destroy({
       where: {
-        employee_id,
+        ...scope,
         job_posting_id
       }
     });
@@ -150,30 +164,27 @@ exports.unsaveJob = async (req, res) => {
 };
 
 // Apply to a job
+// POST /api/job-applications/apply — apply as the calling worker.
+//
+// employee_id came from the body: any authenticated caller could submit an application in
+// another worker's name (#149).
 exports.applyToJob = async (req, res) => {
   try {
-    const { employee_id, job_posting_id } = req.body;
-    
-    console.log('📥 applyToJob request received:', { employee_id, job_posting_id });
-    console.log('🔑 Auth header present:', !!req.headers.authorization);
-    console.log('👤 Decoded user:', req.user ? { sub: req.user.sub, email: req.user.email } : 'none');
+    const { job_posting_id } = req.body;
 
-    if (!employee_id || !job_posting_id) {
-      console.log('❌ Missing required fields');
-      return res.status(400).json({
-        success: false,
-        message: 'Employee ID and Job Posting ID are required'
-      });
-    }
-
-    const employee = await Employee.findByPk(employee_id);
-    console.log('📋 Employee found:', !!employee, employee?.wallet_address ? `wallet: ${employee.wallet_address.substring(0, 10)}...` : '');
-
+    const employee = await resolveEmployee(req);
     if (!employee) {
-      console.log('❌ Employee not found:', employee_id);
-      return res.status(404).json({
+      return res.status(403).json({
         success: false,
         message: 'Employee profile not found'
+      });
+    }
+    const employee_id = employee.id;
+
+    if (!job_posting_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Job Posting ID is required'
       });
     }
 
@@ -193,12 +204,9 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // CRITICAL SECURITY CHECK: Prevent self-dealing
-    // This check is always enforced (no demo mode bypass) to align with smart contract behavior
-    // The smart contract itself prevents employer == worker, so we block it here too
-    if (employee.wallet_address && employerRecord.wallet_address &&
-        employee.wallet_address.toLowerCase() === employerRecord.wallet_address.toLowerCase()) {
-      console.log('🚫 Self-dealing blocked: Cannot apply to your own jobs');
+    // Always enforced, no demo-mode bypass: the smart contract prevents employer == worker,
+    // so the API must too. Compares auth_subject rather than the editable wallet address.
+    if (isSelfDealing(employee, employerRecord)) {
       return res.status(403).json({
         success: false,
         message: 'You cannot sign your own contract'
@@ -285,12 +293,20 @@ exports.applyToJob = async (req, res) => {
 };
 
 // Get saved jobs for an employee
+// GET /api/job-applications/saved — the caller's own saved jobs.
+//
+// The employee id used to come from the path, so any authenticated user could read any
+// worker's saved jobs by changing it (#149). The path segment is gone rather than ignored:
+// an ignored parameter reads like a working one.
 exports.getSavedJobs = async (req, res) => {
   try {
-    const { employee_id } = req.params;
+    const scope = await scopeToCaller(req, { column: 'employee_id', as: 'employee', allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: 'Employee profile not found' });
+    }
 
     const savedJobs = await SavedJob.findAll({
-      where: { employee_id },
+      where: scope,
       include: [
         {
           model: JobPosting,
@@ -315,12 +331,16 @@ exports.getSavedJobs = async (req, res) => {
 };
 
 // Get applied jobs for an employee
+// GET /api/job-applications/applied — the caller's own applications.
 exports.getAppliedJobs = async (req, res) => {
   try {
-    const { employee_id } = req.params;
+    const scope = await scopeToCaller(req, { column: 'employee_id', as: 'employee', allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: 'Employee profile not found' });
+    }
 
     const applications = await JobApplication.findAll({
-      where: { employee_id },
+      where: scope,
       include: [
         {
           model: JobPosting,
@@ -345,10 +365,14 @@ exports.getAppliedJobs = async (req, res) => {
 };
 
 // Update application status (for employers, or recruiters acting on assigned jobs)
+// PATCH /api/job-applications/:applicationId/status
+//
+// authorize('applicationParty') loaded the application and its posting and proved the
+// caller is one of the two parties. Previously there was no ownership check at all: any
+// authenticated caller could accept, reject or sign any application by id (#149).
 exports.updateApplicationStatus = async (req, res) => {
   try {
-    const { applicationId } = req.params;
-    const { status, offer_signature, offer_signed_at, actor_type, actor_id } = req.body;
+    const { status, offer_signature, offer_signed_at } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -357,14 +381,7 @@ exports.updateApplicationStatus = async (req, res) => {
       });
     }
 
-    const application = await JobApplication.findByPk(applicationId);
-
-    if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: 'Application not found'
-      });
-    }
+    const application = req.resource;
 
     const updates = { application_status: status };
     if (status === 'accepted') {
@@ -420,13 +437,16 @@ exports.updateApplicationStatus = async (req, res) => {
     await application.save();
 
     if (status === 'accepted' || status === 'rejected' || status === 'declined') {
-      const jobForLog = await JobPosting.findByPk(application.job_posting_id, {
-        attributes: ['title', 'employer_id']
-      });
+      // The posting was already loaded by the route guard to establish ownership.
+      const jobForLog = req.resourceParent;
       const isWorkerDecline = status === 'declined';
+      // Actor derived from the record and the posting, never from the body: actor_type and
+      // actor_id used to be client-supplied, so audit entries could be attributed to
+      // anyone. A decline is the worker's action by definition; the rest are the
+      // employer's, and the guard has already proved the caller is one of the two.
       await logAction({
-        actorType: isWorkerDecline ? 'employee' : (actor_type || 'employer'),
-        actorId: isWorkerDecline ? application.employee_id : (actor_id || jobForLog?.employer_id || null),
+        actorType: isWorkerDecline ? 'employee' : 'employer',
+        actorId: isWorkerDecline ? application.employee_id : (jobForLog?.employer_id || null),
         actorName: null,
         actionType: isWorkerDecline ? 'offer_declined' : (status === 'accepted' ? 'application_accepted' : 'application_rejected'),
         actionDescription: isWorkerDecline
@@ -456,9 +476,17 @@ exports.updateApplicationStatus = async (req, res) => {
 };
 
 // Get applications for an employer (filterable)
+// GET /api/job-applications/employer — applications to the caller's own postings.
+//
+// The employer id came from the path, and the response includes full Employee records, so
+// any authenticated caller could read every applicant's PII for any employer (#149).
 exports.getApplicationsByEmployer = async (req, res) => {
   try {
-    const { employer_id } = req.params;
+    const scope = await scopeToCaller(req, { allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: 'Employer profile not found' });
+    }
+    const { employer_id } = scope;
     const { status, job_posting_id } = req.query;
 
     const applicationWhere = {};
@@ -508,9 +536,14 @@ exports.getApplicationsByEmployer = async (req, res) => {
 };
 
 // Get applications for a recruiter (filterable) — jobs the recruiter has been assigned to
+// GET /api/job-applications/recruiter — applications on postings assigned to the caller.
 exports.getApplicationsByRecruiter = async (req, res) => {
   try {
-    const { recruiter_id } = req.params;
+    const scope = await scopeToCaller(req, { column: 'recruiter_id', as: 'recruiter', allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: 'Recruiter profile not found' });
+    }
+    const { recruiter_id } = scope;
     const { status, job_posting_id } = req.query;
 
     const applicationWhere = {};
@@ -561,14 +594,51 @@ exports.getApplicationsByRecruiter = async (req, res) => {
 };
 
 // Bulk update application status (accept/reject)
-exports.bulkUpdateApplicationStatus = async (req, res) => {
+// Shared implementation for the two bulk-status routes. `scope` names the column on
+// JobPosting that must match the caller — employer_id for an employer, recruiter_id for a
+// recruiter working the posting.
+//
+// Previously this updated whatever ids the body named, with no ownership check of any
+// kind: any authenticated caller could accept, reject or sign every application on the
+// platform in one request (#149). The audit actor was taken from the body too, so the
+// resulting log entries could be attributed to anyone.
+const bulkUpdateScoped = async (req, res, { column, as, role }) => {
   try {
-    const { application_ids, status, actor_type, actor_id } = req.body;
+    const { application_ids, status } = req.body;
+
+    const scope = await scopeToCaller(req, { column, as, allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: `${role} profile not found` });
+    }
 
     if (!Array.isArray(application_ids) || application_ids.length === 0 || !status) {
       return res.status(400).json({
         success: false,
         message: 'application_ids array and status are required'
+      });
+    }
+
+    // Resolve which of the requested applications the caller may actually act on, by
+    // joining to the posting that names the owner.
+    const owned = await JobApplication.findAll({
+      where: { id: application_ids },
+      include: [{
+        model: JobPosting,
+        as: 'job',
+        attributes: ['id', 'title', 'employer_id'],
+        where: scope,
+        required: true
+      }]
+    });
+
+    // All or nothing. A partial update would silently apply to the subset the caller owns
+    // while reporting success, which reads as "it worked" for a request that was partly
+    // refused. Refusing outright also tells an enumerating caller nothing about which ids
+    // exist — every mixed request gets the same answer.
+    if (owned.length !== application_ids.length) {
+      return res.status(403).json({
+        success: false,
+        message: 'One or more applications are not yours to update'
       });
     }
 
@@ -580,23 +650,17 @@ exports.bulkUpdateApplicationStatus = async (req, res) => {
       updates.offer_accepted_at = new Date();
     }
 
-    const [updatedCount] = await JobApplication.update(updates, {
-      where: {
-        id: application_ids
-      }
-    });
+    const ownedIds = owned.map((app) => app.id);
+    const [updatedCount] = await JobApplication.update(updates, { where: { id: ownedIds } });
 
-    // Log one audit entry per application — only for employer-facing accept/reject decisions
+    // Log one audit entry per application — only for employer-facing accept/reject
+    // decisions. The actor is the verified caller; it is no longer read from the body.
     if (status === 'accepted' || status === 'rejected') {
-      const appsForLog = await JobApplication.findAll({
-        where: { id: application_ids },
-        include: [{ model: JobPosting, as: 'job', attributes: ['title', 'employer_id'] }]
-      });
       const actionType = status === 'accepted' ? 'application_accepted' : 'application_rejected';
-      await Promise.all(appsForLog.map((app) =>
+      await Promise.all(owned.map((app) =>
         logAction({
-          actorType:         actor_type || 'employer',
-          actorId:           actor_id || app.job?.employer_id || null,
+          actorType:         as,
+          actorId:           scope[column],
           actorName:         null,
           actionType,
           actionDescription: `Application ${status} for "${app.job?.title || 'job'}"`,
@@ -623,3 +687,15 @@ exports.bulkUpdateApplicationStatus = async (req, res) => {
     });
   }
 };
+
+// POST /api/job-applications/bulk-status — the calling employer's own postings.
+exports.bulkUpdateApplicationStatus = (req, res) =>
+  bulkUpdateScoped(req, res, { column: 'employer_id', as: 'employer', role: 'Employer' });
+
+// POST /api/job-applications/recruiter/bulk-status — postings assigned to the caller.
+//
+// These were the same handler on two routes, so the recruiter route ran the employer's
+// code path. Split, because the two scope to different columns.
+exports.bulkUpdateApplicationStatusAsRecruiter = (req, res) =>
+  bulkUpdateScoped(req, res, { column: 'recruiter_id', as: 'recruiter', role: 'Recruiter' });
+

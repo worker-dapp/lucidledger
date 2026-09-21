@@ -1,6 +1,7 @@
 const { parse } = require('json2csv');
 const { DeployedContract, PaymentTransaction, OracleVerification, JobPosting, Employee, Employer, DisputeHistory, Mediator, sequelize } = require('../models');
 const { Op, QueryTypes } = require('sequelize');
+const { scopeToCaller } = require('../middleware/authorize');
 
 const BASESCAN_URL = process.env.BASESCAN_URL || 'https://base-sepolia.blockscout.com';
 
@@ -22,11 +23,18 @@ const sendCsv = (res, csv, filename) => {
 // GET /api/reports/workforce-summary
 exports.exportWorkforceSummary = async (req, res) => {
   try {
-    const { employer_id, start_date, end_date } = req.query;
+    const { start_date, end_date } = req.query;
 
-    if (!employer_id) {
-      return res.status(400).json({ error: 'employer_id is required' });
+    // Derived from the verified caller. req.query.employer_id is deliberately not read:
+    // it used to select whose data the report covered, which let any authenticated user
+    // export any employer's workforce, payments, oracle records or disputes (#152).
+    // allowAdmin: false — these handlers need a concrete id (one binds it into raw SQL),
+    // and the unscoped {} an admin would otherwise get is a filter, not a value.
+    const scope = await scopeToCaller(req, { allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ error: 'Employer profile not found' });
     }
+    const { employer_id } = scope;
 
     const contracts = await DeployedContract.findAll({
       where: { employer_id, ...dateRangeWhere(start_date, end_date) },
@@ -67,11 +75,18 @@ exports.exportWorkforceSummary = async (req, res) => {
 // GET /api/reports/payment-history
 exports.exportPaymentHistory = async (req, res) => {
   try {
-    const { employer_id, start_date, end_date } = req.query;
+    const { start_date, end_date } = req.query;
 
-    if (!employer_id) {
-      return res.status(400).json({ error: 'employer_id is required' });
+    // Derived from the verified caller. req.query.employer_id is deliberately not read:
+    // it used to select whose data the report covered, which let any authenticated user
+    // export any employer's workforce, payments, oracle records or disputes (#152).
+    // allowAdmin: false — these handlers need a concrete id (one binds it into raw SQL),
+    // and the unscoped {} an admin would otherwise get is a filter, not a value.
+    const scope = await scopeToCaller(req, { allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ error: 'Employer profile not found' });
     }
+    const { employer_id } = scope;
 
     const payments = await PaymentTransaction.findAll({
       where: dateRangeWhere(start_date, end_date),
@@ -118,11 +133,18 @@ exports.exportPaymentHistory = async (req, res) => {
 // GET /api/reports/dispute-report
 exports.exportDisputeReport = async (req, res) => {
   try {
-    const { employer_id, start_date, end_date } = req.query;
+    const { start_date, end_date } = req.query;
 
-    if (!employer_id) {
-      return res.status(400).json({ error: 'employer_id is required' });
+    // Derived from the verified caller. req.query.employer_id is deliberately not read:
+    // it used to select whose data the report covered, which let any authenticated user
+    // export any employer's workforce, payments, oracle records or disputes (#152).
+    // allowAdmin: false — these handlers need a concrete id (one binds it into raw SQL),
+    // and the unscoped {} an admin would otherwise get is a filter, not a value.
+    const scope = await scopeToCaller(req, { allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ error: 'Employer profile not found' });
     }
+    const { employer_id } = scope;
 
     const disputes = await DisputeHistory.findAll({
       where: dateRangeWhere(start_date, end_date),
@@ -174,11 +196,18 @@ exports.exportDisputeReport = async (req, res) => {
 // GET /api/reports/oracle-verifications
 exports.exportOracleVerifications = async (req, res) => {
   try {
-    const { employer_id, start_date, end_date } = req.query;
+    const { start_date, end_date } = req.query;
 
-    if (!employer_id) {
-      return res.status(400).json({ error: 'employer_id is required' });
+    // Derived from the verified caller. req.query.employer_id is deliberately not read:
+    // it used to select whose data the report covered, which let any authenticated user
+    // export any employer's workforce, payments, oracle records or disputes (#152).
+    // allowAdmin: false — these handlers need a concrete id (one binds it into raw SQL),
+    // and the unscoped {} an admin would otherwise get is a filter, not a value.
+    const scope = await scopeToCaller(req, { allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ error: 'Employer profile not found' });
     }
+    const { employer_id } = scope;
 
     const verifications = await OracleVerification.findAll({
       where: dateRangeWhere(start_date, end_date),
@@ -226,11 +255,18 @@ exports.exportOracleVerifications = async (req, res) => {
 // GET /api/reports/overview
 exports.getComplianceOverview = async (req, res) => {
   try {
-    const { employer_id, start_date, end_date } = req.query;
+    const { start_date, end_date } = req.query;
 
-    if (!employer_id) {
-      return res.status(400).json({ error: 'employer_id is required' });
+    // Derived from the verified caller. req.query.employer_id is deliberately not read:
+    // it used to select whose data the report covered, which let any authenticated user
+    // export any employer's workforce, payments, oracle records or disputes (#152).
+    // allowAdmin: false — these handlers need a concrete id (one binds it into raw SQL),
+    // and the unscoped {} an admin would otherwise get is a filter, not a value.
+    const scope = await scopeToCaller(req, { allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ error: 'Employer profile not found' });
     }
+    const { employer_id } = scope;
 
     // Build optional date filter clause for raw queries
     const dateClause = [];
