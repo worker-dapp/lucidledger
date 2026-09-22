@@ -257,8 +257,12 @@ const EmployeeJobsPageInner = () => {
       }
     } catch (err) {
       console.error('Error saving job:', err);
-      // Show specific error message from backend if available
-      const errorMessage = err.response?.data?.message || 'Failed to save job. Please try again.';
+      // apiService uses fetch and throws `new Error(body.message)`, so the server's message
+      // is on err.message. This read err.response?.data?.message — the axios shape — which
+      // is always undefined here, so every failure showed the generic fallback instead of
+      // the reason. That is what made "Cannot save a job you have an active application
+      // for" surface as "Failed to save job. Please try again." (#162)
+      const errorMessage = err?.message || 'Failed to save job. Please try again.';
       alert(errorMessage);
     } finally {
       setProcessingJobId(null);
@@ -985,13 +989,26 @@ const EmployeeJobsPageInner = () => {
                       </span>
                     </div>
                   ) : selectedJob.is_saved ? (
-                    <button
-                      onClick={() => handleApplyToJob(selectedJob)}
-                      disabled={processingJobId === selectedJob.id}
-                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
-                    >
-                      {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleApplyToJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id}
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
+                      >
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
+                      </button>
+                      {/* The saved state previously rendered Apply alone, so there was no
+                          way to unsave a job once saved — handleSaveJob's unsave branch was
+                          unreachable from any control (#162). */}
+                      <button
+                        onClick={() => handleSaveJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id}
+                        title="Remove from your saved jobs"
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-gray-200 text-[#0D3B66] hover:bg-gray-300"
+                      >
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Unsave'}
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
@@ -1243,13 +1260,26 @@ const EmployeeJobsPageInner = () => {
                       </span>
                     </div>
                   ) : selectedJob.is_saved ? (
-                    <button
-                      onClick={() => handleApplyToJob(selectedJob)}
-                      disabled={processingJobId === selectedJob.id}
-                      className="w-full py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
-                    >
-                      {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleApplyToJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id}
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-[#EE964B] text-white hover:bg-[#d97b33]"
+                      >
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Apply Now'}
+                      </button>
+                      {/* The saved state previously rendered Apply alone, so there was no
+                          way to unsave a job once saved — handleSaveJob's unsave branch was
+                          unreachable from any control (#162). */}
+                      <button
+                        onClick={() => handleSaveJob(selectedJob)}
+                        disabled={processingJobId === selectedJob.id}
+                        title="Remove from your saved jobs"
+                        className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-gray-200 text-[#0D3B66] hover:bg-gray-300"
+                      >
+                        {processingJobId === selectedJob.id ? 'Processing...' : 'Unsave'}
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
