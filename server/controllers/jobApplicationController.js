@@ -12,6 +12,17 @@ const { resolveEmployee } = require('../services/identityService');
 // auth_subject, the verified JWT subject, which is written at record creation and is not
 // user-editable. Flagged as a known gap in CLAUDE.md; closed here because resolving the
 // caller from auth_subject made the durable form free.
+// An application that still ties the worker to this posting. Anything outside this set —
+// completed, declined, rejected — is finished business: applyToJob resets such a row for a
+// fresh application, and saveJob must likewise not treat it as a live application.
+//
+// Hoisted from inside applyToJob, which already had it right. saveJob was the outlier: it
+// blocked on the existence of *any* application row, so once a worker completed a contract
+// the job could never be saved again, while the job list went on showing Save and Apply
+// because its own query excludes exactly these three statuses
+// (jobPostingController.js:327). The button was unusable by construction.
+const ACTIVE_APPLICATION_STATUSES = ['pending', 'applied', 'accepted', 'signed', 'deployed'];
+
 const isSelfDealing = (employee, employer) =>
   !!employee?.auth_subject && employee.auth_subject === employer?.auth_subject;
 
@@ -65,10 +76,10 @@ exports.saveJob = async (req, res) => {
       }
     });
 
-    if (application) {
+    if (application && ACTIVE_APPLICATION_STATUSES.includes(application.application_status)) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot save a job you have already applied to'
+        message: 'Cannot save a job you have an active application for'
       });
     }
 
@@ -223,7 +234,6 @@ exports.applyToJob = async (req, res) => {
     }
 
     // Check for any existing application for this worker + job
-    const ACTIVE_APPLICATION_STATUSES = ['pending', 'applied', 'accepted', 'signed', 'deployed'];
     let application = await JobApplication.findOne({
       where: { employee_id, job_posting_id }
     });
