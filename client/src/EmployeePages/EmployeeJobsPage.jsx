@@ -130,7 +130,7 @@ const EmployeeJobsPageInner = () => {
       // Fetch based on active filter
       if (activeFilter === 'all') {
         // Get all ACTIVE job postings with application status if logged in
-        const response = await apiService.getActiveJobPostings(employeeId);
+        const response = await apiService.getActiveJobPostings();
         data = response.data || [];
       } else if (activeFilter === 'saved' && employeeId) {
         // Get only saved jobs for this employee
@@ -321,7 +321,11 @@ const EmployeeJobsPageInner = () => {
       alert('Application submitted successfully!');
     } catch (err) {
       console.error('Error applying to job:', err);
-      alert('Failed to apply to job. Please try again.');
+      // apiService throws new Error(body.message), so the server's reason is on
+      // err.message. Hardcoding the alert hid it — "You already have an active
+      // application for this job" surfaced as a generic failure, which reads as a bug in
+      // the app rather than an answer to what the worker asked.
+      alert(err?.message || 'Failed to apply to job. Please try again.');
     } finally {
       setProcessingJobId(null);
     }
@@ -408,9 +412,10 @@ const EmployeeJobsPageInner = () => {
     } catch (err) {
       console.error('Error signing contract:', err);
       if (err?.message?.includes('rejected') || err?.message?.includes('denied')) {
+        // A wallet cancellation, not a server refusal — the raw message is unhelpful here.
         alert('Signature request was cancelled.');
       } else {
-        alert('Failed to sign the contract. Please try again.');
+        alert(err?.message || 'Failed to sign the contract. Please try again.');
       }
     } finally {
       setSigning(false);
@@ -450,7 +455,7 @@ const EmployeeJobsPageInner = () => {
       setShowDeclineModal(false);
     } catch (err) {
       console.error('Error declining offer:', err);
-      alert('Failed to decline the offer. Please try again.');
+      alert(err?.message || 'Failed to decline the offer. Please try again.');
     } finally {
       setDeclining(false);
     }
