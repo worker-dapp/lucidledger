@@ -3,7 +3,7 @@ import { X, Send, AlertCircle } from "lucide-react";
 import apiService from "../../services/api";
 import { sameId } from "../../utils/ids";
 
-const PostJobModal = ({ employerId, preselectedTemplate = null, onClose, onSuccess }) => {
+const PostJobModal = ({ preselectedTemplate = null, onClose, onSuccess }) => {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(preselectedTemplate);
   const [loading, setLoading] = useState(false);
@@ -68,7 +68,6 @@ const PostJobModal = ({ employerId, preselectedTemplate = null, onClose, onSucce
 
     try {
       const payload = {
-        employer_id: employerId,
         template_id: selectedTemplate.id,
         positions_available: parseInt(formData.positions_available),
         application_deadline: formData.application_deadline || null,

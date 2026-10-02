@@ -64,7 +64,7 @@ const DisputesTab = () => {
       }
       setLoading(true);
       try {
-        const response = await apiService.getDisputesByEmployer(employerId);
+        const response = await apiService.getDisputesByEmployer();
         setDisputes(response?.data || []);
       } catch (err) {
         console.error("Error fetching disputes:", err);

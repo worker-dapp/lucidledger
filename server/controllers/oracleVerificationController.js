@@ -1,23 +1,43 @@
 const { OracleVerification } = require('../models');
 const { sequelize } = require('../config/database');
+const { pickAllowedFields } = require('../utils/fields');
+
+// Fields a client may write on an oracle verification. deployed_contract_id is set from the
+// contract the route guard authorized, not from the payload, so a caller cannot attach a
+// verification to a contract other than the one they were checked against.
+const ALLOWED_VERIFICATION_FIELDS = [
+  'oracle_type', 'verification_status', 'verified_at',
+  'latitude', 'longitude', 'location_name', 'gps_accuracy_meters',
+  'image_url', 'image_hash',
+  'weight_recorded', 'weight_unit',
+  'clock_in_time', 'clock_out_time', 'hours_worked',
+  'tx_hash', 'block_number', 'notes'
+];
 
 class OracleVerificationController {
   // Create a new oracle verification record
+  // Create a verification against a contract the caller is a party to.
+  //
+  // authorize('contractParty', { model: DeployedContract, paramName: 'deployed_contract_id',
+  // from: 'body' }) loaded that contract and proved the caller is its employer, worker or
+  // assigned mediator. Previously there was no check at all: any authenticated caller could
+  // write verification records — the evidence work was performed — against any contract on
+  // the platform (#152).
   static async createOracleVerification(req, res) {
     try {
-      const { deployed_contract_id, oracle_type, ...payload } = req.body;
+      const { oracle_type } = req.body;
 
-      if (!deployed_contract_id || !oracle_type) {
+      if (!oracle_type) {
         return res.status(400).json({
           success: false,
-          message: 'deployed_contract_id and oracle_type are required'
+          message: 'oracle_type is required'
         });
       }
 
       const oracleVerification = await OracleVerification.create({
-        deployed_contract_id,
-        oracle_type,
-        ...payload
+        ...pickAllowedFields(req.body, ALLOWED_VERIFICATION_FIELDS),
+        // From the authorized contract, never from the payload.
+        deployed_contract_id: req.resource.id
       });
 
       res.status(201).json({
@@ -36,19 +56,11 @@ class OracleVerificationController {
   }
 
   // Get all oracle verifications for a contract
+  // Verifications for one contract. The guard proved the caller is a party to it.
   static async getOracleVerificationsByContract(req, res) {
     try {
-      const { contract_id } = req.query;
-
-      if (!contract_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'contract_id is required'
-        });
-      }
-
       const verifications = await OracleVerification.findAll({
-        where: { deployed_contract_id: contract_id },
+        where: { deployed_contract_id: req.resource.id },
         order: [['created_at', 'DESC']]
       });
 
@@ -68,9 +80,10 @@ class OracleVerificationController {
   }
 
   // Get latest verification per oracle type for a contract
+  // Latest verification per oracle type. The guard proved the caller is a party.
   static async getLatestOracleVerifications(req, res) {
     try {
-      const { contract_id } = req.params;
+      const contract_id = req.resource.id;
 
       const latestRows = await sequelize.query(
         `SELECT DISTINCT ON (oracle_type) *

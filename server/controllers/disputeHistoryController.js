@@ -1,45 +1,62 @@
 const { DisputeHistory, DeployedContract, Employee, Employer, Mediator, JobPosting } = require('../models');
 const { Op } = require('sequelize');
 const { logAction } = require('./auditLogController');
+const { scopeToCaller } = require('../middleware/authorize');
+const { pickAllowedFields } = require('../utils/fields');
+const { resolveEmployee, resolveEmployer, resolveMediator, isAdminRequest } = require('../services/identityService');
+
+// What a resolving mediator may write. mediator_id is absent deliberately: it is set from
+// the resolving mediator's own verified identity, never from the payload. The timestamps
+// are server-managed.
+const ALLOWED_RESOLUTION_FIELDS = ['resolution', 'resolution_notes', 'resolution_tx_hash'];
+
+// Which party the caller is on this contract, derived from the verified identity.
+//
+// The old form took raised_by_role plus raised_by_employee_id / raised_by_employer_id from
+// the request body: the caller declared both which side of the dispute they were on and
+// which id they were. That is the record of who raised a dispute, and it feeds mediation.
+const partyOnContract = async (req, contract) => {
+  const [employee, employer] = await Promise.all([resolveEmployee(req), resolveEmployer(req)]);
+  if (employee && String(contract.employee_id) === String(employee.id)) {
+    return { raised_by_role: 'employee', raised_by_employee_id: employee.id, raised_by_employer_id: null };
+  }
+  if (employer && String(contract.employer_id) === String(employer.id)) {
+    return { raised_by_role: 'employer', raised_by_employer_id: employer.id, raised_by_employee_id: null };
+  }
+  return null;
+};
 
 class DisputeHistoryController {
   // Create a dispute record
   static async createDispute(req, res) {
     try {
-      const {
-        deployed_contract_id,
-        raised_by_employee_id,
-        raised_by_employer_id,
-        raised_by_role,
-        reason
-      } = req.body;
+      const { reason } = req.body;
 
-      if (!deployed_contract_id || !raised_by_role || !reason) {
+      if (!reason) {
         return res.status(400).json({
           success: false,
-          message: 'deployed_contract_id, raised_by_role, and reason are required'
+          message: 'reason is required'
         });
       }
 
-      if (raised_by_role === 'employee' && !raised_by_employee_id) {
-        return res.status(400).json({
+      // The guard loaded the contract and proved the caller is a party to it. Which party
+      // is then derived from the contract, not declared by the caller — the three
+      // raised_by_* fields are no longer read from the body at all.
+      const contract = req.resource;
+      const raisedBy = await partyOnContract(req, contract);
+      if (!raisedBy) {
+        // A party to the contract who is neither its worker nor its employer — an assigned
+        // mediator. A mediator resolves disputes; they do not raise them.
+        return res.status(403).json({
           success: false,
-          message: 'raised_by_employee_id is required when role is employee'
+          message: 'Only the worker or the employer on this contract can raise a dispute'
         });
       }
 
-      if (raised_by_role === 'employer' && !raised_by_employer_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'raised_by_employer_id is required when role is employer'
-        });
-      }
-
+      const deployed_contract_id = contract.id;
       const dispute = await DisputeHistory.create({
         deployed_contract_id,
-        raised_by_employee_id,
-        raised_by_employer_id,
-        raised_by_role,
+        ...raisedBy,
         reason,
         raised_at: new Date()
       });
@@ -52,15 +69,15 @@ class DisputeHistoryController {
         : null;
       const jobTitleForLog = jobPostingForLog?.title || contractForLog?.contract_address || `Contract #${deployed_contract_id}`;
       await logAction({
-        actorType: raised_by_role,
-        actorId: raised_by_role === 'employee' ? raised_by_employee_id : raised_by_employer_id,
+        actorType: raisedBy.raised_by_role,
+        actorId: raisedBy.raised_by_employee_id ?? raisedBy.raised_by_employer_id,
         actorName: null,
         actionType: 'dispute_created',
-        actionDescription: `Dispute raised by ${raised_by_role} for "${jobTitleForLog}": "${reason}"`,
+        actionDescription: `Dispute raised by ${raisedBy.raised_by_role} for "${jobTitleForLog}": "${reason}"`,
         entityType: 'dispute',
         entityId: dispute.id,
         entityIdentifier: jobTitleForLog,
-        newValue: { reason, raised_by_role, deployed_contract_id },
+        newValue: { reason, raised_by_role: raisedBy.raised_by_role, deployed_contract_id },
         employerId: contractForLog?.employer_id || null,
       });
 
@@ -80,16 +97,24 @@ class DisputeHistoryController {
   }
 
   // Get all disputes for an employer (for compliance view)
+  // GET /api/dispute-history/employer — disputes on the calling employer's contracts.
+  //
+  // The employer id came from the path, and the response includes the worker's name and
+  // email, so any authenticated caller could read any employer's dispute history along
+  // with the workers involved (#152).
   static async getDisputesByEmployer(req, res) {
     try {
-      const { employerId } = req.params;
+      const scope = await scopeToCaller(req, { allowAdmin: false });
+      if (!scope) {
+        return res.status(403).json({ success: false, message: 'Employer profile not found' });
+      }
 
       const disputes = await DisputeHistory.findAll({
         include: [
           {
             model: DeployedContract,
             as: 'deployedContract',
-            where: { employer_id: employerId },
+            where: scope,
             include: [
               { model: JobPosting, as: 'jobPosting', attributes: ['id', 'title'] }
             ]
@@ -129,9 +154,10 @@ class DisputeHistoryController {
   }
 
   // Get dispute by contract ID
+  // Disputes on one contract. The guard proved the caller is a party to it.
   static async getDisputesByContract(req, res) {
     try {
-      const { contractId } = req.params;
+      const contractId = req.resource.id;
 
       const disputes = await DisputeHistory.findAll({
         where: { deployed_contract_id: contractId },
@@ -171,26 +197,46 @@ class DisputeHistoryController {
   }
 
   // Update dispute (assign mediator, resolve, etc.)
+  // Resolve a dispute. Only the mediator assigned to its contract, or an admin.
+  //
+  // This had no ownership check at all and wrote req.body wholesale, so any authenticated
+  // caller could resolve any dispute — setting the resolution that decides who gets the
+  // escrowed money — and could also write mediator_id, claiming to be the mediator on a
+  // dispute they had nothing to do with (#152).
+  //
+  // The route guard admits any party to the contract; resolution is narrowed to the
+  // mediator here, because raising a dispute and deciding it are different acts.
   static async updateDispute(req, res) {
     try {
-      const { id } = req.params;
-      const updates = req.body;
+      const dispute = req.resource;
+      const contract = req.resourceParent;
 
-      const dispute = await DisputeHistory.findByPk(id);
+      const isAdmin = isAdminRequest(req);
+      const mediator = isAdmin ? null : await resolveMediator(req);
+      const isAssignedMediator = !!mediator
+        && contract?.mediator_id != null
+        && String(contract.mediator_id) === String(mediator.id);
 
-      if (!dispute) {
-        return res.status(404).json({
+      if (!isAdmin && !isAssignedMediator) {
+        return res.status(403).json({
           success: false,
-          message: 'Dispute not found'
+          message: 'Only the mediator assigned to this contract can resolve its dispute'
         });
       }
 
-      // If assigning mediator, set the assignment timestamp
-      if (updates.mediator_id && !dispute.mediator_id) {
-        updates.mediator_assigned_at = new Date();
+      const updates = pickAllowedFields(req.body, ALLOWED_RESOLUTION_FIELDS);
+
+      // Record WHO resolved it, from the verified identity.
+      //
+      // This is #146. The resolution UI never sent mediator_id and nothing derived it, so
+      // dispute_history.mediator_id stayed NULL — and the audit entry below logs
+      // `actorId: dispute.mediator_id`, which made every resolution anonymous in the
+      // compliance record. Deriving it from the caller closes that.
+      if (mediator && dispute.mediator_id == null) {
+        updates.mediator_id = mediator.id;
+        updates.mediator_assigned_at = dispute.mediator_assigned_at || new Date();
       }
 
-      // If resolving, set the resolution timestamp
       if (updates.resolution && !dispute.resolved_at) {
         updates.resolved_at = new Date();
       }

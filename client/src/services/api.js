@@ -191,8 +191,9 @@ class ApiService {
     });
   }
 
-  async getJobPostings(employerId, status = null) {
-    const params = status ? `?employer_id=${employerId}&status=${status}` : `?employer_id=${employerId}`;
+  // The employer is derived from the verified caller; employer_id is not sent (#152).
+  async getJobPostings(status = null) {
+    const params = status ? `?status=${status}` : '';
     return this.request(`/job-postings${params}`);
   }
 
@@ -225,9 +226,10 @@ class ApiService {
     });
   }
 
-  async getActiveJobPostings(employeeId = null) {
-    const params = employeeId ? `?employee_id=${employeeId}` : '';
-    return this.request(`/job-postings/active${params}`);
+  // No argument: saved/applied flags are computed for the verified caller when there is
+  // one. Passing an employee id used to reveal which jobs that worker had saved (#152).
+  async getActiveJobPostings() {
+    return this.request('/job-postings/active');
   }
 
   // Deployed Contract API methods
@@ -325,8 +327,9 @@ class ApiService {
     return this.request('/payment-transactions/pending');
   }
 
-  async getPaymentTransactionsByEmployee(employeeId) {
-    return this.request(`/payment-transactions/employee/${employeeId}`);
+  // No argument: the server derives the worker from the verified caller (#152).
+  async getPaymentTransactionsByEmployee() {
+    return this.request('/payment-transactions/employee');
   }
 
   // Legacy Job API methods - DEPRECATED, use Job Posting methods instead
@@ -455,8 +458,9 @@ class ApiService {
     });
   }
 
-  async getDisputesByEmployer(employerId) {
-    return this.request(`/dispute-history/employer/${employerId}`);
+  // No argument: the server derives the employer from the verified caller (#152).
+  async getDisputesByEmployer() {
+    return this.request('/dispute-history/employer');
   }
 
   async getDisputesByContract(contractId) {

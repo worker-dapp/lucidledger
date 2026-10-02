@@ -222,7 +222,6 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
 
         // Then create job posting from template
         await apiService.createJobPosting({
-          employer_id: employerId,
           template_id: templateResponse.data.id,
           positions_available: parseInt(positionsCount),
           location: formData.jobLocation,
@@ -233,7 +232,6 @@ const JobCreationWizard = ({ employerId, onComplete, onCancel }) => {
       } else {
         // Create job posting directly without template
         await apiService.createJobPosting({
-          employer_id: employerId,
           template_id: null,
           title: formData.jobTitle,
           positions_available: parseInt(positionsCount),

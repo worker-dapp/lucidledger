@@ -1,17 +1,27 @@
 const { PaymentTransaction, DeployedContract, JobPosting, Employer } = require('../models');
 const { Op } = require('sequelize');
+const { scopeToCaller } = require('../middleware/authorize');
+const { pickAllowedFields } = require('../utils/fields');
+
+// deployed_contract_id is excluded: it is set from the contract the route guard authorized,
+// so a caller cannot record a payment against a contract they were not checked against.
+const ALLOWED_PAYMENT_FIELDS = [
+  'amount', 'currency', 'payment_type', 'tx_hash', 'block_number',
+  'from_address', 'to_address', 'status', 'processed_at', 'notes'
+];
 
 class PaymentTransactionController {
   // Get payment transactions for an employee (with job context)
+  // GET /api/payment-transactions/employee — the calling worker's own payment history.
+  //
+  // The worker id came from the path, so any authenticated caller could read any worker's
+  // earnings — amounts, counterparties and tx hashes (#152). The segment is removed rather
+  // than ignored.
   static async getPaymentTransactionsByEmployee(req, res) {
     try {
-      const { employeeId } = req.params;
-
-      if (!employeeId) {
-        return res.status(400).json({
-          success: false,
-          message: 'employeeId is required'
-        });
+      const scope = await scopeToCaller(req, { column: 'employee_id', as: 'employee', allowAdmin: false });
+      if (!scope) {
+        return res.status(403).json({ success: false, message: 'Employee profile not found' });
       }
 
       const transactions = await PaymentTransaction.findAll({
@@ -23,7 +33,7 @@ class PaymentTransactionController {
         include: [{
           model: DeployedContract,
           as: 'deployedContract',
-          where: { employee_id: employeeId },
+          where: scope,
           include: [
             {
               model: JobPosting,
@@ -61,21 +71,25 @@ class PaymentTransactionController {
     }
   }
   // Create a payment transaction record
+  // Record a payment against a contract the caller is a party to.
+  //
+  // The guard proved that. Previously nothing did: any authenticated caller could write
+  // payment records against any contract, and payment records are what the workforce and
+  // compliance views report as money moved (#152).
   static async createPaymentTransaction(req, res) {
     try {
-      const { deployed_contract_id, amount, ...payload } = req.body;
+      const { amount } = req.body;
 
-      if (!deployed_contract_id || amount === undefined) {
+      if (amount === undefined) {
         return res.status(400).json({
           success: false,
-          message: 'deployed_contract_id and amount are required'
+          message: 'amount is required'
         });
       }
 
       const paymentTransaction = await PaymentTransaction.create({
-        deployed_contract_id,
-        amount,
-        ...payload
+        ...pickAllowedFields(req.body, ALLOWED_PAYMENT_FIELDS),
+        deployed_contract_id: req.resource.id
       });
 
       res.status(201).json({
@@ -94,19 +108,11 @@ class PaymentTransactionController {
   }
 
   // Get payment transactions for a contract
+  // Payments on one contract. The guard proved the caller is a party to it.
   static async getPaymentTransactionsByContract(req, res) {
     try {
-      const { contract_id } = req.query;
-
-      if (!contract_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'contract_id is required'
-        });
-      }
-
       const transactions = await PaymentTransaction.findAll({
-        where: { deployed_contract_id: contract_id },
+        where: { deployed_contract_id: req.resource.id },
         order: [['created_at', 'DESC']]
       });
 
@@ -125,7 +131,14 @@ class PaymentTransactionController {
     }
   }
 
-  // Get pending transactions for batch processing
+  // Every pending payment on the platform, for batch processing. Admin only.
+  //
+  // This had no filter of any kind, so any authenticated caller could read every
+  // employer's outstanding payments — amounts and counterparties across the whole
+  // platform (#152). Unlike the other reads here there is no caller to scope it to: "all
+  // pending" is the question it exists to answer, which makes it an operations endpoint
+  // and admin the only safe shape. It currently has no client caller at all; kept rather
+  // than deleted, and flagged for review.
   static async getPendingPaymentTransactions(req, res) {
     try {
       const transactions = await PaymentTransaction.findAll({

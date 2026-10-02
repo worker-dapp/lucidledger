@@ -202,7 +202,6 @@ const ContractLibrary = ({ employerId, isLoading }) => {
       {/* Post Job Modal (for reusing templates) */}
       {isPostModalOpen && selectedContract && (
         <PostJobModal
-          employerId={employerId}
           preselectedTemplate={selectedContract}
           onClose={() => {
             setIsPostModalOpen(false);
