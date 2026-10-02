@@ -221,7 +221,7 @@ const JobTrackerInner = () => {
 
     setEarningsLoading(true);
     try {
-      const response = await apiService.getPaymentTransactionsByEmployee(employeeData.id);
+      const response = await apiService.getPaymentTransactionsByEmployee();
       setEarnings(response.data || []);
       setTotalEarnings(response.totalEarnings || 0);
     } catch (err) {
@@ -268,10 +268,10 @@ const JobTrackerInner = () => {
 
       // Create dispute history record for compliance tracking
       try {
+        // raised_by_* is no longer sent: the server derives which party raised the
+        // dispute from the contract and the verified caller (#152).
         await apiService.createDisputeRecord({
           deployed_contract_id: selectedContract.deployed_contract_id,
-          raised_by_employee_id: employeeData.id,
-          raised_by_role: "employee",
           reason: disputeReason,
         });
       } catch (err) {

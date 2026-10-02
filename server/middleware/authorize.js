@@ -71,9 +71,9 @@ const POLICIES = {
   // The caller's own employee/employer row. Used by profile reads and updates.
   self: {
     requiresRecord: false,
-    async check({ req, roles, paramName, as }) {
+    async check({ req, roles, paramName, as, from = 'params' }) {
       const caller = as === 'employer' ? await roles.employer() : await roles.employee();
-      return !!caller && String(caller.id) === String(req.params[paramName]);
+      return !!caller && String(caller.id) === String(req[from]?.[paramName]);
     }
   },
 
@@ -92,18 +92,23 @@ const POLICIES = {
   // or any active mediator could act on any contract in the system.
   contractParty: {
     requiresRecord: true,
-    async check({ record, roles }) {
+    async check({ record, parent, roles }) {
+      // The contract is `parent` when the route names a child of it — a dispute, a payment
+      // — and `record` when the route names the contract itself. Both cases ask the same
+      // question of the same row; only which load produced it differs.
+      const contract = parent ?? record;
+
       const [employer, employee, mediator] = await Promise.all([
         roles.employer(), roles.employee(), roles.mediator()
       ]);
-      if (employer && String(record.employer_id) === String(employer.id)) return true;
-      if (employee && String(record.employee_id) === String(employee.id)) return true;
+      if (employer && String(contract.employer_id) === String(employer.id)) return true;
+      if (employee && String(contract.employee_id) === String(employee.id)) return true;
       // mediator_id is null on an unassigned contract. Requiring it to be set before
       // comparing keeps an unassigned contract from admitting every mediator: without
       // the null guard a record and a caller that both stringify to "null"/"undefined"
       // could match.
-      if (mediator && record.mediator_id != null
-          && String(record.mediator_id) === String(mediator.id)) return true;
+      if (mediator && contract.mediator_id != null
+          && String(contract.mediator_id) === String(mediator.id)) return true;
       return false;
     }
   },
@@ -176,8 +181,27 @@ const POLICY_NAMES = Object.keys(POLICIES);
  *                                     to the policy as `parent`. For record types whose
  *                                     owner lives one hop away: a job application's
  *                                     employer is on its job posting, not on itself.
+ * @param {string} [opts.from]         Where the record id is read from: 'params' (default),
+ *                                     'query', or 'body'.
+ *
+ * On `from`, and why it is not the hole it looks like. This selects where the **resource is
+ * named**, which is a different question from who the caller is. A path segment, a query
+ * parameter and a body field are equally client-controlled, and none of them is ever
+ * consulted for identity: the caller is resolved from the verified subject, and the policy
+ * compares the loaded record against that caller. Naming a resource you may not touch gets
+ * you a 403; it does not get you the record.
+ *
+ * It exists because several endpoints legitimately name their subject somewhere other than
+ * the path — a create that attaches to a contract carries `deployed_contract_id` in the
+ * body, and two reads take `?contract_id=`. The alternative was rewriting those routes or
+ * hand-rolling the check in each handler, which is the improvisation this layer exists to
+ * replace.
  */
-const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, as = 'employee', via = null } = {}) => {
+const ID_SOURCES = ['params', 'query', 'body'];
+
+const authorize = (policy, {
+  model = null, paramName = 'id', allowAdmin = true, as = 'employee', via = null, from = 'params'
+} = {}) => {
   const entry = POLICIES[policy];
   if (!entry) {
     throw new Error(
@@ -192,6 +216,11 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
   if (via && (!via.model || !via.key)) {
     throw new Error(`authorize('${policy}'): via needs both { model, key }.`);
   }
+  if (!ID_SOURCES.includes(from)) {
+    throw new Error(
+      `authorize('${policy}'): from must be one of ${ID_SOURCES.join(', ')}, got '${from}'.`
+    );
+  }
 
   const guard = async (req, res, next) => {
     try {
@@ -201,7 +230,16 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
       // caller that gets through — including admins. Short-circuiting first would hand
       // admins a request whose handler finds req.resource undefined.
       if (model) {
-        record = await model.findByPk(req.params[paramName]);
+        // Where the resource is NAMED. Never where the caller comes from — see `from` above.
+        const id = req[from]?.[paramName];
+        if (id === undefined || id === null || id === '') {
+          return res.status(400).json({
+            success: false,
+            message: `${paramName} is required`
+          });
+        }
+
+        record = await model.findByPk(id);
         if (!record) {
           return res.status(404).json({ success: false, message: 'Not found' });
         }
@@ -225,7 +263,7 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
 
       if (allowAdmin && isAdminRequest(req)) return next();
 
-      const ok = await entry.check({ req, record, parent, roles: callerRoles(req), paramName, as });
+      const ok = await entry.check({ req, record, parent, roles: callerRoles(req), paramName, as, from });
       if (!ok) {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -246,7 +284,7 @@ const authorize = (policy, { model = null, paramName = 'id', allowAdmin = true, 
   guard.policy = policy;
   guard.enforced = true;
   guard.policyOptions = {
-    paramName, allowAdmin, as,
+    paramName, allowAdmin, as, from,
     model: model?.name ?? null,
     via: via ? { model: via.model?.name ?? null, key: via.key } : null
   };

@@ -252,13 +252,15 @@ test('self: honours paramName', async () => {
   assert.strictEqual(await POLICIES.self.check({ req, roles, paramName: 'employeeId', as: 'employee' }), true);
 });
 
-test('self: reads the id from paramName and nowhere else', async () => {
+test('self: reads the id only from the declared source', async () => {
   const src = require('node:fs').readFileSync(__dirname + '/authorize.js', 'utf8');
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   const policy = code.slice(code.indexOf('self:'), code.indexOf('ownedByEmployer:'));
 
-  assert.ok(/req\.params\[paramName\]/.test(policy));
-  assert.ok(!/req\.(body|query|headers)/.test(policy), 'self must not read client input');
+  // req[from][paramName] — one source, named by the route. Never a hardcoded reach into
+  // the body or headers, and never a fallback across sources.
+  assert.ok(/req\[from\]\?\.\[paramName\]/.test(policy), 'self must read req[from][paramName]');
+  assert.ok(!/req\.(body|query|headers)/.test(policy), 'self must not name a source directly');
 });
 
 // --- admin --------------------------------------------------------------------------
@@ -711,4 +713,138 @@ test('an incomplete via throws when the route file loads', () => {
   const M = makeModel({});
   assert.throws(() => authorize('applicationParty', { model: M, via: { key: 'x' } }), /via needs both/);
   assert.throws(() => authorize('applicationParty', { model: M, via: { model: M } }), /via needs both/);
+});
+
+// --- `from`: where the resource is named ---------------------------------------------
+//
+// Several endpoints name their subject outside the path — a create that attaches to a
+// contract carries deployed_contract_id in the body, two reads take ?contract_id=. This
+// selects where the RESOURCE id is read from. It is not an identity source: the caller is
+// still resolved from the verified subject, and the policy still compares the two.
+
+test('from: query loads the record named by a query parameter', async () => {
+  const Model = makeModel({ '7': { id: 7, employer_id: 42 } });
+  const guard = authorize('ownedByEmployer', { model: Model, paramName: 'contract_id', from: 'query' });
+
+  const { outcome, req } = await run(guard, makeReq({
+    query: { contract_id: '7' }, employer: { id: 42 }
+  }));
+
+  assert.strictEqual(outcome, 'next');
+  assert.strictEqual(req.resource.id, 7);
+});
+
+test('from: body loads the record named by a body field', async () => {
+  const Model = makeModel({ '7': { id: 7, employer_id: 42 } });
+  const guard = authorize('ownedByEmployer', { model: Model, paramName: 'deployed_contract_id', from: 'body' });
+
+  const { outcome } = await run(guard, makeReq({
+    body: { deployed_contract_id: 7 }, employer: { id: 42 }
+  }));
+
+  assert.strictEqual(outcome, 'next');
+});
+
+test('naming a record from the body still does not grant access to it', async () => {
+  // The point `from` must not compromise: the body chooses WHICH record, never WHOSE.
+  const Model = makeModel({ '7': { id: 7, employer_id: 42 } });
+  const guard = authorize('ownedByEmployer', { model: Model, paramName: 'deployed_contract_id', from: 'body' });
+
+  const { outcome } = await run(guard, makeReq({
+    body: { deployed_contract_id: 7, employer_id: 42 },   // also claims the owner id
+    employer: { id: 43 }                                   // but the caller owns nothing
+  }));
+
+  assert.strictEqual(outcome, 403);
+});
+
+test('from only reads the named source, never the others', async () => {
+  // A caller must not be able to move the id to a source the guard also happens to read.
+  const Model = makeModel({ '7': { id: 7, employer_id: 42 } });
+  const guard = authorize('ownedByEmployer', { model: Model, paramName: 'contract_id', from: 'query' });
+
+  const { outcome } = await run(guard, makeReq({
+    body: { contract_id: '7' },      // the id is here
+    query: {},                       // but the guard reads here
+    employer: { id: 42 }
+  }));
+
+  assert.strictEqual(outcome, 400, 'a missing id is a 400, not a fallback to another source');
+});
+
+test('a missing id is 400 before any lookup', async () => {
+  const Model = makeModel({ '7': { id: 7, employer_id: 42 } });
+  const guard = authorize('ownedByEmployer', { model: Model, paramName: 'contract_id', from: 'query' });
+
+  for (const query of [{}, { contract_id: '' }, { contract_id: null }]) {
+    const { outcome } = await run(guard, makeReq({ query, employer: { id: 42 } }));
+    assert.strictEqual(outcome, 400, `expected 400 for ${JSON.stringify(query)}`);
+  }
+  assert.deepStrictEqual(Model.lookups, [], 'no findByPk with no id');
+});
+
+test('an unknown from throws when the route file loads', () => {
+  const M = makeModel({});
+  assert.throws(() => authorize('ownedByEmployer', { model: M, from: 'headers' }), /from must be one of/);
+  assert.throws(() => authorize('ownedByEmployer', { model: M, from: 'params, query' }), /from must be one of/);
+});
+
+test('from defaults to params and is reported in the metadata', () => {
+  const M = makeModel({});
+  assert.strictEqual(authorize('admin').policyOptions.from, 'params');
+  assert.strictEqual(authorize('ownedByEmployer', { model: M, from: 'body' }).policyOptions.from, 'body');
+});
+
+test('self honours from as well', async () => {
+  const req = makeReq({ query: { employee_id: '12' } });
+  const roles = makeRoles({ employee: { id: 12 } });
+
+  assert.strictEqual(
+    await POLICIES.self.check({ req, roles, paramName: 'employee_id', as: 'employee', from: 'query' }), true);
+  assert.strictEqual(
+    await POLICIES.self.check({ req, roles, paramName: 'employee_id', as: 'employee', from: 'params' }), false,
+    'reading the wrong source must fail closed, not match');
+});
+
+// --- contractParty against a child record -------------------------------------------
+//
+// A dispute and a payment are children of a contract and carry no party columns of their
+// own. `via` loads the contract; contractParty then asks its question of that row.
+
+test('contractParty checks the parent contract when the route names a child', async () => {
+  const dispute = { id: 9, deployed_contract_id: 5, reason: 'x' };
+
+  assert.strictEqual(
+    await check('contractParty', { record: dispute, parent: CONTRACT, roles: makeRoles({ employer: { id: 42 } }) }),
+    true, 'the contract employer may act on its dispute');
+  assert.strictEqual(
+    await check('contractParty', { record: dispute, parent: CONTRACT, roles: makeRoles({ employee: { id: 9 } }) }),
+    true, 'so may its worker');
+  assert.strictEqual(
+    await check('contractParty', { record: dispute, parent: CONTRACT, roles: makeRoles({ mediator: { id: 3 } }) }),
+    true, 'so may the mediator assigned to the contract');
+  assert.strictEqual(
+    await check('contractParty', { record: dispute, parent: CONTRACT, roles: makeRoles({ employer: { id: 43 } }) }),
+    false, 'a stranger may not');
+});
+
+test('contractParty still checks the record itself when there is no parent', async () => {
+  // The route that names a contract directly must keep working unchanged.
+  assert.strictEqual(
+    await check('contractParty', { record: CONTRACT, parent: null, roles: makeRoles({ employer: { id: 42 } }) }),
+    true);
+  assert.strictEqual(
+    await check('contractParty', { record: CONTRACT, parent: null, roles: makeRoles({ employer: { id: 43 } }) }),
+    false);
+});
+
+test('contractParty does not read party columns off the child record', async () => {
+  // A dispute carries raised_by_employer_id. If the policy fell back to the child's own
+  // columns, whoever raised a dispute would pass the check for a contract they left.
+  const dispute = { id: 9, deployed_contract_id: 5, employer_id: 43, employee_id: 43 };
+  const contract = { id: 5, employer_id: 42, employee_id: 9, mediator_id: null };
+
+  assert.strictEqual(
+    await check('contractParty', { record: dispute, parent: contract, roles: makeRoles({ employer: { id: 43 } }) }),
+    false, 'the child record must be ignored once a parent is loaded');
 });

@@ -160,7 +160,7 @@ const PostedJobsTab = ({ employerId }) => {
     if (!employerId) return;
     setLoading(true);
     try {
-      const response = await apiService.getJobPostings(employerId);
+      const response = await apiService.getJobPostings();
       if (response?.success) setJobPostings(response.data || []);
     } catch (error) {
       console.error("Error fetching job postings:", error);
@@ -429,7 +429,6 @@ const PostedJobsTab = ({ employerId }) => {
 
       {isPostModalOpen && (
         <PostJobModal
-          employerId={employerId}
           onClose={() => setIsPostModalOpen(false)}
           onSuccess={() => { setIsPostModalOpen(false); fetchJobPostings(); }}
         />
