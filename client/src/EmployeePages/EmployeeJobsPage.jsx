@@ -342,7 +342,7 @@ const EmployeeJobsPageInner = () => {
       return;
     }
 
-    if (selectedJob.recruiter_id && !feeDisclosureAck) {
+    if (selectedJob.has_recruiter && !feeDisclosureAck) {
       alert('Please confirm you understand you owe no recruiter fees before signing.');
       return;
     }
@@ -932,7 +932,7 @@ const EmployeeJobsPageInner = () => {
                     ) : (
                       // Offers tab: action buttons
                       <div className="w-full space-y-3">
-                        {selectedJob.recruiter_id && (
+                        {selectedJob.has_recruiter && (
                           <label className="flex items-start gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer">
                             <input
                               type="checkbox"
@@ -949,7 +949,7 @@ const EmployeeJobsPageInner = () => {
                         <div className="flex gap-3 w-full">
                           <button
                             onClick={handleSignContract}
-                            disabled={signing || (selectedJob.recruiter_id && !feeDisclosureAck)}
+                            disabled={signing || (selectedJob.has_recruiter && !feeDisclosureAck)}
                             className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {signing ? 'Signing...' : 'Sign & Accept'}
@@ -1203,7 +1203,7 @@ const EmployeeJobsPageInner = () => {
                       </div>
                     ) : (
                       <div className="w-full space-y-3">
-                        {selectedJob.recruiter_id && (
+                        {selectedJob.has_recruiter && (
                           <label className="flex items-start gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-lg p-3 cursor-pointer">
                             <input
                               type="checkbox"
@@ -1220,7 +1220,7 @@ const EmployeeJobsPageInner = () => {
                         <div className="flex gap-3 w-full">
                           <button
                             onClick={handleSignContract}
-                            disabled={signing || (selectedJob.recruiter_id && !feeDisclosureAck)}
+                            disabled={signing || (selectedJob.has_recruiter && !feeDisclosureAck)}
                             className="flex-1 py-3 px-4 sm:px-6 rounded-lg font-semibold transition-all text-sm sm:text-base bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {signing ? 'Signing...' : 'Sign & Accept'}

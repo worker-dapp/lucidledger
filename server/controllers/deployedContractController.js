@@ -2,6 +2,23 @@ const { DeployedContract, JobPosting, Employee, Employer, Mediator, PaymentTrans
 const { Op } = require('sequelize');
 const { logAction } = require('./auditLogController');
 const { resolveEmployee, resolveEmployer, resolveMediator, isAdminRequest } = require('../services/identityService');
+const { toPublicPosting } = require('../utils/publicPosting');
+
+// What the people on a contract see of each other. The profile rows also carry street
+// address, phone, the login subject and, for employers, the admin's approval record —
+// none of which showing or settling a contract needs, and all of which went out with
+// every contract read and write. Mediator views already used exactly these fields.
+const PARTY_EMPLOYEE_FIELDS = ['id', 'first_name', 'last_name', 'email', 'wallet_address'];
+const PARTY_EMPLOYER_FIELDS = ['id', 'company_name', 'wallet_address'];
+const MEDIATOR_FIELDS = ['id', 'first_name', 'last_name', 'email', 'wallet_address'];
+
+// A contract as its worker sees it. The worker is a party to the contract but not to
+// the employer's agreement with its recruiter, so the posting goes out in its public
+// shape and the recruiter fee payments are left off (#164).
+const workerView = (contract) => {
+  const { recruiterFeePayments, ...rest } = contract.toJSON();
+  return { ...rest, jobPosting: toPublicPosting(contract.jobPosting) };
+};
 
 // Terminal contract statuses (contract lifecycle is complete)
 const TERMINAL_CONTRACT_STATUSES = ['completed', 'refunded', 'terminated'];
@@ -243,7 +260,7 @@ class DeployedContractController {
         where: whereClause,
         include: [
           { model: JobPosting, as: 'jobPosting' },
-          { model: Employee, as: 'employee' },
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
           {
             model: RecruiterFeePayment,
             as: 'recruiterFeePayments',
@@ -308,15 +325,15 @@ class DeployedContractController {
         where: whereClause,
         include: [
           { model: JobPosting, as: 'jobPosting' },
-          { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' }
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
+          { model: Employer, as: 'employer', attributes: PARTY_EMPLOYER_FIELDS }
         ],
         order: [['created_at', 'DESC']]
       });
 
       res.status(200).json({
         success: true,
-        data: deployedContracts,
+        data: deployedContracts.map(workerView),
         count: deployedContracts.length
       });
     } catch (error) {
@@ -337,8 +354,8 @@ class DeployedContractController {
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
           { model: JobPosting, as: 'jobPosting' },
-          { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' },
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
+          { model: Employer, as: 'employer', attributes: PARTY_EMPLOYER_FIELDS },
           {
             model: RecruiterFeePayment,
             as: 'recruiterFeePayments',
@@ -368,9 +385,11 @@ class DeployedContractController {
         });
       }
 
+      // The employer (and an admin) see the contract whole; the worker does not see
+      // what the employer pays its recruiter.
       res.status(200).json({
         success: true,
-        data: deployedContract
+        data: (isAdmin || isEmployerParty) ? deployedContract : workerView(deployedContract)
       });
     } catch (error) {
       console.error('Error fetching deployed contract:', error);
@@ -399,8 +418,8 @@ class DeployedContractController {
       // Fetch contract with related employee and employer records
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
-          { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' }
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
+          { model: Employer, as: 'employer', attributes: PARTY_EMPLOYER_FIELDS }
         ]
       });
 
@@ -525,12 +544,12 @@ class DeployedContractController {
           {
             model: Employee,
             as: 'employee',
-            attributes: ['id', 'first_name', 'last_name', 'email', 'wallet_address']
+            attributes: PARTY_EMPLOYEE_FIELDS
           },
           {
             model: Employer,
             as: 'employer',
-            attributes: ['id', 'company_name', 'wallet_address']
+            attributes: PARTY_EMPLOYER_FIELDS
           },
           {
             model: JobPosting,
@@ -567,12 +586,12 @@ class DeployedContractController {
           {
             model: Employee,
             as: 'employee',
-            attributes: ['id', 'first_name', 'last_name', 'email', 'wallet_address']
+            attributes: PARTY_EMPLOYEE_FIELDS
           },
           {
             model: Employer,
             as: 'employer',
-            attributes: ['id', 'company_name', 'wallet_address']
+            attributes: PARTY_EMPLOYER_FIELDS
           },
           {
             model: JobPosting,
@@ -582,7 +601,7 @@ class DeployedContractController {
           {
             model: Mediator,
             as: 'mediator',
-            attributes: ['id', 'email', 'first_name', 'last_name', 'wallet_address']
+            attributes: MEDIATOR_FIELDS
           }
         ],
         order: [['created_at', 'DESC']]
@@ -619,8 +638,8 @@ class DeployedContractController {
       // Fetch contract with employee and employer to check for conflicts
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
-          { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' }
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
+          { model: Employer, as: 'employer', attributes: PARTY_EMPLOYER_FIELDS }
         ]
       });
 
@@ -716,9 +735,9 @@ class DeployedContractController {
       // Fetch contract with related employee, employer, and mediator records
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
-          { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' },
-          { model: Mediator, as: 'mediator' }
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
+          { model: Employer, as: 'employer', attributes: PARTY_EMPLOYER_FIELDS },
+          { model: Mediator, as: 'mediator', attributes: MEDIATOR_FIELDS }
         ]
       });
 
@@ -843,8 +862,8 @@ class DeployedContractController {
       // Fetch contract with related records
       const deployedContract = await DeployedContract.findByPk(id, {
         include: [
-          { model: Employee, as: 'employee' },
-          { model: Employer, as: 'employer' }
+          { model: Employee, as: 'employee', attributes: PARTY_EMPLOYEE_FIELDS },
+          { model: Employer, as: 'employer', attributes: PARTY_EMPLOYER_FIELDS }
         ],
         transaction
       });
