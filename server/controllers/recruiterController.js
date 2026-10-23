@@ -137,18 +137,18 @@ class RecruiterController {
     }
   }
 
-  // Get jobs assigned to this recruiter
+  // Jobs assigned to the calling recruiter. Previously /:id/assigned-jobs took the recruiter
+  // from the path, behind verifyToken alone: any logged-in user could read any recruiter's
+  // postings as whole rows, recruiter fee amounts included (#164).
   static async getAssignedJobs(req, res) {
     try {
-      const { id } = req.params;
-
-      const recruiter = await Recruiter.findByPk(id);
-      if (!recruiter) {
-        return res.status(404).json({ success: false, message: 'Recruiter not found' });
+      const scope = await scopeToCaller(req, { column: 'recruiter_id', as: 'recruiter', allowAdmin: false });
+      if (!scope) {
+        return res.status(403).json({ success: false, message: 'Recruiter profile not found' });
       }
 
       const jobs = await JobPosting.findAll({
-        where: { recruiter_id: id },
+        where: scope,
         include: [{ model: Employer, as: 'employer', attributes: ['id', 'company_name', 'email'] }],
         order: [['created_at', 'DESC']]
       });

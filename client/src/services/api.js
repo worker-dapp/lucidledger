@@ -630,8 +630,9 @@ class ApiService {
     return this.request(`/recruiters/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   }
 
-  async getAssignedJobs(recruiterId) {
-    return this.request(`/recruiters/${recruiterId}/assigned-jobs`);
+  // No argument: the server scopes to the verified caller.
+  async getAssignedJobs() {
+    return this.request('/recruiters/assigned-jobs');
   }
 
   async assignRecruiter(jobPostingId, recruiterId, feeAmount, feeCurrency = 'USD') {

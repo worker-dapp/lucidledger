@@ -11,6 +11,8 @@ router.get('/fee-payments/employer', verifyToken, declarePolicy('scopedList'),
   RecruiterController.getEmployerFeePayments);
 router.get('/fee-payments/recruiter', verifyToken, declarePolicy('scopedList'),
   RecruiterController.getRecruiterFeePayments);
+router.get('/assigned-jobs', verifyToken, declarePolicy('scopedList'),
+  RecruiterController.getAssignedJobs);
 router.post('/fee-payments', verifyToken, RecruiterController.createFeePayment);
 
 // Directory and self-signup
@@ -20,6 +22,5 @@ router.post('/', verifyToken, RecruiterController.createRecruiter);
 // Profile (/:id must come after all static routes)
 router.get('/:id', verifyToken, RecruiterController.getRecruiterById);
 router.put('/:id', verifyToken, RecruiterController.updateRecruiter);
-router.get('/:id/assigned-jobs', verifyToken, RecruiterController.getAssignedJobs);
 
 module.exports = router;

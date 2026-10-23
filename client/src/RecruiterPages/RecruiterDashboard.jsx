@@ -23,7 +23,7 @@ const RecruiterDashboard = () => {
     if (!recruiterId) return;
     const fetchJobs = async () => {
       try {
-        const response = await apiService.getAssignedJobs(recruiterId);
+        const response = await apiService.getAssignedJobs();
         setJobs(response?.data ?? []);
       } catch (err) {
         console.error("Error fetching assigned jobs:", err);
