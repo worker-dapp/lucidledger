@@ -652,9 +652,13 @@ class ApiService {
     return this.request('/recruiters/fee-payments', { method: 'POST', body: JSON.stringify(data) });
   }
 
-  async getRecruiterFeePayments(params = {}) {
-    const query = new URLSearchParams(params).toString();
-    return this.request(`/recruiters/fee-payments${query ? `?${query}` : ''}`);
+  // Both take no argument: the server scopes to the verified caller and accepts no filter.
+  async getEmployerFeePayments() {
+    return this.request('/recruiters/fee-payments/employer');
+  }
+
+  async getRecruiterFeePayments() {
+    return this.request('/recruiters/fee-payments/recruiter');
   }
 }
 

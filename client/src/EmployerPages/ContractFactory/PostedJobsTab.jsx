@@ -171,7 +171,7 @@ const PostedJobsTab = ({ employerId }) => {
 
   const fetchFeePayments = async () => {
     try {
-      const response = await apiService.getRecruiterFeePayments({ employer_id: employerId });
+      const response = await apiService.getEmployerFeePayments();
       const byJobId = {};
       for (const payment of response?.data ?? []) {
         byJobId[payment.job_posting_id] = payment;

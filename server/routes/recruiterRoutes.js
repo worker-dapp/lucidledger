@@ -1,12 +1,16 @@
 const express = require('express');
 const RecruiterController = require('../controllers/recruiterController');
 const { verifyToken } = require('../middleware/authMiddleware');
+const { declarePolicy } = require('../middleware/authorize');
 
 const router = express.Router();
 
 // Static routes must come before /:id to avoid shadowing
 router.get('/check/:email', verifyToken, RecruiterController.checkRecruiterByEmail);
-router.get('/fee-payments', verifyToken, RecruiterController.getFeePayments);
+router.get('/fee-payments/employer', verifyToken, declarePolicy('scopedList'),
+  RecruiterController.getEmployerFeePayments);
+router.get('/fee-payments/recruiter', verifyToken, declarePolicy('scopedList'),
+  RecruiterController.getRecruiterFeePayments);
 router.post('/fee-payments', verifyToken, RecruiterController.createFeePayment);
 
 // Directory and self-signup
