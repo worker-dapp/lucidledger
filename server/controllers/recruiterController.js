@@ -2,6 +2,7 @@ const { Recruiter, JobPosting, RecruiterFeePayment, Employer, DeployedContract }
 const { Op } = require('sequelize');
 const { verifyUsdcPayment } = require('../services/txVerificationService');
 const { resolveEmployer } = require('../services/identityService');
+const { scopeToCaller } = require('../middleware/authorize');
 
 const ALLOWED_PROFILE_FIELDS = [
   'first_name', 'last_name', 'phone_number', 'wallet_address', 'agency_name'
@@ -136,18 +137,18 @@ class RecruiterController {
     }
   }
 
-  // Get jobs assigned to this recruiter
+  // Jobs assigned to the calling recruiter. Previously /:id/assigned-jobs took the recruiter
+  // from the path, behind verifyToken alone: any logged-in user could read any recruiter's
+  // postings as whole rows, recruiter fee amounts included (#164).
   static async getAssignedJobs(req, res) {
     try {
-      const { id } = req.params;
-
-      const recruiter = await Recruiter.findByPk(id);
-      if (!recruiter) {
-        return res.status(404).json({ success: false, message: 'Recruiter not found' });
+      const scope = await scopeToCaller(req, { column: 'recruiter_id', as: 'recruiter', allowAdmin: false });
+      if (!scope) {
+        return res.status(403).json({ success: false, message: 'Recruiter profile not found' });
       }
 
       const jobs = await JobPosting.findAll({
-        where: { recruiter_id: id },
+        where: scope,
         include: [{ model: Employer, as: 'employer', attributes: ['id', 'company_name', 'email'] }],
         order: [['created_at', 'DESC']]
       });
@@ -245,31 +246,42 @@ class RecruiterController {
     }
   }
 
-  // Get fee payments for a job posting or recruiter
-  static async getFeePayments(req, res) {
-    try {
-      const { job_posting_id, recruiter_id, employer_id } = req.query;
-      const where = {};
-      if (job_posting_id) where.job_posting_id = job_posting_id;
-      if (recruiter_id) where.recruiter_id = recruiter_id;
-      if (employer_id) where.employer_id = employer_id;
+  // Fee payments the calling employer made, and fee payments made to the calling recruiter.
+  static async getEmployerFeePayments(req, res) {
+    return listFeePayments(req, res, { column: 'employer_id', as: 'employer', role: 'Employer' });
+  }
 
-      const payments = await RecruiterFeePayment.findAll({
-        where,
-        include: [
-          { model: Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name', 'email'] },
-          { model: JobPosting, as: 'jobPosting', attributes: ['id', 'title'] },
-          { model: DeployedContract, as: 'deployedContract', attributes: ['id', 'contract_address', 'status'] }
-        ],
-        order: [['created_at', 'DESC']]
-      });
-
-      res.status(200).json({ success: true, data: payments, count: payments.length });
-    } catch (error) {
-      console.error('Error fetching fee payments:', error);
-      res.status(500).json({ success: false, message: 'Error fetching fee payments', error: error.message });
-    }
+  static async getRecruiterFeePayments(req, res) {
+    return listFeePayments(req, res, { column: 'recruiter_id', as: 'recruiter', role: 'Recruiter' });
   }
 }
+
+// Shared implementation for the two fee-payment lists. Previously one route built its
+// where clause from ?employer_id= / ?recruiter_id=, gated by verifyToken alone: any
+// authenticated caller could name another employer, or omit the filter and receive every
+// fee payment on the platform — the same amounts #164 hides from the posting reads.
+const listFeePayments = async (req, res, { column, as, role }) => {
+  try {
+    const scope = await scopeToCaller(req, { column, as, allowAdmin: false });
+    if (!scope) {
+      return res.status(403).json({ success: false, message: `${role} profile not found` });
+    }
+
+    const payments = await RecruiterFeePayment.findAll({
+      where: scope,
+      include: [
+        { model: Recruiter, as: 'recruiter', attributes: ['id', 'first_name', 'last_name', 'agency_name', 'email'] },
+        { model: JobPosting, as: 'jobPosting', attributes: ['id', 'title'] },
+        { model: DeployedContract, as: 'deployedContract', attributes: ['id', 'contract_address', 'status'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.status(200).json({ success: true, data: payments, count: payments.length });
+  } catch (error) {
+    console.error('Error fetching fee payments:', error);
+    res.status(500).json({ success: false, message: 'Error fetching fee payments', error: error.message });
+  }
+};
 
 module.exports = RecruiterController;

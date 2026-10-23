@@ -23,7 +23,7 @@ const RecruiterDashboard = () => {
     if (!recruiterId) return;
     const fetchJobs = async () => {
       try {
-        const response = await apiService.getAssignedJobs(recruiterId);
+        const response = await apiService.getAssignedJobs();
         setJobs(response?.data ?? []);
       } catch (err) {
         console.error("Error fetching assigned jobs:", err);
@@ -34,7 +34,7 @@ const RecruiterDashboard = () => {
     };
     const fetchFeePayments = async () => {
       try {
-        const response = await apiService.getRecruiterFeePayments({ recruiter_id: recruiterId });
+        const response = await apiService.getRecruiterFeePayments();
         const byJobId = {};
         for (const payment of response?.data ?? []) {
           byJobId[payment.job_posting_id] = payment;

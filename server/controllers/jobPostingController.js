@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const { scopeToCaller } = require('../middleware/authorize');
 const { resolveEmployee } = require('../services/identityService');
 const { pickAllowedFields } = require('../utils/fields');
+const { toPublicPosting, publicPostingColumns } = require('../utils/publicPosting');
 
 // Fields a client may write on a job posting. Excluded by design:
 //   employer_id   ownership, assigned from the verified caller at creation
@@ -201,9 +202,10 @@ class JobPostingController {
         });
       }
 
+      // Public route, so the public shape — no recruiter or fee (#164).
       res.status(200).json({
         success: true,
-        data: jobPosting
+        data: toPublicPosting(jobPosting)
       });
     } catch (error) {
       console.error('Error fetching job posting:', error);
@@ -337,7 +339,9 @@ class JobPostingController {
       if (employee_id) {
         // If employee_id provided, include saved/applied status
         jobPostings = await sequelize.query(
-          `SELECT jp.*,
+          // Named columns, not jp.*: this route is public and the row carries the
+          // recruiter fee (#164).
+          `SELECT ${publicPostingColumns('jp')},
                   CASE WHEN sj.id IS NOT NULL THEN true ELSE false END as is_saved,
                   active_app.application_status,
                   jp.title as "jobTitle",
@@ -371,7 +375,7 @@ class JobPostingController {
 
         // Add field mappings for consistency
         jobPostings = jobPostings.map(posting => {
-          const postingData = posting.toJSON();
+          const postingData = toPublicPosting(posting);
           return {
             ...postingData,
             jobTitle: postingData.title,

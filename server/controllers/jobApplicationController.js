@@ -4,6 +4,7 @@ const { sequelize } = require('../config/database');
 const { logAction } = require('./auditLogController');
 const { scopeToCaller } = require('../middleware/authorize');
 const { resolveEmployee } = require('../services/identityService');
+const { toPublicPosting } = require('../utils/publicPosting');
 
 // Self-dealing: the same person acting as both sides of a contract.
 //
@@ -326,9 +327,11 @@ exports.getSavedJobs = async (req, res) => {
       order: [['saved_at', 'DESC']]
     });
 
+    // Any worker can save any active posting, so the posting here is only as private
+    // as the public advert — return the public shape, not the row (#164).
     res.status(200).json({
       success: true,
-      data: savedJobs
+      data: savedJobs.map((saved) => ({ ...saved.toJSON(), job: toPublicPosting(saved.job) }))
     });
   } catch (error) {
     console.error('Error fetching saved jobs:', error);
@@ -360,9 +363,11 @@ exports.getAppliedJobs = async (req, res) => {
       order: [['applied_at', 'DESC']]
     });
 
+    // Same as getSavedJobs: applying to a posting does not entitle a worker to the
+    // employer's recruiter terms (#164).
     res.status(200).json({
       success: true,
-      data: applications
+      data: applications.map((app) => ({ ...app.toJSON(), job: toPublicPosting(app.job) }))
     });
   } catch (error) {
     console.error('Error fetching applied jobs:', error);
