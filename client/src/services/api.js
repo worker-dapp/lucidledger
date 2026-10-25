@@ -264,13 +264,6 @@ class ApiService {
     });
   }
 
-  async updateDeployedContract(id, contractData) {
-    return this.request(`/deployed-contracts/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(contractData),
-    });
-  }
-
   async completeContractWithPayment(id, paymentData) {
     return this.request(`/deployed-contracts/${id}/complete-with-payment`, {
       method: 'POST',

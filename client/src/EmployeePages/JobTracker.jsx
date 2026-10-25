@@ -262,9 +262,7 @@ const JobTrackerInner = () => {
       });
 
       // Update database status
-      await apiService.updateDeployedContract(selectedContract.deployed_contract_id, {
-        status: "disputed",
-      });
+      await apiService.updateDeployedContractStatus(selectedContract.deployed_contract_id, "disputed");
 
       // Create dispute history record for compliance tracking
       try {

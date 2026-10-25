@@ -274,9 +274,7 @@ const WorkforceDashboard = () => {
       });
 
       // Update database status
-      await apiService.updateDeployedContract(selectedContract.id, {
-        status: "disputed",
-      });
+      await apiService.updateDeployedContractStatus(selectedContract.id, "disputed");
 
       // Create dispute history record for compliance tracking
       try {

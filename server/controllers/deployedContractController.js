@@ -401,8 +401,12 @@ class DeployedContractController {
     }
   }
 
-  // Update deployed contract status
-  // Authorization: Admin, employer, or employee (with role-based status restrictions)
+  // Update deployed contract status. This is the only route that sets a contract's status
+  // (complete-with-payment aside), because a terminal status has side effects: the worker's
+  // application is closed so they can re-apply, and the job posting's status moves on. The
+  // generic PUT used to write status too and skipped both, which left workers locked out of
+  // a job after a mediator resolved their dispute (#166).
+  // Authorization: Admin, employer, employee, or assigned mediator (with role-based status restrictions)
   static async updateDeployedContractStatus(req, res) {
     try {
       const { id } = req.params;
@@ -430,14 +434,20 @@ class DeployedContractController {
         });
       }
 
-      // Authorize off the verified identity: resolve the caller's own records and
-      // compare by id against the contract's parties.
+      // Authorize off the verified identity: resolve the caller's own records
+      // (employer/employee by auth_subject, mediator by verified email) and compare by
+      // id against the contract's parties.
       const isAdmin = isAdminRequest(req);
-      const [callerEmployer, callerEmployee] = await Promise.all([resolveEmployer(req), resolveEmployee(req)]);
+      const [callerEmployer, callerEmployee, callerMediator] = await Promise.all([
+        resolveEmployer(req),
+        resolveEmployee(req),
+        resolveMediator(req)
+      ]);
       const isEmployer = callerEmployer && String(deployedContract.employer_id) === String(callerEmployer.id);
       const isEmployee = callerEmployee && String(deployedContract.employee_id) === String(callerEmployee.id);
+      const isMediator = callerMediator && deployedContract.mediator_id && String(deployedContract.mediator_id) === String(callerMediator.id);
 
-      if (!isAdmin && !isEmployer && !isEmployee) {
+      if (!isAdmin && !isEmployer && !isEmployee && !isMediator) {
         return res.status(403).json({
           success: false,
           message: 'You do not have permission to modify this contract'
@@ -446,19 +456,37 @@ class DeployedContractController {
 
       // Validate status transitions based on role
       // Admin: can update to any status
+      // Mediator: can resolve a disputed contract to 'completed' or 'terminated'
       // Employer: can update to 'completed', 'disputed'
       // Employee: can update to 'disputed'
+      const mediatorAllowedStatuses = ['completed', 'terminated'];
       const employerAllowedStatuses = ['completed', 'disputed'];
       const employeeAllowedStatuses = ['disputed'];
 
+      // A mediator acting as mediator is resolving a dispute; one who is also a party is
+      // held to that party's limits instead.
+      const isResolving = !isAdmin && isMediator && !isEmployer && !isEmployee;
+
       if (!isAdmin) {
-        if (isEmployer && !employerAllowedStatuses.includes(status)) {
+        if (isResolving) {
+          if (!mediatorAllowedStatuses.includes(status)) {
+            return res.status(403).json({
+              success: false,
+              message: `Mediators can only set status to: ${mediatorAllowedStatuses.join(', ')}`
+            });
+          }
+          if (deployedContract.status !== 'disputed') {
+            return res.status(400).json({
+              success: false,
+              message: 'Only a disputed contract can be resolved'
+            });
+          }
+        } else if (isEmployer && !employerAllowedStatuses.includes(status)) {
           return res.status(403).json({
             success: false,
             message: `Employers can only set status to: ${employerAllowedStatuses.join(', ')}`
           });
-        }
-        if (isEmployee && !isEmployer && !employeeAllowedStatuses.includes(status)) {
+        } else if (isEmployee && !isEmployer && !employeeAllowedStatuses.includes(status)) {
           return res.status(403).json({
             success: false,
             message: `Employees can only set status to: ${employeeAllowedStatuses.join(', ')}`
@@ -467,14 +495,20 @@ class DeployedContractController {
       }
 
       const oldStatus = deployedContract.status;
-      await deployedContract.update({ status });
+      const statusUpdate = { status };
+      // The resolution decides whether the work counts as verified. The client used to send
+      // this alongside the status through the generic PUT.
+      if (isResolving) {
+        statusUpdate.verification_status = status === 'completed' ? 'verified' : 'failed';
+      }
+      await deployedContract.update(statusUpdate);
 
       const jobPostingForLog = await JobPosting.findByPk(deployedContract.job_posting_id, { attributes: ['title'] });
       const jobTitleForLog = jobPostingForLog?.title || `Job #${deployedContract.job_posting_id}`;
 
       await logAction({
-        actorType: isEmployer ? 'employer' : isEmployee ? 'employee' : 'admin',
-        actorId: isEmployer ? deployedContract.employer_id : isEmployee ? deployedContract.employee_id : null,
+        actorType: isEmployer ? 'employer' : isEmployee ? 'employee' : isResolving ? 'mediator' : 'admin',
+        actorId: isEmployer ? deployedContract.employer_id : isEmployee ? deployedContract.employee_id : isResolving ? callerMediator.id : null,
         actorName: isEmployer ? deployedContract.employer?.company_name : null,
         actionType: 'contract_status_changed',
         actionDescription: `Contract status changed from '${oldStatus}' to '${status}' for "${jobTitleForLog}"`,
@@ -715,7 +749,9 @@ class DeployedContractController {
     }
   }
 
-  // Update a deployed contract (general update)
+  // Update a deployed contract (general update): admin corrections only. Status is not
+  // writable here — it goes through PATCH /:id/status, which owns the transition and its
+  // side effects (#166).
   // Authorization: Admin, employer, employee, or assigned mediator
   static async updateDeployedContract(req, res) {
     try {
@@ -729,6 +765,13 @@ class DeployedContractController {
         return res.status(400).json({
           success: false,
           message: `The following fields cannot be modified: ${attempted.join(', ')}`
+        });
+      }
+
+      if ('status' in updates) {
+        return res.status(400).json({
+          success: false,
+          message: 'Contract status is set through PATCH /api/deployed-contracts/:id/status'
         });
       }
 
@@ -768,12 +811,15 @@ class DeployedContractController {
         });
       }
 
-      // Base fields anyone with access can update
-      const baseUpdateFields = ['status', 'verification_status'];
+      // Parties have nothing left to write here: status moved to PATCH /:id/status, and
+      // verification_status is now set by the server when a mediator resolves a dispute.
+      // Left writable, it would let either party mark their own contract verified.
+      const baseUpdateFields = [];
 
-      // Additional fields admins can update for corrections
+      // Fields admins can update for corrections
       const adminUpdateFields = [
         ...baseUpdateFields,
+        'verification_status',
         'payment_amount',
         'started_at',
         'expected_end_date',
@@ -793,39 +839,7 @@ class DeployedContractController {
         });
       }
 
-      if (filteredUpdates.status) {
-        const employerAllowedStatuses = ['completed', 'disputed'];
-        const employeeAllowedStatuses = ['disputed'];
-        const mediatorAllowedStatuses = ['completed', 'terminated']; // For dispute resolution
-
-        if (!isAdmin) {
-          if (isMediator && !mediatorAllowedStatuses.includes(filteredUpdates.status)) {
-            return res.status(403).json({
-              success: false,
-              message: `Mediators can only set status to: ${mediatorAllowedStatuses.join(', ')}`
-            });
-          }
-          if (isEmployer && !isMediator && !employerAllowedStatuses.includes(filteredUpdates.status)) {
-            return res.status(403).json({
-              success: false,
-              message: `Employers can only set status to: ${employerAllowedStatuses.join(', ')}`
-            });
-          }
-          if (isEmployee && !isEmployer && !isMediator && !employeeAllowedStatuses.includes(filteredUpdates.status)) {
-            return res.status(403).json({
-              success: false,
-              message: `Employees can only set status to: ${employeeAllowedStatuses.join(', ')}`
-            });
-          }
-        }
-      }
-
       await deployedContract.update(filteredUpdates);
-
-      // If contract moved to terminal state, check if job status should update
-      if (filteredUpdates.status && TERMINAL_CONTRACT_STATUSES.includes(filteredUpdates.status)) {
-        await updateJobStatusIfAllContractsComplete(deployedContract.job_posting_id);
-      }
 
       res.status(200).json({
         success: true,

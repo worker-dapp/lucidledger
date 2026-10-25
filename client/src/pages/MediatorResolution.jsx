@@ -180,11 +180,12 @@ const MediatorResolution = () => {
         setMessage(`Dispute resolved (mock contract)! Worker: ${workerAmount} USDC / Employer: ${employerAmount} USDC.`);
       }
 
-      // Update database status
-      await apiService.updateDeployedContract(selectedContract.id, {
-        status: pct > 0 ? "completed" : "terminated",
-        verification_status: pct > 0 ? "verified" : "failed",
-      });
+      // Update database status. This route also closes the worker's application so they
+      // can re-apply, and the server sets verification_status from the outcome (#166).
+      await apiService.updateDeployedContractStatus(
+        selectedContract.id,
+        pct > 0 ? "completed" : "terminated"
+      );
 
       // Record payment transaction so worker earnings update
       if (pct > 0) {
