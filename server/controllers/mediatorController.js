@@ -1,5 +1,7 @@
 const { Mediator } = require('../models');
-const { Op } = require('sequelize');
+const { resolveMediator } = require('../services/identityService');
+
+const MEDIATOR_SELF_FIELDS = ['id', 'email', 'first_name', 'last_name', 'wallet_address', 'status'];
 
 /**
  * Checks if the given email is an admin email.
@@ -41,33 +43,6 @@ class MediatorController {
       res.status(500).json({
         success: false,
         message: 'Error fetching mediators',
-        error: error.message
-      });
-    }
-  }
-
-  // Get active mediators with wallet addresses (for contract deployment)
-  static async getActiveMediators(req, res) {
-    try {
-      const mediators = await Mediator.findAll({
-        where: {
-          status: 'active',
-          wallet_address: { [Op.ne]: null }
-        },
-        attributes: ['id', 'email', 'first_name', 'last_name', 'wallet_address'],
-        order: [['created_at', 'ASC']]
-      });
-
-      res.status(200).json({
-        success: true,
-        data: mediators,
-        count: mediators.length
-      });
-    } catch (error) {
-      console.error('Error fetching active mediators:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching active mediators',
         error: error.message
       });
     }
@@ -192,33 +167,21 @@ class MediatorController {
     }
   }
 
-  // Check if email is an approved mediator (for MediatorResolution page)
-  static async checkMediatorByEmail(req, res) {
+  // Is the caller an active mediator? Used by the MediatorResolution page. This used to
+  // take any email from the path and answer for it, wallet included (GHSA-v5r2).
+  static async getMyMediatorProfile(req, res) {
     try {
-      const { email } = req.params;
+      const found = await resolveMediator(req);
 
-      if (!email) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email is required'
-        });
-      }
-
-      const mediator = await Mediator.findOne({
-        where: {
-          email: email.toLowerCase(),
-          status: 'active'
-        },
-        attributes: ['id', 'email', 'first_name', 'last_name', 'wallet_address', 'status']
-      });
-
-      if (!mediator) {
+      if (!found) {
         return res.status(404).json({
           success: false,
           isMediator: false,
           message: 'Not an approved mediator'
         });
       }
+
+      const mediator = MEDIATOR_SELF_FIELDS.reduce((acc, key) => ({ ...acc, [key]: found[key] }), {});
 
       res.status(200).json({
         success: true,

@@ -1,15 +1,14 @@
 const express = require('express');
 const MediatorController = require('../controllers/mediatorController');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const { declarePolicy } = require('../middleware/authorize');
 
 const router = express.Router();
 
-// Public route - check if email is an approved mediator
-// Used by MediatorResolution page to verify access
-router.get('/check/:email', verifyToken, MediatorController.checkMediatorByEmail);
-
-// Get active mediators with wallet addresses (for contract deployment)
-router.get('/active', verifyToken, MediatorController.getActiveMediators);
+// Is the caller an approved mediator? Used by MediatorResolution page to verify access
+router.get('/me', verifyToken,
+  declarePolicy('handlerEnforced', { reason: 'returns only the caller\'s own record, resolved by verified email' }),
+  MediatorController.getMyMediatorProfile);
 
 // Update mediator's wallet address after first login
 router.put('/wallet/:email', verifyToken, MediatorController.updateMediatorWallet);

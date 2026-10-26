@@ -403,8 +403,9 @@ class ApiService {
   }
 
   // Mediator API methods
-  async checkMediator(email) {
-    return this.request(`/mediators/check/${encodeURIComponent(email)}`);
+  // No argument: the server resolves the caller from their verified email.
+  async checkMediator() {
+    return this.request('/mediators/me');
   }
 
   async updateMediatorWallet(email, walletAddress) {
@@ -412,10 +413,6 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify({ wallet_address: walletAddress }),
     });
-  }
-
-  async getActiveMediators() {
-    return this.request('/mediators/active');
   }
 
   // Admin-only mediator management
@@ -602,16 +599,13 @@ class ApiService {
   }
 
   // Recruiter Management
-  async checkRecruiter(email) {
-    return this.request(`/recruiters/check/${encodeURIComponent(email)}`);
+  // No argument: the server resolves the caller from their verified email.
+  async checkRecruiter() {
+    return this.request('/recruiters/me');
   }
 
   async createRecruiter(data) {
     return this.request('/recruiters', { method: 'POST', body: JSON.stringify(data) });
-  }
-
-  async getRecruiterById(id) {
-    return this.request(`/recruiters/${id}`);
   }
 
   async getAllRecruiters(search = '') {

@@ -25,7 +25,7 @@ const RecruiterLandingPage = () => {
     const checkStatus = async () => {
       setChecking(true);
       try {
-        const response = await apiService.checkRecruiter(userEmail);
+        const response = await apiService.checkRecruiter();
         if (response?.success && response.isRecruiter) {
           setIsRecruiter(true);
           navigate("/recruiter-dashboard", { replace: true });
@@ -47,7 +47,7 @@ const RecruiterLandingPage = () => {
     setSubmitting(true);
     setSignupError(null);
     try {
-      await apiService.createRecruiter({ email: userEmail, wallet_address: smartWalletAddress || '', ...signupForm });
+      await apiService.createRecruiter({ wallet_address: smartWalletAddress || '', ...signupForm });
       navigate("/recruiter-dashboard", { replace: true });
     } catch (err) {
       setSignupError(err?.message || "Failed to create profile. Please try again.");
