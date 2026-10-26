@@ -28,7 +28,7 @@ const RecruiterLayout = () => {
       const email = user?.email?.address;
       if (!email) { setIsLoading(false); return; }
       try {
-        const response = await apiService.checkRecruiter(email);
+        const response = await apiService.checkRecruiter();
         if (response?.success && response.data) setRecruiterData(response.data);
       } catch (err) {
         console.error("Error fetching recruiter data:", err);

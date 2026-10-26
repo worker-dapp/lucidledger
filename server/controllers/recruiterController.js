@@ -1,24 +1,39 @@
-const { Recruiter, JobPosting, RecruiterFeePayment, Employer, DeployedContract } = require('../models');
+const { Recruiter, JobPosting, RecruiterFeePayment, Employer, DeployedContract, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { verifyUsdcPayment } = require('../services/txVerificationService');
-const { resolveEmployer } = require('../services/identityService');
+const { resolveEmployer, resolveRecruiter } = require('../services/identityService');
 const { scopeToCaller } = require('../middleware/authorize');
 
 const ALLOWED_PROFILE_FIELDS = [
   'first_name', 'last_name', 'phone_number', 'wallet_address', 'agency_name'
 ];
 
+// What the caller sees of their own recruiter record, and what an employer sees in the
+// directory. Phone stays off both: neither the role routing nor assignment needs it.
+const SELF_FIELDS = ['id', 'email', 'first_name', 'last_name', 'agency_name', 'wallet_address', 'status'];
+const DIRECTORY_FIELDS = ['id', 'email', 'first_name', 'last_name', 'agency_name', 'status'];
+
+// Escape LIKE wildcards so a search term matches literally: unescaped, '%' alone lists
+// every recruiter and '_' matches any character.
+const escapeLike = (term) => term.replace(/[\\%_]/g, (c) => `\\${c}`);
+
 class RecruiterController {
-  // Self-signup: create a recruiter profile
+  // Self-signup: create a recruiter profile. The email comes from the verified identity,
+  // never the body. Recruiters are resolved by verified email, so taking it from the body
+  // let anyone register a profile under someone else's address with their own wallet
+  // attached — and collect the fees employers paid to it.
   static async createRecruiter(req, res) {
     try {
-      const { email, first_name, last_name, phone_number, agency_name, wallet_address } = req.body;
+      const { first_name, last_name, phone_number, agency_name, wallet_address } = req.body;
+      const email = req.user?.email;
 
       if (!email) {
-        return res.status(400).json({ success: false, message: 'Email is required' });
+        return res.status(400).json({ success: false, message: 'A verified email is required to sign up as a recruiter' });
       }
 
-      const existing = await Recruiter.findOne({ where: { email: email.toLowerCase() } });
+      const existing = await Recruiter.findOne({
+        where: sequelize.where(sequelize.fn('lower', sequelize.col('email')), email.toLowerCase())
+      });
       if (existing) {
         return res.status(409).json({ success: false, message: 'A recruiter with this email already exists' });
       }
@@ -43,63 +58,45 @@ class RecruiterController {
     }
   }
 
-  // Check if email belongs to an active recruiter (used for auth/role routing)
-  static async checkRecruiterByEmail(req, res) {
+  // Is the caller an active recruiter? Used for role routing. This used to take any email
+  // from the path and answer for it, wallet included (GHSA-v5r2).
+  static async getMyRecruiterProfile(req, res) {
     try {
-      const { email } = req.params;
-
-      if (!email) {
-        return res.status(400).json({ success: false, message: 'Email is required' });
-      }
-
-      const recruiter = await Recruiter.findOne({
-        where: { email: email.toLowerCase(), status: 'active' },
-        attributes: ['id', 'email', 'first_name', 'last_name', 'agency_name', 'wallet_address', 'status']
-      });
+      const recruiter = await resolveRecruiter(req);
 
       if (!recruiter) {
-        return res.status(404).json({ success: false, isRecruiter: false, message: 'No active recruiter found with this email' });
+        return res.status(404).json({ success: false, isRecruiter: false, message: 'No active recruiter found for this account' });
       }
 
-      res.status(200).json({ success: true, isRecruiter: true, data: recruiter });
+      const data = SELF_FIELDS.reduce((acc, key) => ({ ...acc, [key]: recruiter[key] }), {});
+      res.status(200).json({ success: true, isRecruiter: true, data });
     } catch (error) {
       console.error('Error checking recruiter:', error);
       res.status(500).json({ success: false, message: 'Error checking recruiter status', error: error.message });
     }
   }
 
-  // Get recruiter by ID
-  static async getRecruiterById(req, res) {
-    try {
-      const recruiter = await Recruiter.findByPk(req.params.id);
-      if (!recruiter) {
-        return res.status(404).json({ success: false, message: 'Recruiter not found' });
-      }
-      res.status(200).json({ success: true, data: recruiter });
-    } catch (error) {
-      console.error('Error fetching recruiter:', error);
-      res.status(500).json({ success: false, message: 'Error fetching recruiter', error: error.message });
-    }
-  }
-
-  // Get all active recruiters (for employer search/assign UI)
+  // Active recruiters, for the employer's search-and-assign UI. Approved employers only
+  // (enforced on the route). Names and agency match as substrings; email matches only
+  // whole and case-insensitively, so the directory cannot be mined for addresses.
   static async getAllRecruiters(req, res) {
     try {
-      const { search } = req.query;
+      const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
       const where = { status: 'active' };
 
       if (search) {
+        const pattern = `%${escapeLike(search)}%`;
         where[Op.or] = [
-          { first_name: { [Op.iLike]: `%${search}%` } },
-          { last_name: { [Op.iLike]: `%${search}%` } },
-          { agency_name: { [Op.iLike]: `%${search}%` } },
-          { email: { [Op.iLike]: `%${search}%` } }
+          { first_name: { [Op.iLike]: pattern } },
+          { last_name: { [Op.iLike]: pattern } },
+          { agency_name: { [Op.iLike]: pattern } },
+          sequelize.where(sequelize.fn('lower', sequelize.col('email')), search.toLowerCase())
         ];
       }
 
       const recruiters = await Recruiter.findAll({
         where,
-        attributes: ['id', 'email', 'first_name', 'last_name', 'agency_name', 'status'],
+        attributes: DIRECTORY_FIELDS,
         order: [['agency_name', 'ASC'], ['last_name', 'ASC']]
       });
 

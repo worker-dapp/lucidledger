@@ -56,7 +56,7 @@ const MediatorResolution = () => {
       }
 
       try {
-        const response = await apiService.checkMediator(userEmail);
+        const response = await apiService.checkMediator();
         if (response.success && response.isMediator) {
           setIsAuthorized(true);
           setMediatorData(response.data);
